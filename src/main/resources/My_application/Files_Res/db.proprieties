@@ -1,0 +1,10 @@
+# Parametres de connexion a la base de donnees MySQL
+# (chaque valeur peut etre surchargee au lancement : -Dgestimed.db.password=...)
+
+url=jdbc:mysql://localhost:3306/
+dbName = medicale
+# Options du pilote MySQL Connector/J 8 (ajoutees apres le nom de la base)
+parametres = useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+driver = com.mysql.cj.jdbc.Driver
+userName = root
+password = p01$$0n

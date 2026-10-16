@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GestiMed : gestion d'un cabinet médical (Java Swing, MySQL).
+  Projet Maven : remplace le projet NetBeans/Ant et ses .jar référencés en dur
+  (D:\JAVA developpement tools\...). Les dépendances sont téléchargées depuis
+  Maven Central.
+
+  Commandes utiles :
+    mvn test            compile et exécute les tests
+    mvn package         produit target/gestimed-3.5-jar-with-dependencies.jar (exécutable)
+    mvn exec:java       lance l'application
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>dz.cabinet</groupId>
+    <artifactId>gestimed</artifactId>
+    <version>3.5</version>
+    <packaging>jar</packaging>
+
+    <name>GestiMed</name>
+    <description>Gestion d'un cabinet médical (Swing, architecture DAO + MVC)</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- Java 8 comme le projet d'origine ; compilable avec tout JDK récent (11, 17, 21). -->
+        <maven.compiler.release>8</maven.compiler.release>
+        <!-- Classe principale : utilisée par NetBeans (Exécuter) et par exec:java. -->
+        <exec.mainClass>My_application.PrincipalForm</exec.mainClass>
+
+        <openpdf.version>1.3.43</openpdf.version>
+        <mysql.version>8.4.0</mysql.version>
+        <junit.version>4.13.2</junit.version>
+    </properties>
+
+    <dependencies>
+        <!-- Génération des ordonnances et demandes d'analyses en PDF (remplace JasperReports). -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${openpdf.version}</version>
+        </dependency>
+
+        <!-- Pilote MySQL (remplace mysql-connector-java-5.0.8-bin.jar de 2007). -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>${mysql.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- AbsoluteLayout de NetBeans : utilisé uniquement par le prototype ImagerieForms/Imagerie. -->
+        <dependency>
+            <groupId>org.netbeans.external</groupId>
+            <artifactId>AbsoluteLayout</artifactId>
+            <version>RELEASE180</version>
+        </dependency>
+
+        <!-- Tests -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-Xlint:unchecked</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <java.awt.headless>true</java.awt.headless>
+                        <!-- Tests d'intégration MySQL (base dédiée *_test) : décommenter ou passer en -D.
+                        <gestimed.test.db.url>jdbc:mysql://localhost:3306/medicale_test</gestimed.test.db.url>
+                        <gestimed.test.db.user>root</gestimed.test.db.user>
+                        <gestimed.test.db.password></gestimed.test.db.password>
+                        -->
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>${exec.mainClass}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Jar exécutable unique (double-clic) incluant OpenPDF et le pilote MySQL. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.7.1</version>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <mainClass>${exec.mainClass}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>jar-executable</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <mainClass>${exec.mainClass}</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
