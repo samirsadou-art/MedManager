@@ -87,7 +87,7 @@ public class HistoriqueRondu  implements TreeCellRenderer {
           
             else if(NH.getIndiceConsult()==1){
                 
-              URL imageUrl = getClass().getResource("/res/icons/historiq.png");
+              URL imageUrl = getClass().getResource("/res/icons/jour16.png");
                 if (imageUrl != null) {
                     label.setIcon(new ImageIcon(imageUrl));
                 }

@@ -7,4 +7,9 @@ dbName = medicale
 parametres = useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
 driver = com.mysql.cj.jdbc.Driver
 userName = root
-password = p01$$0n
+# Ne jamais mettre le mot de passe ici (ce fichier est dans git et dans le jar).
+# Le fournir dans un fichier local gestimed.properties (repertoire courant,
+# repertoire utilisateur, ou chemin donne par -Dgestimed.config=...) :
+#     password = ...
+# ou au lancement : -Dgestimed.db.password=...
+password =

@@ -908,7 +908,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             new OrdonnanceForm(consult).setVisible(true);
             addOrdonnance(consult);
         } else {
-            JOptionPane.showMessageDialog(this, "Ordonnance déjà établie !");
+            afficherInformation("Ordonnance déjà établie !");
         }
     }//GEN-LAST:event_addOrdoActionPerformed
 
@@ -932,7 +932,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             new AnalyseForm(consult).setVisible(true);
             addAnalyse(consult);
         } else {
-            JOptionPane.showMessageDialog(this, "Analyses déjà établies !");
+            afficherInformation("Analyses déjà établies !");
         }
     }//GEN-LAST:event_addAnalActionPerformed
 

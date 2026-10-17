@@ -1,0 +1,15 @@
+# Build Maven
+target/
+*.class
+
+# Configuration locale (contient le mot de passe MySQL)
+gestimed.properties
+
+# IDE
+nbproject/private/
+.idea/
+*.iml
+.vscode/
+
+# Réglages personnels de Claude Code
+.claude/settings.local.json

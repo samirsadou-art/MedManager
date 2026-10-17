@@ -1,109 +1,132 @@
 
 package My_application.Chat;
 
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.SwingUtilities;
 
 
 public class ServiceTchatServeur extends Thread {
-    
-    ServerSocket serverSock;
-    Socket        Sock;
+
+    private static final Logger LOG = Logger.getLogger(ServiceTchatServeur.class.getName());
+    /** Message de fin de discussion échangé entre le serveur et le client. */
+    static final String FIN = "EXIT";
+
+    volatile ServerSocket serverSock;
+    volatile Socket        Sock;
     DataInputStream   input;
-    DataOutputStream output;
+    volatile DataOutputStream output;
     final static int port=7777;
-    boolean connected=false;
+    volatile boolean connected=false;
     boolean paused=false;
     Tchat TchatWindow;
 
     public ServiceTchatServeur(Tchat WTchat) {
         this.TchatWindow=WTchat;
+        // Ne doit pas empêcher la JVM de s'arrêter à la fermeture de l'application.
+        setDaemon(true);
     }
-    
-    
-    
-    
 
     @Override
     public void run() {
-        
-        System.out.println(" Serveur en attente......");
+        LOG.fine("Serveur de discussion en attente sur le port " + port);
         try {
             serverSock= new ServerSocket(port);
-            
             Sock=serverSock.accept();
-            System.out.println("Connection établie par:"+Sock.getInetAddress().getHostName());
-            connected=true;
+            LOG.fine("Connexion établie par : " + Sock.getInetAddress().getHostName());
             input= new DataInputStream(Sock.getInputStream());
             output=new DataOutputStream(Sock.getOutputStream());
-            String msg="";
-            while(!msg.equals("EXIT") && connected){
-                msg=GetMessage();
-                System.out.println(msg);
-                this.TchatWindow.sendMessage(msg);
+            connected=true;
+            while(connected){
+                final String msg=GetMessage();
+                if (msg == null || FIN.equals(msg)) {
+                    // Le client est parti : inutile de lui renvoyer FIN.
+                    connected=false;
+                    break;
+                }
+                LOG.fine(msg);
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        TchatWindow.sendMessage(msg);
+                    }
+                });
             }
-            this.stopService();
-            
-
+        } catch (BindException ex) {
+            LOG.log(Level.WARNING, "Port " + port + " occupé (autre instance de GestiMed ?) : discussion désactivée.", ex);
         } catch (IOException ex) {
-            Logger.getLogger(ServiceTchatServeur.class.getName()).log(Level.SEVERE, null, ex);
+            if (serverSock == null || !serverSock.isClosed()) {
+                LOG.log(Level.SEVERE, "Erreur du serveur de discussion", ex);
+            }
+            // sinon : accept() interrompu par stopService(), fermeture normale
+        } finally {
+            fermerTout();
         }
-        
-        
-        
     }
-    
-  public String GetMessage(){
-      String str;
+
+    /** Message reçu, ou null si la connexion est perdue. */
+    public String GetMessage(){
         try {
-            str=input.readUTF();
-            return str;
+            return input.readUTF();
         } catch (IOException ex) {
-            Logger.getLogger(ServiceTchatServeur.class.getName()).log(Level.SEVERE, null, ex);
+            if (connected) {
+                LOG.log(Level.FINE, "Connexion de discussion interrompue", ex);
+            }
+            return null;
         }
-     
-     return null; 
-  }   
-    
-  public void SendMessage(String message){
+    }
+
+    public void SendMessage(String message){
+        DataOutputStream out = output;
+        if (!connected || out == null) {
+            LOG.fine("Aucun interlocuteur connecté : message non envoyé.");
+            return;
+        }
         try {
-            output.writeUTF(message);
-            output.flush();
+            out.writeUTF(message);
+            out.flush();
         } catch (IOException ex) {
-            Logger.getLogger(ServiceTchatServeur.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.log(Level.SEVERE, "Envoi du message impossible", ex);
         }
-      
-  }       
-  
-   
-    
- 
-      
-   public void stopService(){
+    }
+
+    public void stopService(){
+        if (connected) {
+            SendMessage(FIN);
+        }
+        connected=false;
+        fermerTout();
+    }
+
+    /** Ferme tout ce qui a été ouvert ; peut être appelé plusieurs fois. */
+    private void fermerTout() {
+        fermer(output);
+        fermer(input);
+        fermer(Sock);
+        // Fermer le ServerSocket débloque accept() si aucun client n'est venu.
+        fermer(serverSock);
+    }
+
+    private static void fermer(Closeable c) {
+        if (c == null) {
+            return;
+        }
         try {
-            
-            
-            SendMessage("EXIT");
-            connected=false;
-            output.close();
-            input.close();
-            
-            Sock.close();
-            serverSock.close();
+            c.close();
         } catch (IOException ex) {
-            Logger.getLogger(ServiceTchatServeur.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.log(Level.FINE, "Fermeture impossible", ex);
         }
-       
-       
-   }
-   
-   public void startService(){
-       this.start();
-   }
-   
+    }
+
+    public void startService(){
+        this.start();
+    }
+
 }
