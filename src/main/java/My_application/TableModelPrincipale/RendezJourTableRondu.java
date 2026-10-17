@@ -6,10 +6,9 @@
 package My_application.TableModelPrincipale;
 
 import My_application.vue.Icones;
+import My_application.vue.Theme;
 import java.awt.Component;
-import java.awt.Font;
 import My_application.entities.Rendez_Vous;
-import java.awt.Color;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JTable;
@@ -41,8 +40,8 @@ ImageIcon imageIcon;
        JLabel renderer = (JLabel) defaultRenderer.getTableCellRendererComponent(table, value,isSelected, hasFocus, row, column);
         
        renderer.setHorizontalAlignment(JLabel.LEFT);
-       renderer.setFont(new Font("Goudy Old Style",Font.BOLD,12));
-        
+       Theme.cellule(renderer, table, isSelected, row);
+
         Rendez_Vous rendez=(Rendez_Vous)value;
 
         
@@ -53,7 +52,8 @@ ImageIcon imageIcon;
                    renderer.setIcon(imageIcon);
                    renderer.setText("");
                    break;
-            case 1: renderer.setText(rendez.getPatient().getNom().toUpperCase()); renderer.setIcon(null);break;
+            case 1: renderer.setText(rendez.getPatient().getNom().toUpperCase()); renderer.setIcon(null);
+                    renderer.setFont(Theme.policeGras());break;
             case 2: renderer.setText(rendez.getPatient().getPrenom().toUpperCase());break;
             case 3: renderer.setHorizontalAlignment(JLabel.CENTER);renderer.setText(rendez.getPatient().getStringAge()); break;
             case 4: renderer.setHorizontalAlignment(JLabel.CENTER); 
@@ -70,20 +70,11 @@ ImageIcon imageIcon;
         
              
         
-         if (isSelected) {
-            renderer.setBackground(table.getSelectionBackground());
-            renderer.setForeground(table.getSelectionForeground());
-        } else {
-             
-            if(rendez.isPassed()){
-            renderer.setBackground(Color.gray.brighter());
-            renderer.setForeground(Color.white);
-            }else
-            {
-            renderer.setBackground(table.getBackground());
-            renderer.setForeground(table.getForeground());
-            }
-        } 
+        // Rendez-vous passé : grisé.
+        if (!isSelected && rendez.isPassed()) {
+            renderer.setForeground(Theme.TEXTE_SECONDAIRE);
+            renderer.setBackground(Theme.FOND);
+        }
         
      
       

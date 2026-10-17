@@ -6,7 +6,7 @@
 package My_application.rendezvous;
 
 import My_application.vue.Icones;
-import java.awt.Color;
+import My_application.vue.Theme;
 import java.awt.Component;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.patient;
@@ -41,7 +41,9 @@ patient malade=null;
         
         Rendez_Vous rendez=(Rendez_Vous)value;
         
-        String patient = "["+rendez.getHeureString()+"]  : "+rendez.getPatient().getNom()+"  "+rendez.getPatient().getPrenom();
+        String patient = rendez.getHeureString()+"  "+rendez.getPatient().getNom()+" "+rendez.getPatient().getPrenom();
+        renderer.setFont(list.getFont());
+        renderer.setIconTextGap(6);
         
        
         
@@ -60,12 +62,14 @@ patient malade=null;
             renderer.setForeground(list.getSelectionForeground());
         } else {
             renderer.setBackground(list.getBackground());
-            renderer.setForeground(list.getForeground());
-        } 
-        
-      if(malade!=null)   
+            renderer.setForeground(Theme.TEXTE);
+        }
+
+      // Rendez-vous du patient pour lequel on prend rendez-vous
+      if(malade!=null)
       if(rendez.getPatient().getIdentPat()==malade.getIdentPat() && !isSelected){
-          renderer.setBackground(Color.GREEN.brighter());
+          renderer.setBackground(Theme.SUCCES_CLAIR);
+          renderer.setForeground(Theme.SUCCES);
         
          
       }

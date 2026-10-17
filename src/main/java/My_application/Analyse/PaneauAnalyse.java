@@ -5,6 +5,7 @@
  */
 package My_application.Analyse;
 
+import My_application.vue.Theme;
 import My_application.entities.analyse;
 import My_application.entities.analyseBio;
 import My_application.entities.consultation;
@@ -37,6 +38,7 @@ public class PaneauAnalyse extends javax.swing.JPanel {
      */
     public PaneauAnalyse(analyseBio ana) {
         initComponents();
+        Theme.harmoniser(this);
         
         
         anaBio=ana;

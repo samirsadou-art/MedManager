@@ -1,6 +1,7 @@
 
 package My_application.Chat;
 
+import My_application.vue.Theme;
 import java.awt.Component;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
@@ -25,6 +26,7 @@ public class Tchat extends javax.swing.JFrame {
         this.serviceTchat=new ServiceTchatServeur(this);
         this.serviceTchat.startService();
         initComponents();
+        Theme.harmoniser(this);
         ActivBtn.setEnabled(false);
         messageTxt.requestFocus();
         

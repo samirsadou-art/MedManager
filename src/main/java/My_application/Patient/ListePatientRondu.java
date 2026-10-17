@@ -6,8 +6,8 @@
 package My_application.Patient;
 
 import My_application.vue.Icones;
+import My_application.vue.Theme;
 import java.awt.Component;
-import java.awt.Font;
 import My_application.entities.patient;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -40,18 +40,20 @@ ImageIcon imageIcon;
        JLabel renderer = (JLabel) defaultRenderer.getTableCellRendererComponent(table, value,isSelected, hasFocus, row, column);
         
        renderer.setHorizontalAlignment(JLabel.LEFT);
-       renderer.setFont(new Font("Goudy Old Style",Font.PLAIN,18));
-        
+       Theme.cellule(renderer, table, isSelected, row);
+
         patient malade=(patient)value;
 
-        
+
         switch(column){
-            
-            case 0:imageIcon=Icones.patient(malade, 64);
+
+            case 0:imageIcon=Icones.patient(malade, 32);
+                   renderer.setHorizontalAlignment(JLabel.CENTER);
                    renderer.setIcon(imageIcon);
                    renderer.setText("");
                    break;
-            case 1: renderer.setText(malade.getNom().toUpperCase());renderer.setIcon(null);break;
+            case 1: renderer.setText(malade.getNom().toUpperCase());renderer.setIcon(null);
+                    renderer.setFont(Theme.policeGras());break;
             case 2: renderer.setText(malade.getPrenom().toUpperCase());break;
             case 3: renderer.setText(malade.getStringAge()); 
                     
@@ -66,14 +68,6 @@ ImageIcon imageIcon;
         
         
              
-        
-         if (isSelected) {
-            renderer.setBackground(table.getSelectionBackground());
-            renderer.setForeground(table.getSelectionForeground());
-        } else {
-            renderer.setBackground(table.getBackground());
-            renderer.setForeground(table.getForeground());
-        } 
         
      
       

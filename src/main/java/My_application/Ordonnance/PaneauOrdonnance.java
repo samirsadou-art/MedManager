@@ -5,6 +5,7 @@
  */
 package My_application.Ordonnance;
 
+import My_application.vue.Theme;
 import My_application.entities.ordonnance;
 import My_application.modelTableau.my_RonduOrdonnance;
 import My_application.modelTableau.my_modelOrdonnance;
@@ -26,6 +27,7 @@ public class PaneauOrdonnance extends javax.swing.JPanel {
      */
     public PaneauOrdonnance(ordonnance ordo) {
         initComponents();
+        Theme.harmoniser(this);
       
  
    

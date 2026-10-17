@@ -5,6 +5,7 @@
  */
 package My_application.Ordonnance;
 
+import My_application.vue.Theme;
 import My_application.AppContext;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
@@ -38,6 +39,7 @@ public class OrdonnanceForm extends JDialog implements Vue {
 
     public OrdonnanceForm(consultation consult) {
         initComponents();
+        Theme.harmoniser(this);
         this.consult = consult;
         this.setLocationRelativeTo(null);
         this.validerBtn.setEnabled(false);
@@ -119,7 +121,7 @@ public class OrdonnanceForm extends JDialog implements Vue {
         jSeparator2 = new javax.swing.JSeparator();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setTitle("Etablissement d'une ordonnance");
+        setTitle("Établissement d'une ordonnance");
         setBackground(new java.awt.Color(255, 255, 255));
         setResizable(false);
         setType(java.awt.Window.Type.POPUP);

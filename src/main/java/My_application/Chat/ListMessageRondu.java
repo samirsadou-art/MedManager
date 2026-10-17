@@ -5,9 +5,9 @@
  */
 package My_application.Chat;
 
-import java.awt.Color;
+import My_application.vue.Theme;
 import java.awt.Component;
-import java.awt.Font;
+import javax.swing.BorderFactory;
 import java.text.SimpleDateFormat;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JLabel;
@@ -32,24 +32,25 @@ public class ListMessageRondu implements ListCellRenderer{
           JLabel renderer = (JLabel) defaultRenderer.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
         
        renderer.setHorizontalAlignment(JLabel.LEFT);
-       Font fnt=new Font("Goudy Old Style",Font.PLAIN,20);
-      
-       renderer.setFont(fnt);
-        
+       renderer.setFont(Theme.police());
+       renderer.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+
         message mesg=(message)value;
         String aut="";
         SimpleDateFormat dt1 = new SimpleDateFormat("HH:mm");
-        
+
         if(mesg.getAuteur()==0)
         {
             aut="Serveur";
-            renderer.setBackground(Color.green);
-            renderer.setForeground(Color.red.darker());
+            renderer.setBackground(Theme.PRIMAIRE_CLAIR);
+            renderer.setForeground(Theme.TEXTE);
         }
         else{
             aut="Client";
+            renderer.setBackground(Theme.SURFACE);
+            renderer.setForeground(Theme.TEXTE);
         }
-        renderer.setText("<html><b><i>"+aut+"</i></b> <font size=3 color='red'>["+dt1.format(mesg.getDate())+"]</font>: "+mesg.getTexte()+"</html>");
+        renderer.setText("<html><b>"+aut+"</b> <font color='#6B7C8F'>"+dt1.format(mesg.getDate())+"</font><br>"+mesg.getTexte()+"</html>");
         
         
         

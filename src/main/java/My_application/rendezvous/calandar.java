@@ -5,6 +5,7 @@
  */
 package My_application.rendezvous;
 
+import My_application.vue.Theme;
 import My_application.AppContext;
 import My_application.controller.RendezVousController;
 import My_application.controller.Vue;
@@ -42,6 +43,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
 
     public calandar(patient Patient, User utilisateur) {
         initComponents();
+        Theme.harmoniser(this);
         this.setExtendedState(MAXIMIZED_BOTH);
         RendezVousService service = AppContext.get().getRendezVousService();
         controleur = new RendezVousController(this, service, Patient, utilisateur);
@@ -242,7 +244,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         jPanel3.add(jPanel1);
 
         jLabel1.setFont(new java.awt.Font("Goudy Old Style", 1, 18)); // NOI18N
-        jLabel1.setText("RendezVous fixer pour le :");
+        jLabel1.setText("Rendez-vous fixé pour le :");
         jLabel1.setPreferredSize(new java.awt.Dimension(200, 35));
         jPanel3.add(jLabel1);
 
@@ -354,8 +356,8 @@ public class calandar extends javax.swing.JFrame implements Vue {
         JLabel label = new JLabel("<html>Veuillez confirmer le rendez-vous suivant :<br>Patient : <b>"
                 + rendez.getPatient().getNom() + "  " + rendez.getPatient().getPrenom()
                 + "</b><br>Date : <b>" + rendez.getDateString() + "</b><br>Heure : <b>" + rendez.getHeureString()
-                + "</b><br>Reste : <font color=\"red\"><b>" + restTxt.getText() + " jour(s)</b></font></html>");
-        label.setFont(new Font("Goudy Old Style", Font.PLAIN, 18));
+                + "</b><br>Reste : <font color=\"#C62828\"><b>" + restTxt.getText() + " jour(s)</b></font></html>");
+        label.setFont(Theme.police(Font.PLAIN, Theme.TAILLE_BASE + 1));
         int result = JOptionPane.showConfirmDialog(this, label, "Confirmation du rendez-vous ?",
                 JOptionPane.YES_NO_OPTION);
         if (result == JOptionPane.YES_OPTION && controleur.confirmer(rendez)) {

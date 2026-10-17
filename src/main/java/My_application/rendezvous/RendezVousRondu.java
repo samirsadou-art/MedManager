@@ -5,6 +5,7 @@
  */
 package My_application.rendezvous;
 
+import My_application.vue.Theme;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
@@ -15,7 +16,6 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.border.Border;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
 
@@ -24,7 +24,10 @@ import javax.swing.table.TableCellRenderer;
  * @author GLOBAL INFO LAGA
  */
 public class RendezVousRondu implements TableCellRenderer{
-    
+
+    /** Fond de la colonne du jour : teinte très claire de la couleur principale. */
+    private static final Color AUJOURDHUI = new Color(0xF0F8F9);
+
     patient malade=null;
     int NBH=4;
 
@@ -38,17 +41,13 @@ public class RendezVousRondu implements TableCellRenderer{
     DefaultTableCellRenderer renderer = new DefaultTableCellRenderer(); 
      JLabel lab = (JLabel) renderer.getTableCellRendererComponent(table,value, isSelected, hasFocus, row, column);  
       
-    Border raisedBorder = BorderFactory.createRaisedSoftBevelBorder();
- 
-    lab.setBorder(raisedBorder);   
-        
-        if(column==0){
-          
-   
+    lab.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 1, Theme.BORDURE));
 
-         lab.setBackground(new Color(238,232,170));
-         lab.setFont(new Font("Thoma",Font.BOLD,18) );
-         lab.setForeground(Color.BLACK);
+        if(column==0){
+         // Colonne des heures
+         lab.setBackground(Theme.FOND);
+         lab.setFont(Theme.policeGras());
+         lab.setForeground(Theme.TEXTE_SECONDAIRE);
          lab.setHorizontalAlignment(JLabel.CENTER);
 
 
@@ -63,34 +62,33 @@ public class RendezVousRondu implements TableCellRenderer{
         {
             
        
-         lab.setBackground(new Color(255,222,173));
-           
-           
+         lab.setBackground(Theme.SURFACE);
+
+
            // Surligne la colonne d'aujourd'hui (avant : le même jour de la
            // semaine était surligné quelle que soit la semaine affichée).
            if (table.getModel() instanceof RendezVousTableModel
                    && java.time.LocalDate.now().equals(((RendezVousTableModel) table.getModel()).jourDeColonne(column))) {
-               lab.setBackground(new Color(255,228,225));
+               lab.setBackground(AUJOURDHUI);
            }
             if(value!=null){
-            
+
             DefaultListModel listmodel=(DefaultListModel) value;
             if(listmodel.size()>0){
-            
+
             JList list=new JList();
-            list.setFont(new Font("Arial",Font.PLAIN,9));
+            list.setFont(Theme.police(Font.PLAIN, 12));
+            list.setBackground(lab.getBackground());
             JScrollPane span=new JScrollPane(list);
-            Border lowerBorder = BorderFactory.createLineBorder(Color.gray,2);
- 
-            span.setBorder(lowerBorder);   
-            
-            
-            
+            span.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 1, Theme.BORDURE));
+
+
+
             list.setModel(listmodel);
             list.setCellRenderer(new listRendezVousRondu(0,malade));
+            // Créneau horaire complet
             if(list.getModel().getSize()==NBH)
-    
-            list.setBackground(new Color(255,40,10));
+            list.setBackground(Theme.DANGER_CLAIR);
       
           
             

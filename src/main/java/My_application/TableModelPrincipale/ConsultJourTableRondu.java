@@ -6,9 +6,9 @@
 package My_application.TableModelPrincipale;
 
 import My_application.vue.Icones;
+import My_application.vue.Theme;
 import My_application.entities.consultation;
 import java.awt.Component;
-import java.awt.Font;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JTable;
@@ -41,8 +41,8 @@ ImageIcon imageIcon;
        JLabel renderer = (JLabel)comp; 
         
        renderer.setHorizontalAlignment(JLabel.LEFT);
-       renderer.setFont(new Font("Goudy Old Style",Font.BOLD,12));
-        
+       Theme.cellule(renderer, table, isSelected, row);
+
         consultation consult=(consultation)value;
 
         
@@ -53,7 +53,8 @@ ImageIcon imageIcon;
                    renderer.setIcon(imageIcon);
                    renderer.setText("");
                    break;
-            case 1: renderer.setText(consult.getPatient().getNom().toUpperCase());renderer.setIcon(null);break;
+            case 1: renderer.setText(consult.getPatient().getNom().toUpperCase());renderer.setIcon(null);
+                    renderer.setFont(Theme.policeGras());break;
             case 2: renderer.setText(consult.getPatient().getPrenom().toUpperCase());break;
             case 3: renderer.setHorizontalAlignment(JLabel.CENTER);renderer.setText(consult.getPatient().getStringAge()); break;
             case 4: renderer.setHorizontalAlignment(JLabel.CENTER);renderer.setText(consult.getHeureString());
@@ -69,16 +70,6 @@ ImageIcon imageIcon;
         
              
         
-         if (isSelected) {
-            renderer.setBackground(table.getSelectionBackground());
-            renderer.setForeground(table.getSelectionForeground());
-        } else {
-            renderer.setBackground(table.getBackground());
-            renderer.setForeground(table.getForeground());
-        } 
-        
-     
-      
              return renderer;     
     }
      

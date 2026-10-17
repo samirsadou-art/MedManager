@@ -5,6 +5,7 @@
  */
 package My_application.Chat;
 
+import My_application.vue.Theme;
 import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.util.Date;
@@ -25,6 +26,7 @@ ServiceClientTchat ClientTchat;
     public Descussion( ) {
         
         initComponents();
+        Theme.harmoniser(this);
       
         this.ClientTchat=new ServiceClientTchat(this);
         this.ClientTchat.startService();

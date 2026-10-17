@@ -5,6 +5,7 @@
  */
 package My_application.Patient;
 
+import My_application.vue.Theme;
 import My_application.AppContext;
 import My_application.controller.NouveauPatientController;
 import My_application.controller.Vue;
@@ -29,6 +30,7 @@ public class NewPatient extends javax.swing.JDialog implements Vue {
     public NewPatient(Window parent) {
         super(parent, "Nouveau patient", ModalityType.APPLICATION_MODAL);
         initComponents();
+        Theme.harmoniser(this);
         setLocationRelativeTo(parent);
         controleur = new NouveauPatientController(this, AppContext.get().getPatientService());
         jTextField9.setToolTipText("jj/mm/aaaa");
@@ -189,7 +191,7 @@ public class NewPatient extends javax.swing.JDialog implements Vue {
         jPanel13.setPreferredSize(new java.awt.Dimension(350, 30));
         jPanel13.setLayout(new javax.swing.BoxLayout(jPanel13, javax.swing.BoxLayout.LINE_AXIS));
 
-        jLabel12.setText("Prènom:");
+        jLabel12.setText("Prénom:");
         jLabel12.setMaximumSize(new java.awt.Dimension(20, 14));
         jLabel12.setPreferredSize(new java.awt.Dimension(150, 20));
         jPanel13.add(jLabel12);
@@ -267,7 +269,7 @@ public class NewPatient extends javax.swing.JDialog implements Vue {
 
         jPanel5.add(jPanel7, java.awt.BorderLayout.CENTER);
 
-        jButton3.setText("Attache une photo");
+        jButton3.setText("Joindre une photo");
         jPanel5.add(jButton3, java.awt.BorderLayout.PAGE_END);
 
         jPanel1.add(jPanel5);
@@ -302,7 +304,7 @@ public class NewPatient extends javax.swing.JDialog implements Vue {
             .addGap(0, 137, Short.MAX_VALUE)
         );
 
-        jTabbedPane3.addTab("Anticédents", jPanel9);
+        jTabbedPane3.addTab("Antécédents", jPanel9);
 
         jPanel8.add(jTabbedPane3);
 

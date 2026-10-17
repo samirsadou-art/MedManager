@@ -5,6 +5,7 @@
  */
 package My_application.rendezvous;
 
+import My_application.vue.Theme;
 import My_application.vue.Icones;import My_application.entities.Rendez_Vous;
 
 
@@ -12,6 +13,7 @@ public class rendezVousDetails extends javax.swing.JDialog {
   
     public rendezVousDetails(Rendez_Vous rendez) {
         initComponents();
+        Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
         this.setModal(true);
         
@@ -222,7 +224,7 @@ public class rendezVousDetails extends javax.swing.JDialog {
         heureRdvTxt.setFont(new java.awt.Font("Goudy Old Style", 0, 14)); // NOI18N
         heureRdvTxt.setHorizontalAlignment(javax.swing.JTextField.CENTER);
 
-        jLabel10.setText("Rendez vous :");
+        jLabel10.setText("Rendez-vous :");
 
         jourRdvTxt.setEditable(false);
         jourRdvTxt.setFont(new java.awt.Font("Goudy Old Style", 1, 14)); // NOI18N

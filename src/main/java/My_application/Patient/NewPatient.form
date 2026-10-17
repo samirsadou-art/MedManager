@@ -200,7 +200,7 @@
                       <SubComponents>
                         <Component class="javax.swing.JLabel" name="jLabel12">
                           <Properties>
-                            <Property name="text" type="java.lang.String" value="Pr&#xe8;nom:"/>
+                            <Property name="text" type="java.lang.String" value="Pr&#xe9;nom:"/>
                             <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
                               <Dimension value="[20, 14]"/>
                             </Property>
@@ -388,7 +388,7 @@
                     </Container>
                     <Component class="javax.swing.JButton" name="jButton3">
                       <Properties>
-                        <Property name="text" type="java.lang.String" value="Attache une photo"/>
+                        <Property name="text" type="java.lang.String" value="Joindre une photo"/>
                       </Properties>
                       <Constraints>
                         <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.DesignBorderLayout" value="org.netbeans.modules.form.compat2.layouts.DesignBorderLayout$BorderConstraintsDescription">
@@ -437,8 +437,8 @@
             <Container class="javax.swing.JPanel" name="jPanel9">
               <Constraints>
                 <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
-                  <JTabbedPaneConstraints tabName="Antic&#xe9;dents">
-                    <Property name="tabTitle" type="java.lang.String" value="Antic&#xe9;dents"/>
+                  <JTabbedPaneConstraints tabName="Ant&#xe9;c&#xe9;dents">
+                    <Property name="tabTitle" type="java.lang.String" value="Ant&#xe9;c&#xe9;dents"/>
                   </JTabbedPaneConstraints>
                 </Constraint>
               </Constraints>

@@ -34,6 +34,7 @@
         <openpdf.version>1.3.43</openpdf.version>
         <mysql.version>8.4.0</mysql.version>
         <junit.version>4.13.2</junit.version>
+        <flatlaf.version>3.7.2</flatlaf.version>
     </properties>
 
     <dependencies>
@@ -50,6 +51,18 @@
             <artifactId>mysql-connector-j</artifactId>
             <version>${mysql.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Thème graphique moderne (remplace Nimbus) et icônes SVG (vue/Theme, vue/Icones). -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>${flatlaf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-extras</artifactId>
+            <version>${flatlaf.version}</version>
         </dependency>
 
         <!-- AbsoluteLayout de NetBeans : utilisé uniquement par le prototype ImagerieForms/Imagerie. -->
@@ -123,6 +136,11 @@
                         <manifest>
                             <mainClass>${exec.mainClass}</mainClass>
                         </manifest>
+                        <manifestEntries>
+                            <!-- JDK 24+ : autorise FlatLaf à charger sa bibliothèque native
+                                 (fenêtres Windows) sans avertissement au démarrage. -->
+                            <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                        </manifestEntries>
                     </archive>
                 </configuration>
                 <executions>

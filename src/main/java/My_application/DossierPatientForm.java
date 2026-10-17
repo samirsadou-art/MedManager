@@ -1,6 +1,7 @@
 
 package My_application;
 
+import My_application.vue.Theme;
 import My_application.Analyse.AnalyseForm;
 import My_application.Analyse.PaneauAnalyse;
 import My_application.Ordonnance.OrdonnanceForm;
@@ -20,10 +21,15 @@ import My_application.rendezvous.calandar;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
 import My_application.vue.Icones;
+import java.awt.BorderLayout;
+import java.awt.GridLayout;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.JButton;
+import javax.swing.UIManager;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.JFrame;
@@ -62,6 +68,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
     public DossierPatientForm(DossierPatient doss) {
         initComponents();
+        Theme.harmoniser(this);
+        presenterActionsDossier();
         this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         this.photo.setIcon(Icones.patient(doss.getMalade(), 128));
         dossier = doss;
@@ -86,6 +94,43 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         historique.setModel(historiqueModele.getTreemodel());
         historique.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         historique.setCellRenderer(new HistoriqueRondu());
+    }
+
+    /**
+     * Les actions du dossier (nouvelle consultation, rendez-vous, fermeture…)
+     * étaient cachées derrière le séparateur de l'historique : elles sont
+     * maintenant affichées sous l'historique, en boutons pleine largeur.
+     */
+    private void presenterActionsDossier() {
+        jPanel9.removeAll();
+        jPanel9.setLayout(new BorderLayout());
+        jPanel9.add(jScrollPane1, BorderLayout.CENTER);
+        jPanel9.add(jPanel3, BorderLayout.SOUTH);
+        jPanel3.setLayout(new GridLayout(0, 1, 0, 6));
+        jPanel3.setBackground(Theme.FOND);
+        jPanel3.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+        actionDossier(NewConsultBtn, "stethoscope", true);
+        actionDossier(NewRendezVousBtn, "calendar-event", false);
+        actionDossier(jButton10, "file-text", false);
+        actionDossier(jButton2, "chart-bar", false);
+        actionDossier(FermerDossierBtn, "x", false);
+        FermerDossierBtn.setForeground(Theme.DANGER);
+    }
+
+    private static void actionDossier(JButton b, String icone, boolean principal) {
+        b.setBorder(UIManager.getBorder("Button.border"));
+        b.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE));
+        b.setHorizontalAlignment(JButton.LEFT);
+        b.setIconTextGap(10);
+        if (principal) {
+            b.setBackground(Theme.PRIMAIRE);
+            b.setForeground(java.awt.Color.WHITE);
+            b.setIcon(Icones.svg(icone, 18, java.awt.Color.WHITE));
+        } else {
+            b.setBackground(UIManager.getColor("Button.background"));
+            b.setForeground(Theme.TEXTE);
+            b.setIcon(Icones.svg(icone, 18, Theme.PRIMAIRE));
+        }
     }
 
     void remplirInfo() {
@@ -372,7 +417,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         jPanel20.add(nomLabel);
 
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jLabel8.setText("Prènom:");
+        jLabel8.setText("Prénom:");
         jLabel8.setBorder(javax.swing.BorderFactory.createEtchedBorder());
         jLabel8.setPreferredSize(new java.awt.Dimension(20, 20));
         jPanel20.add(jLabel8);
@@ -618,7 +663,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
         consultPanel.add(jPanel13);
 
-        jPanel12.setBorder(javax.swing.BorderFactory.createTitledBorder("Symptomes"));
+        jPanel12.setBorder(javax.swing.BorderFactory.createTitledBorder("Symptômes"));
         jPanel12.setPreferredSize(new java.awt.Dimension(250, 207));
         jPanel12.setLayout(new java.awt.BorderLayout());
 

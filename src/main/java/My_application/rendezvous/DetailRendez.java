@@ -5,6 +5,7 @@
  */
 package My_application.rendezvous;
 
+import My_application.vue.Theme;
 import My_application.controller.RendezVousController;
 import My_application.entities.Rendez_Vous;
 import java.awt.Color;
@@ -27,6 +28,7 @@ public class DetailRendez extends javax.swing.JDialog {
     public DetailRendez(DefaultListModel<Rendez_Vous> model, int maxParHeure, RendezVousController controleur,
             Runnable rafraichirAgenda) {
         initComponents();
+        Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
         this.setModal(true);
         this.DetailBtn.setEnabled(false);
@@ -36,7 +38,7 @@ public class DetailRendez extends javax.swing.JDialog {
         this.listRendezVous.setModel(model);
         this.listRendezVous.setCellRenderer(new listRendezVousRondu(1, controleur.getPatient()));
         if (model.size() == maxParHeure) {
-            listRendezVous.setBackground(new Color(255, 69, 0));
+            listRendezVous.setBackground(Theme.DANGER_CLAIR);
         }
     }
 
@@ -141,13 +143,13 @@ public class DetailRendez extends javax.swing.JDialog {
         Rendez_Vous rendez = model.get(index);
         JLabel label = new JLabel("<html>Voulez-vous annuler le rendez-vous de : <br> Patient : <b>"
                 + rendez.getPatient().getNom() + "  " + rendez.getPatient().getPrenom() + "  </b></html>");
-        label.setFont(new Font("Goudy Old Style", Font.PLAIN, 18));
+        label.setFont(Theme.police(Font.PLAIN, Theme.TAILLE_BASE + 1));
         int result = JOptionPane.showConfirmDialog(this, label, "Annulation du rendez-vous ...",
                 JOptionPane.YES_NO_OPTION);
         if (result == JOptionPane.YES_OPTION) {
             if (controleur.annuler(rendez)) {
                 model.remove(index);
-                listRendezVous.setBackground(Color.white);
+                listRendezVous.setBackground(Theme.SURFACE);
                 rafraichirAgenda.run();
             }
         } else {

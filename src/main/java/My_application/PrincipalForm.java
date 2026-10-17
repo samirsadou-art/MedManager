@@ -2,6 +2,7 @@
 
 package My_application;
 
+import My_application.vue.Theme;
 import My_application.Chat.Tchat;
 import My_application.Patient.ListePatient;
 import My_application.TableModelPrincipale.ConsultJourTableModel;
@@ -32,6 +33,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     public PrincipalForm() {
         initComponents();
+        Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
         this.setExtendedState(Frame.MAXIMIZED_BOTH);
         disc = new Tchat(this);
@@ -178,7 +180,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
         jPanel5.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT));
 
-        jLabel2.setText("Nombre de consulations :");
+        jLabel2.setText("Nombre de consultations :");
         jPanel5.add(jLabel2);
 
         nbConsult.setEditable(false);
@@ -201,7 +203,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         jSplitPane2.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
 
         jPanel6.setBackground(new java.awt.Color(204, 255, 204));
-        jPanel6.setBorder(javax.swing.BorderFactory.createTitledBorder("Les rendez vous du jour"));
+        jPanel6.setBorder(javax.swing.BorderFactory.createTitledBorder("Rendez-vous du jour"));
         jPanel6.setLayout(new java.awt.BorderLayout());
 
         jPanel8.setLayout(new java.awt.BorderLayout());
@@ -220,7 +222,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
                 {null, null, null, null, null}
             },
             new String [] {
-                "Genre", "Nom", "Prènom", "Age", "Horaire"
+                "Genre", "Nom", "Prénom", "Age", "Horaire"
             }
         ));
         TableRendezvous.setIntercellSpacing(new java.awt.Dimension(1, 2));
@@ -290,7 +292,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
                 {null, null, null, null}
             },
             new String [] {
-                "Genre", "Nom", "Prènom", "Age"
+                "Genre", "Nom", "Prénom", "Age"
             }
         ));
         TableSalleAttente.setRowHeight(40);
@@ -392,28 +394,8 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     
  
     public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(PrincipalForm.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(PrincipalForm.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(PrincipalForm.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(PrincipalForm.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
+        // Charte graphique GestiMed (FlatLaf, palette bleu-vert médical).
+        Theme.installer();
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {

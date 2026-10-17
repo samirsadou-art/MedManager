@@ -33,6 +33,8 @@ Layering, top to bottom (all under `src/main/java/My_application/`):
 
 **Composition root:** `AppContext` is the only place that picks concrete implementations. Views get services with `AppContext.get().getXxxService()`. Tests call `AppContext.initialiser(DAOFactory)` to swap in another factory. UI or service code must not open JDBC connections directly.
 
+**Look and feel:** FlatLaf with a teal "medical" palette. `vue/Theme.installer()` (called from `PrincipalForm.main`) loads `src/main/resources/My_application/theme/FlatLightLaf.properties`. Every window calls `Theme.harmoniser(this)` right after `initComponents()`. That call rewrites at runtime the fonts, colours, borders and PNG icons hard-coded by the NetBeans GUI builder, so generated code and `.form` files don't need hand-editing for styling. New windows must make the same call. In hand-written code (renderers, dialogs), use the palette constants and `Theme.police()` / `Theme.cellule(...)` instead of literal colours and fonts. For interface icons, use `Icones.svg(name, size, colour)` with the Tabler SVGs in `res/svg/`. Legacy PNG → SVG mappings live in `Icones`. Patient avatars stay PNG.
+
 `entities/` holds plain domain objects with legacy lowercase class names (`patient`, `consultation`, `medecin`, `Rendez_Vous`, …). Keep those names as they are.
 
 ## Tests

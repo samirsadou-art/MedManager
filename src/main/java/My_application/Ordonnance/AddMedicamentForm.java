@@ -5,6 +5,7 @@
  */
 package My_application.Ordonnance;
 
+import My_application.vue.Theme;
 import My_application.AppContext;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
@@ -28,6 +29,7 @@ public class AddMedicamentForm extends JDialog implements Vue {
 
     public AddMedicamentForm() {
         initComponents();
+        Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
         this.setModal(true);
         controleur = new CatalogueController(this, AppContext.get().getCatalogueService());
@@ -76,7 +78,7 @@ public class AddMedicamentForm extends JDialog implements Vue {
         jSeparator2 = new javax.swing.JSeparator();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setTitle("Inserer un nouveau médicament");
+        setTitle("Insérer un nouveau médicament");
         setAlwaysOnTop(true);
         setResizable(false);
         setType(java.awt.Window.Type.UTILITY);

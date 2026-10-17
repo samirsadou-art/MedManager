@@ -5,6 +5,7 @@
  */
 package My_application.Patient;
 
+import My_application.vue.Theme;
 import My_application.AppContext;
 import My_application.DossierPatientForm;
 import My_application.controller.ListePatientController;
@@ -26,10 +27,12 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
 
     public ListePatient() {
         initComponents();
+        Theme.harmoniser(this);
         this.choix.requestFocus();
         this.setLocationRelativeTo(null);
         table.setModel(listeModel);
         table.setDefaultRenderer(Object.class, new ListePatientRondu());
+        table.setRowHeight(42);
         AppContext ctx = AppContext.get();
         controleur = new ListePatientController(this, ctx.getPatientService(), ctx.getDossierService(),
                 ctx.getSession());

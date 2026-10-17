@@ -5,21 +5,15 @@
  */
 package My_application.rendezvous;
 
+import My_application.vue.Theme;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Font;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JTable;
-import javax.swing.border.Border;
 import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
-import javax.swing.table.TableColumn;
-import javax.swing.table.TableColumnModel;
 
 /**
  *
@@ -34,45 +28,22 @@ public class HeaderRondu implements TableCellRenderer{
             
        JLabel renderer = (JLabel) defaultRenderer.getTableCellRendererComponent(table, value,isSelected, hasFocus, row, column);
         
-       renderer.setHorizontalAlignment(JLabel.LEFT);
-       renderer.setFont(new Font("Thoma",Font.BOLD,15));
-        
-       
-          JTableHeader th = table.getTableHeader();
-           TableColumnModel tcm = th.getColumnModel();
-           TableColumn tc = tcm.getColumn(column);
-           String title=(String) tc.getHeaderValue();
-           String[] chaines= title.split(" ");
-           
-           Calendar today=Calendar.getInstance();
-           SimpleDateFormat    formater = null;
-           formater = new SimpleDateFormat("EEEE");
-           String date=formater.format(today.getTime());
+       renderer.setFont(Theme.policeGras());
+       renderer.setHorizontalAlignment(JLabel.CENTER);
+       renderer.setPreferredSize(new Dimension(0, 40));
+       renderer.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 1, Theme.BORDURE));
 
-          renderer.setHorizontalAlignment(JLabel.CENTER); 
-          renderer.setPreferredSize(new Dimension(0, 45));
-           Border raisedBorder = BorderFactory.createRaisedBevelBorder();
-        
-           renderer.setBorder(raisedBorder);
-      
-           
-           if(chaines.length==2)
-           if(date.toUpperCase().equals(chaines[0].toUpperCase())){
-             
-               renderer.setBackground(new Color(0,191,255));
-               renderer.setForeground(Color.white);
-
-               
-    
-                
-           }
-           else{
-               renderer.setBackground(Color.cyan.darker());
-               renderer.setForeground(Color.white);
-
-               
-           }
-           return renderer;
+       // Colonne d'aujourd'hui en couleur principale (comme RendezVousRondu).
+       boolean aujourdhui = table.getModel() instanceof RendezVousTableModel
+               && java.time.LocalDate.now().equals(((RendezVousTableModel) table.getModel()).jourDeColonne(column));
+       if (aujourdhui) {
+           renderer.setBackground(Theme.PRIMAIRE);
+           renderer.setForeground(Color.WHITE);
+       } else {
+           renderer.setBackground(Theme.PRIMAIRE_CLAIR);
+           renderer.setForeground(Theme.PRIMAIRE_FONCE);
+       }
+       return renderer;
             
         
     }

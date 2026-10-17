@@ -5,6 +5,7 @@
  */
 package My_application.Analyse;
 
+import My_application.vue.Theme;
 import My_application.AppContext;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
@@ -37,6 +38,7 @@ public class AnalyseForm extends javax.swing.JDialog implements Vue {
 
     public AnalyseForm(consultation con) {
         initComponents();
+        Theme.harmoniser(this);
         this.setModal(true);
         this.setLocationRelativeTo(null);
         consult = con;
@@ -292,7 +294,7 @@ public class AnalyseForm extends javax.swing.JDialog implements Vue {
         jLabel3.setText("Observation");
 
         bilanChek.setBackground(new java.awt.Color(204, 204, 204));
-        bilanChek.setText("Ajout groupé ou un seule");
+        bilanChek.setText("Ajout groupé");
         bilanChek.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 bilanChekActionPerformed(evt);

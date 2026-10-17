@@ -5,6 +5,7 @@
  */
 package My_application.modelTableau;
 
+import My_application.vue.Theme;
 import java.awt.Color;
 import java.awt.Component;
 import javax.swing.JTable;
@@ -26,11 +27,12 @@ public class my_RonduAnalyse extends DefaultTableCellRenderer {
      int c=(int)obj;   
 
    this.setText("");
+   // Note d'interprétation : couleurs de statut de la charte.
    switch(c){
-       case 1:composant.setBackground(Color.GREEN);break;
-       case 2:composant.setBackground(Color.ORANGE);break;
-       case 3:composant.setBackground(Color.RED);break;
-       default:composant.setBackground(Color.white);
+       case 1:composant.setBackground(Theme.SUCCES);break;
+       case 2:composant.setBackground(new Color(0xEF9F27));break;
+       case 3:composant.setBackground(Theme.DANGER);break;
+       default:composant.setBackground(isSelected ? table.getSelectionBackground() : Theme.SURFACE);
    }
    
   

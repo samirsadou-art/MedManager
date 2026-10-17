@@ -5,6 +5,7 @@
  */
 package My_application.Analyse;
 
+import My_application.vue.Theme;
 import My_application.AppContext;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
@@ -23,6 +24,7 @@ public class AddAnalyseForm extends JDialog implements Vue {
 
     public AddAnalyseForm() {
         initComponents();
+        Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
         this.setModal(true);
         controleur = new CatalogueController(this, AppContext.get().getCatalogueService());
