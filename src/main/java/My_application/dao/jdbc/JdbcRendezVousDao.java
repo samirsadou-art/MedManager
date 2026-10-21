@@ -5,7 +5,9 @@ import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class JdbcRendezVousDao implements RendezVousDao {
@@ -26,8 +28,12 @@ public class JdbcRendezVousDao implements RendezVousDao {
             r.setUtilisateur(u);
             r.setDate(Mappers.jour(rs, "date"));
             r.setHeure(Mappers.heure(rs, "heure"));
-            r.setDateFix(Mappers.jour(rs, "dateFix"));
-            r.setHeureFix(Mappers.heure(rs, "heureFix"));
+            Timestamp prisLe = rs.getTimestamp("prisLe");
+            if (prisLe != null) {
+                r.setDateFix(prisLe.toLocalDateTime().toLocalDate());
+                r.setHeureFix(prisLe.toLocalDateTime().toLocalTime());
+            }
+            r.setIdMedecin((Integer) rs.getObject("idMedecin"));
             r.setEtat(rs.getByte("etat"));
             return r;
         }
@@ -35,25 +41,29 @@ public class JdbcRendezVousDao implements RendezVousDao {
 
     @Override
     public void insert(Rendez_Vous rdv) {
-        jdbc.update("INSERT INTO rondezvous (idUser, idPatient, date, heure, dateFix, heureFix) VALUES (?,?,?,?,?,?)",
-                rdv.getUtilisateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure(),
-                rdv.getDateFix(), rdv.getHeureFix());
+        // prisLe (migration V8) : date et heure de la prise ; sans elles, l'heure du serveur.
+        LocalDateTime prisLe = rdv.getDateFix() == null || rdv.getHeureFix() == null ? null
+                : LocalDateTime.of(rdv.getDateFix(), rdv.getHeureFix());
+        jdbc.update("INSERT INTO rendezvous (idUser, idPatient, idMedecin, date, heure, prisLe) "
+                + "VALUES (?,?,?,?,?,COALESCE(?, CURRENT_TIMESTAMP))",
+                rdv.getUtilisateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getIdMedecin(), rdv.getDate(),
+                rdv.getHeure(), prisLe);
     }
 
     @Override
     public boolean delete(Rendez_Vous rdv) {
-        return jdbc.update("DELETE FROM rondezvous WHERE idPatient=? AND date=? AND heure=?",
+        return jdbc.update("DELETE FROM rendezvous WHERE idPatient=? AND date=? AND heure=?",
                 rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure()) > 0;
     }
 
     @Override
     public List<Rendez_Vous> findEntre(LocalDate debut, LocalDate fin) {
         // Une requête avec jointures au lieu de 1 + 2×N requêtes auparavant.
-        return jdbc.query("SELECT r.idUser, r.idPatient, r.date, r.heure, r.dateFix, r.heureFix, r.etat, "
+        return jdbc.query("SELECT r.idUser, r.idPatient, r.idMedecin, r.date, r.heure, r.prisLe, r.etat, "
                 + "p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient, "
                 + "u.nom, u.prenom, u.qualite "
-                + "FROM rondezvous r JOIN patient p ON p.idPatient = r.idPatient "
+                + "FROM rendezvous r JOIN patient p ON p.idPatient = r.idPatient "
                 + "LEFT JOIN utilisateur u ON u.idUtilisateur = r.idUser "
-                + "WHERE r.date BETWEEN ? AND ? ORDER BY r.date, r.heure", MAPPER, debut, fin);
+                + "WHERE r.date BETWEEN ? AND ? ORDER BY r.date, r.heure, r.idMedecin", MAPPER, debut, fin);
     }
 }

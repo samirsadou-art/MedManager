@@ -122,7 +122,7 @@ public class TransactionManagerTest {
                 public Void executer() {
                     jdbc.update("INSERT INTO consultation (idPatient) VALUES (?)", 1);
                     f.base.connexionFermee = true; // coupure réseau
-                    jdbc.update("INSERT INTO prescrire (idConsul) VALUES (?)", 1);
+                    jdbc.update("INSERT INTO prescrire (idConsultation) VALUES (?)", 1);
                     return null;
                 }
             });

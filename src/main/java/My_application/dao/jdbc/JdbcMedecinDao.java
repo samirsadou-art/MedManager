@@ -13,6 +13,6 @@ public class JdbcMedecinDao implements MedecinDao {
 
     @Override
     public medecin findById(int id) {
-        return jdbc.queryOne("SELECT * FROM medecin WHERE idMedcin=?", Mappers.MEDECIN, id);
+        return jdbc.queryOne("SELECT * FROM medecin WHERE idMedecin=?", Mappers.MEDECIN, id);
     }
 }

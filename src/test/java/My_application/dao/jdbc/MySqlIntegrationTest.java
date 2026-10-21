@@ -19,6 +19,7 @@ import My_application.entities.patient;
 import My_application.entities.symptome;
 import My_application.fake.Donnees;
 import My_application.service.AuthentificationService;
+import My_application.service.JournalAcces;
 import My_application.service.JournalAccesEnBase;
 import My_application.service.MetierException;
 import My_application.service.Session;
@@ -95,7 +96,7 @@ public class MySqlIntegrationTest {
         flyway.migrate();
         try (Statement st = base.getConnection().createStatement()) {
             st.execute("INSERT INTO utilisateur (nom, prenom, qualite) VALUES ('SAHAB', 'Said', 'Médecin')");
-            st.execute("INSERT INTO medecin (nomMedecin, prenomMedcin, titre) VALUES ('SAHAB', 'Said', 'Dr')");
+            st.execute("INSERT INTO medecin (nomMedecin, prenomMedecin, titre) VALUES ('SAHAB', 'Said', 'Dr')");
             st.execute("INSERT INTO medicaments (nomMedicament, forme, type) VALUES ('DOLIPRANE 1G', 'comprimé', 'P')");
         }
         echecSur = null;
@@ -131,8 +132,8 @@ public class MySqlIntegrationTest {
         baseAncienneEnVersion("1");
         Migrations migrations = new Migrations(url, user, password);
         assertFalse(migrations.etat().estSuivie());
-        assertEquals(1, migrations.migrer());
-        assertEquals("2", migrations.etat().getVersionBase());
+        assertTrue(migrations.migrer() >= 1);
+        assertEquals(migrations.etat().getVersionCode(), migrations.etat().getVersionBase());
         // V2 a bien été appliquée par-dessus la base existante.
         Session session = new Session(daos, 1, idMedecin);
         assertTrue(new AuthentificationService(daos, session, new JournalAccesEnBase(daos.getJournalDao(), session))
@@ -143,9 +144,72 @@ public class MySqlIntegrationTest {
     public void uneBaseDejaMigreeALaMainNeRejouePasV2() throws Exception {
         baseAncienneEnVersion("2");
         Migrations migrations = new Migrations(url, user, password);
-        assertEquals(0, migrations.migrer());
-        assertEquals("2", migrations.etat().getVersionBase());
+        // Adoptée en version 2 : seules les migrations suivantes sont jouées.
+        assertEquals(nombreDeMigrationsApres(2), migrations.migrer());
+        assertEquals(migrations.etat().getVersionCode(), migrations.etat().getVersionBase());
         assertFalse(migrations.etat().estEnRetard());
+    }
+
+    private static int nombreDeMigrationsApres(int version) {
+        int n = 0;
+        for (org.flywaydb.core.api.MigrationInfo m : flywayDeTest().load().info().all()) {
+            if (m.getVersion() != null && Integer.parseInt(m.getVersion().getVersion()) > version) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Base réelle en version 2 (comme celle du cabinet) avec des valeurs
+     * sentinelles : les migrations suivantes les convertissent sans perte.
+     */
+    @Test
+    public void lesDonneesDUneBaseEnVersion2SontConverties() throws Exception {
+        Flyway flyway = flywayDeTest().target("2").load();
+        flyway.clean();
+        flyway.migrate();
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO medecin (idMedcin, nomMedecin, prenomMedcin) VALUES (1, 'SAHAB', 'Said')");
+            st.execute("INSERT INTO utilisateur (idUtilisateur, nom, prenom) VALUES (1, 'SAHAB', 'Said')");
+            st.execute("INSERT INTO patient (idPatient, nomPatient, prenomPatient, date_Nais_Patient, sexePatient) "
+                    + "VALUES (1, 'A', 'a', '1980-01-01', 1)");
+            st.execute("INSERT INTO consultation (idConsultation, dateConsultation, heureConsultation, idMedecin, "
+                    + "idPatient) VALUES (1, '2026-10-01', '09:00', 1, 1)");
+            st.execute("INSERT INTO consultation (idConsultation, dateConsultation, heureConsultation, idMedecin, "
+                    + "idPatient, temperature, pulsation, pression, respiration, poids) "
+                    + "VALUES (2, '2026-10-02', '09:00', 1, 1, 37.5, 80, '12/8', 16, 70)");
+            st.execute("INSERT INTO rondezvous (idUser, idPatient, date, heure) VALUES (1, 1, '2026-10-20', '10:00')");
+        }
+        flywayDeTest().load().migrate();
+        try (Statement st = base.getConnection().createStatement()) {
+            java.sql.ResultSet rs = st.executeQuery("SELECT temperature, pulsation, pression, respiration, poids "
+                    + "FROM consultation ORDER BY idConsultation");
+            assertTrue(rs.next());
+            for (int i = 1; i <= 5; i++) {
+                rs.getObject(i);
+                assertTrue("colonne " + i + " : -1 devenu NULL", rs.wasNull());
+            }
+            assertTrue(rs.next());
+            assertEquals(37.5, rs.getDouble(1), 0);
+            assertEquals("12/8", rs.getString(3));
+            rs.close();
+            rs = st.executeQuery("SELECT idRendezVous, idMedecin, etat, prisLe FROM rendezvous");
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertEquals("seul médecin du cabinet", 1, rs.getInt(2));
+            assertEquals(Rendez_Vous.ETAT_PREVU, rs.getInt(3));
+            assertEquals("sans date de prise : celle du rendez-vous",
+                    java.sql.Timestamp.valueOf("2026-10-20 10:00:00"), rs.getTimestamp(4));
+            rs.close();
+            try {
+                st.execute("UPDATE consultation SET temperature = -1 WHERE idConsultation = 2");
+                fail("la valeur sentinelle doit être refusée");
+            } catch (SQLException attendu) {
+                // CHECK ck_consultation_temperature
+            }
+        }
+        assertEquals("Said", daos.getMedecinDao().findById(1).getPrenom());
     }
 
     /** Connexion réelle, mais qui peut simuler une panne sur une table donnée. */
@@ -264,5 +328,33 @@ public class MySqlIntegrationTest {
         List<Rendez_Vous> restants = rdv.duJour(jour);
         assertEquals(1, restants.size());
         assertEquals("B", restants.get(0).getPatient().getNom());
+    }
+
+    @Test
+    public void deuxMedecinsPeuventRecevoirAuMemeCreneau() throws Exception {
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO medecin (nomMedecin, prenomMedecin, titre) VALUES ('AMRANI', 'Lina', 'Dr')");
+        }
+        patient a = creerPatient("A");
+        patient b = creerPatient("B");
+        LocalDate jour = LocalDate.now().plusDays(2);
+        RendezVousService medecin1 = new RendezVousService(daos, JournalAcces.AUCUN, () -> 1);
+        RendezVousService medecin2 = new RendezVousService(daos, JournalAcces.AUCUN, () -> 2);
+        Rendez_Vous ra = medecin1.proposer(a, Donnees.utilisateur(1), jour, 9);
+        medecin1.confirmer(ra);
+        Rendez_Vous rb = medecin2.proposer(b, Donnees.utilisateur(1), jour, 9);
+        medecin2.confirmer(rb);
+        assertEquals(ra.getHeure(), rb.getHeure());
+        List<Rendez_Vous> lus = medecin1.duJour(jour);
+        assertEquals(2, lus.size());
+        assertEquals(Integer.valueOf(1), lus.get(0).getIdMedecin());
+        // Même médecin, même créneau : refusé par la contrainte unique.
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO rendezvous (idUser, idPatient, idMedecin, date, heure) VALUES (1, "
+                    + b.getIdentPat() + ", 1, '" + jour + "', '" + ra.getHeure() + "')");
+            fail("créneau déjà pris chez ce médecin");
+        } catch (SQLException attendu) {
+            // uk_rendezvous_creneau
+        }
     }
 }

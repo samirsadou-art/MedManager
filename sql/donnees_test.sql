@@ -29,7 +29,7 @@ START TRANSACTION;
 -- prescriptions et demandes d'analyses des consultations partent par
 -- ON DELETE CASCADE.
 -- ---------------------------------------------------------------------
-DELETE FROM rondezvous   WHERE idPatient BETWEEN 9001 AND 9999;
+DELETE FROM rendezvous   WHERE idPatient BETWEEN 9001 AND 9999;
 DELETE FROM consultation WHERE idConsultation BETWEEN 9001 AND 9999
                             OR idPatient BETWEEN 9001 AND 9999;
 DELETE FROM patient      WHERE idPatient BETWEEN 9001 AND 9999;
@@ -53,7 +53,7 @@ VALUES
   (9010, 'OUALI',    'Samir',   '1995-04-16', 1, '195041601010', 'Algérie', 'Bouira',     'Lakhdaria',    '0557 00 11 10', NULL,                    'Centre',         'Célibataire');
 
 -- ---------------------------------------------------------------------
--- Consultations (médecin n° 1). Constantes non mesurées : -1, pression : ''.
+-- Consultations (médecin n° 1). Constantes non mesurées : NULL.
 -- ---------------------------------------------------------------------
 INSERT INTO consultation
   (idConsultation, dateConsultation, heureConsultation, idMedecin, idPatient,
@@ -65,12 +65,12 @@ VALUES
   (9003, DATE_SUB(CURDATE(), INTERVAL 45 DAY),  '11:30:00', 1, 9002, 38.90, 96, '12/7',  20, 63.00),
   (9004, DATE_SUB(CURDATE(), INTERVAL 90 DAY),  '08:45:00', 1, 9003, 36.60, 70, '16/9',  18, 78.00),
   (9005, DATE_SUB(CURDATE(), INTERVAL 30 DAY),  '09:30:00', 1, 9003, 36.70, 72, '14/8',  18, 77.20),
-  (9006, DATE_SUB(CURDATE(), INTERVAL 20 DAY),  '14:15:00', 1, 9004, 39.20, 120,'',      28, 18.40),
+  (9006, DATE_SUB(CURDATE(), INTERVAL 20 DAY),  '14:15:00', 1, 9004, 39.20, 120, NULL,  28, 18.40),
   (9007, DATE_SUB(CURDATE(), INTERVAL 15 DAY),  '15:00:00', 1, 9005, 37.10, 82, '11/7',  16, 58.00),
   (9008, DATE_SUB(CURDATE(), INTERVAL 10 DAY),  '10:45:00', 1, 9006, 36.90, 88, '13/8',  22, 84.00),
   (9009, DATE_SUB(CURDATE(), INTERVAL 7 DAY),   '16:00:00', 1, 9007, 36.50, 76, '12/8',  16, 70.50),
   (9010, DATE_SUB(CURDATE(), INTERVAL 3 DAY),   '11:00:00', 1, 9009, 37.30, 90, '17/10', 20, 66.00),
-  (9011, DATE_SUB(CURDATE(), INTERVAL 1 DAY),   '09:00:00', 1, 9008, -1,    -1, '',      -1, -1),
+  (9011, DATE_SUB(CURDATE(), INTERVAL 1 DAY),   '09:00:00', 1, 9008, NULL,  NULL, NULL,  NULL, NULL),
   -- Consultations du jour (écran d'accueil)
   (9012, CURDATE(), '08:30:00', 1, 9002, 37.60, 84, '12/7',  18, 62.50),
   (9013, CURDATE(), '09:45:00', 1, 9010, 38.40, 92, '12/8',  18, 74.00),
@@ -111,7 +111,7 @@ INSERT INTO consultpathologie (idconsultation, idpathologie) VALUES
   (9014, 9);
 
 -- Ordonnances (mode : 0 = soir, 1 = matin, 2 = indifférent ; durée en jours)
-INSERT INTO prescrire (idMed, idConsul, unite, posologie, duree, mode) VALUES
+INSERT INTO prescrire (idMedicament, idConsultation, unite, posologie, duree, mode) VALUES
   (51, 9001, 1, 1, 30, 1),   -- amlodipine 5 mg
   (52, 9002, 1, 1, 90, 1),   -- amlodipine 10 mg
   (38, 9003, 1, 2, 8, 2),    -- amoxicilline/ac. clavulanique
@@ -136,7 +136,7 @@ INSERT INTO prescrire (idMed, idConsul, unite, posologie, duree, mode) VALUES
 -- (9014 : pas d'ordonnance, pour tester ce cas)
 
 -- Demandes d'analyses (note d'interprétation 0..4 ; 0 = pas encore de résultat)
-INSERT INTO demandanalyse (idconsultation, idAnalyse, observation, resultat, note) VALUES
+INSERT INTO demandeanalyse (idconsultation, idAnalyse, observation, resultat, note) VALUES
   (9001, 17, 'Bilan HTA',            '9,8 mg/l',            1),
   (9001, 7,  'Bilan HTA',            'Na 139 / K 4,1',      1),
   (9001, 15, NULL,                   '2,35 g/l',            3),
@@ -154,28 +154,28 @@ INSERT INTO demandanalyse (idconsultation, idAnalyse, observation, resultat, not
   (9014, 25, 'Contrôle BPCO',        NULL,                  0);
 
 -- ---------------------------------------------------------------------
--- Rendez-vous (utilisateur n° 1). Créneaux de 8 h à 17 h, par quarts
--- d'heure. dateFix/heureFix : moment où le rendez-vous a été pris.
+-- Rendez-vous (utilisateur n° 1, médecin n° 1). Créneaux de 8 h à 17 h, par quarts
+-- d'heure. prisLe : moment où le rendez-vous a été pris.
 -- INSERT IGNORE : un créneau déjà occupé par un vrai rendez-vous est
 -- laissé tel quel.
 -- ---------------------------------------------------------------------
-INSERT IGNORE INTO rondezvous (idUser, idPatient, `date`, heure, dateFix, heureFix, etat) VALUES
+INSERT IGNORE INTO rendezvous (idUser, idPatient, idMedecin, `date`, heure, prisLe, etat) VALUES
   -- Passé
-  (1, 9001, DATE_SUB(CURDATE(), INTERVAL 60 DAY), '10:00:00', DATE_SUB(CURDATE(), INTERVAL 120 DAY), '09:40:00', 0),
-  (1, 9003, DATE_SUB(CURDATE(), INTERVAL 30 DAY), '09:30:00', DATE_SUB(CURDATE(), INTERVAL 90 DAY),  '09:10:00', 0),
+  (1, 9001, 1, DATE_SUB(CURDATE(), INTERVAL 60 DAY), '10:00:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 120 DAY), '09:40:00'), 0),
+  (1, 9003, 1, DATE_SUB(CURDATE(), INTERVAL 30 DAY), '09:30:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 90 DAY),  '09:10:00'), 0),
   -- Aujourd'hui
-  (1, 9005, CURDATE(), '10:30:00', DATE_SUB(CURDATE(), INTERVAL 15 DAY), '15:20:00', 0),
-  (1, 9009, CURDATE(), '14:00:00', DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:30:00', 0),
-  (1, 9007, CURDATE(), '15:15:00', DATE_SUB(CURDATE(), INTERVAL 7 DAY),  '16:20:00', 0),
-  (1, 9008, CURDATE(), '16:45:00', DATE_SUB(CURDATE(), INTERVAL 1 DAY),  '09:20:00', 0),
+  (1, 9005, 1, CURDATE(), '10:30:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 15 DAY), '15:20:00'), 0),
+  (1, 9009, 1, CURDATE(), '14:00:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:30:00'), 0),
+  (1, 9007, 1, CURDATE(), '15:15:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 7 DAY),  '16:20:00'), 0),
+  (1, 9008, 1, CURDATE(), '16:45:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY),  '09:20:00'), 0),
   -- À venir
-  (1, 9001, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  '09:00:00', CURDATE(), '08:00:00', 0),
-  (1, 9004, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  '09:15:00', DATE_SUB(CURDATE(), INTERVAL 20 DAY), '14:40:00', 0),
-  (1, 9006, DATE_ADD(CURDATE(), INTERVAL 2 DAY),  '11:00:00', DATE_SUB(CURDATE(), INTERVAL 10 DAY), '11:10:00', 0),
-  (1, 9002, DATE_ADD(CURDATE(), INTERVAL 3 DAY),  '08:30:00', CURDATE(), '08:50:00', 0),
-  (1, 9010, DATE_ADD(CURDATE(), INTERVAL 5 DAY),  '13:45:00', CURDATE(), '10:05:00', 0),
-  (1, 9003, DATE_ADD(CURDATE(), INTERVAL 8 DAY),  '10:15:00', DATE_SUB(CURDATE(), INTERVAL 30 DAY), '09:50:00', 0),
-  (1, 9009, DATE_ADD(CURDATE(), INTERVAL 14 DAY), '15:30:00', DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:35:00', 0);
+  (1, 9001, 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  '09:00:00', TIMESTAMP(CURDATE(), '08:00:00'), 0),
+  (1, 9004, 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  '09:15:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 20 DAY), '14:40:00'), 0),
+  (1, 9006, 1, DATE_ADD(CURDATE(), INTERVAL 2 DAY),  '11:00:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 10 DAY), '11:10:00'), 0),
+  (1, 9002, 1, DATE_ADD(CURDATE(), INTERVAL 3 DAY),  '08:30:00', TIMESTAMP(CURDATE(), '08:50:00'), 0),
+  (1, 9010, 1, DATE_ADD(CURDATE(), INTERVAL 5 DAY),  '13:45:00', TIMESTAMP(CURDATE(), '10:05:00'), 0),
+  (1, 9003, 1, DATE_ADD(CURDATE(), INTERVAL 8 DAY),  '10:15:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 30 DAY), '09:50:00'), 0),
+  (1, 9009, 1, DATE_ADD(CURDATE(), INTERVAL 14 DAY), '15:30:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:35:00'), 0);
 
 COMMIT;
 
@@ -183,7 +183,7 @@ COMMIT;
 SELECT 'patients de test'      AS donnees, COUNT(*) AS lignes FROM patient      WHERE idPatient BETWEEN 9001 AND 9999
 UNION ALL SELECT 'consultations',          COUNT(*) FROM consultation WHERE idConsultation BETWEEN 9001 AND 9999
 UNION ALL SELECT 'consultations du jour',  COUNT(*) FROM consultation WHERE idConsultation BETWEEN 9001 AND 9999 AND dateConsultation = CURDATE()
-UNION ALL SELECT 'prescriptions',          COUNT(*) FROM prescrire    WHERE idConsul BETWEEN 9001 AND 9999
-UNION ALL SELECT 'demandes d''analyses',   COUNT(*) FROM demandanalyse WHERE idconsultation BETWEEN 9001 AND 9999
-UNION ALL SELECT 'rendez-vous',            COUNT(*) FROM rondezvous   WHERE idPatient BETWEEN 9001 AND 9999
-UNION ALL SELECT 'rendez-vous du jour',    COUNT(*) FROM rondezvous   WHERE idPatient BETWEEN 9001 AND 9999 AND `date` = CURDATE();
+UNION ALL SELECT 'prescriptions',          COUNT(*) FROM prescrire    WHERE idConsultation BETWEEN 9001 AND 9999
+UNION ALL SELECT 'demandes d''analyses',   COUNT(*) FROM demandeanalyse WHERE idconsultation BETWEEN 9001 AND 9999
+UNION ALL SELECT 'rendez-vous',            COUNT(*) FROM rendezvous   WHERE idPatient BETWEEN 9001 AND 9999
+UNION ALL SELECT 'rendez-vous du jour',    COUNT(*) FROM rendezvous   WHERE idPatient BETWEEN 9001 AND 9999 AND `date` = CURDATE();

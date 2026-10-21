@@ -16,6 +16,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntSupplier;
 
 /**
  * Agenda des rendez-vous et ses règles métier.
@@ -25,9 +26,10 @@ import java.util.List;
  * fois, et couvertes par des tests :
  * <ul>
  * <li>le cabinet reçoit de {@code heureOuverture} h à {@code heureOuverture + nbHeures} h ;</li>
- * <li>au plus {@code maxParHeure} patients par heure, en créneaux réguliers
+ * <li>au plus {@code maxParHeure} patients par heure et par médecin, en créneaux réguliers
  * (4 par heure → :00, :15, :30, :45) ; on attribue le premier créneau libre ;</li>
- * <li>un patient ne peut avoir qu'un rendez-vous dans une même heure ;</li>
+ * <li>un patient ne peut avoir qu'un rendez-vous dans une même heure (tous médecins confondus) ;</li>
+ * <li>le rendez-vous est pris avec le médecin du poste ({@link Session#getIdMedecin()}).</li>
  * <li>on ne prend pas de rendez-vous dans le passé ;</li>
  * <li>seul un rendez-vous à venir peut être annulé.</li>
  * </ul>
@@ -37,6 +39,8 @@ public class RendezVousService {
     public static final int HEURE_OUVERTURE = 8;
     public static final int NOMBRE_HEURES = 9;
     public static final int MAX_PAR_HEURE = 4;
+    /** Médecin utilisé quand aucun n'est fourni (même valeur que le médecin par défaut de la session). */
+    public static final int MEDECIN_PAR_DEFAUT = 1;
 
     static final String CRENEAU_PRIS = "Ce créneau vient d'être attribué à un autre patient. "
             + "Veuillez en choisir un autre.";
@@ -48,6 +52,7 @@ public class RendezVousService {
     private final int nombreHeures;
     private final int maxParHeure;
     private final JournalAcces journal;
+    private final IntSupplier medecinCourant;
 
     public RendezVousService(DAOFactory daos) {
         this(daos, JournalAcces.AUCUN);
@@ -57,12 +62,23 @@ public class RendezVousService {
         this(daos, Clock.systemDefaultZone(), HEURE_OUVERTURE, NOMBRE_HEURES, MAX_PAR_HEURE, journal);
     }
 
+    /** Production : les rendez-vous sont pris avec le médecin de la session. */
+    public RendezVousService(DAOFactory daos, JournalAcces journal, IntSupplier medecinCourant) {
+        this(daos, Clock.systemDefaultZone(), HEURE_OUVERTURE, NOMBRE_HEURES, MAX_PAR_HEURE, journal,
+                medecinCourant);
+    }
+
     public RendezVousService(DAOFactory daos, Clock horloge, int heureOuverture, int nombreHeures, int maxParHeure) {
         this(daos, horloge, heureOuverture, nombreHeures, maxParHeure, JournalAcces.AUCUN);
     }
 
     public RendezVousService(DAOFactory daos, Clock horloge, int heureOuverture, int nombreHeures, int maxParHeure,
             JournalAcces journal) {
+        this(daos, horloge, heureOuverture, nombreHeures, maxParHeure, journal, () -> MEDECIN_PAR_DEFAUT);
+    }
+
+    public RendezVousService(DAOFactory daos, Clock horloge, int heureOuverture, int nombreHeures, int maxParHeure,
+            JournalAcces journal, IntSupplier medecinCourant) {
         if (maxParHeure <= 0 || 60 % maxParHeure != 0) {
             throw new IllegalArgumentException("maxParHeure doit diviser 60 : " + maxParHeure);
         }
@@ -73,6 +89,7 @@ public class RendezVousService {
         this.nombreHeures = nombreHeures;
         this.maxParHeure = maxParHeure;
         this.journal = journal;
+        this.medecinCourant = medecinCourant;
     }
 
     public int getMaxParHeure() {
@@ -128,12 +145,13 @@ public class RendezVousService {
         if (heure < heureOuverture || heure >= heureOuverture + nombreHeures) {
             throw new MetierException("Le cabinet est fermé à " + heure + " h.");
         }
-        List<Rendez_Vous> dansLHeure = dansLHeure(existants, jour, heure);
-        for (Rendez_Vous r : dansLHeure) {
+        int idMedecin = medecinCourant.getAsInt();
+        for (Rendez_Vous r : dansLHeure(existants, jour, heure)) {
             if (r.getPatient().getIdentPat() == malade.getIdentPat()) {
                 throw new MetierException("Vous ne pouvez pas prendre plus d'un rendez-vous par heure !");
             }
         }
+        List<Rendez_Vous> dansLHeure = duMedecin(dansLHeure(existants, jour, heure), idMedecin);
         if (dansLHeure.size() >= maxParHeure) {
             throw new MetierException("Ce créneau horaire est complet.");
         }
@@ -152,7 +170,9 @@ public class RendezVousService {
                 if (!debut.isAfter(maintenant)) {
                     continue; // créneau déjà passé
                 }
-                return nouveauRendezVous(malade, utilisateur, debut, maintenant);
+                Rendez_Vous r = nouveauRendezVous(malade, utilisateur, debut, maintenant);
+                r.setIdMedecin(idMedecin);
+                return r;
             }
         }
         throw new MetierException("Impossible de prendre un rendez-vous dans le passé.");
@@ -180,11 +200,17 @@ public class RendezVousService {
             public Void executer() {
                 LocalDate jour = rdv.getDate();
                 LocalTime h = rdv.getHeure();
-                List<Rendez_Vous> dansLHeure = dansLHeure(duJour(jour), jour, h.getHour());
-                for (Rendez_Vous r : dansLHeure) {
+                if (rdv.getIdMedecin() == null) {
+                    rdv.setIdMedecin(medecinCourant.getAsInt());
+                }
+                List<Rendez_Vous> touteLHeure = dansLHeure(duJour(jour), jour, h.getHour());
+                for (Rendez_Vous r : touteLHeure) {
                     if (r.getPatient().getIdentPat() == rdv.getPatient().getIdentPat()) {
                         throw new MetierException("Vous ne pouvez pas prendre plus d'un rendez-vous par heure !");
                     }
+                }
+                List<Rendez_Vous> dansLHeure = duMedecin(touteLHeure, rdv.getIdMedecin());
+                for (Rendez_Vous r : dansLHeure) {
                     if (r.getHeure().equals(h)) {
                         throw new MetierException(CRENEAU_PRIS);
                     }
@@ -196,7 +222,7 @@ public class RendezVousService {
                     rendezVousDao.insert(rdv);
                 } catch (DoublonException e) {
                     // Un autre poste a enregistré ce créneau entre la vérification et
-                    // l'insertion : la clé primaire (date, heure) l'a refusé.
+                    // l'insertion : la contrainte unique (idMedecin, date, heure) l'a refusé.
                     throw new MetierException(CRENEAU_PRIS);
                 }
                 journal.noter(JournalAcces.Action.RENDEZ_VOUS_PRIS, rdv.getPatient().getIdentPat(),
@@ -228,6 +254,20 @@ public class RendezVousService {
         return rdv != null && demandeur != null
                 && rdv.getPatient().getIdentPat() == demandeur.getIdentPat()
                 && !rdv.isPassed(LocalDateTime.now(horloge));
+    }
+
+    /**
+     * Rendez-vous de ce médecin. Un rendez-vous sans médecin (pris avant
+     * la migration V9) compte pour tous : on ne risque pas de double réservation.
+     */
+    private static List<Rendez_Vous> duMedecin(List<Rendez_Vous> rdvs, int idMedecin) {
+        List<Rendez_Vous> r = new ArrayList<>();
+        for (Rendez_Vous x : rdvs) {
+            if (x.getIdMedecin() == null || x.getIdMedecin() == idMedecin) {
+                r.add(x);
+            }
+        }
+        return r;
     }
 
     private static List<Rendez_Vous> dansLHeure(List<Rendez_Vous> rdvs, LocalDate jour, int heure) {

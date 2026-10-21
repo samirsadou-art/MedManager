@@ -32,6 +32,11 @@ public class Session {
         this.idMedecin = idMedecin;
     }
 
+    /** Médecin du poste : celui de l'utilisateur connecté, sinon celui donné au lancement. */
+    public synchronized int getIdMedecin() {
+        return idMedecin;
+    }
+
     /** Ouvre la session de l'utilisateur authentifié. */
     public synchronized void ouvrir(User u) {
         connecte = u;

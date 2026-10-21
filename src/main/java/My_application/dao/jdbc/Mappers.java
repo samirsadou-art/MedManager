@@ -51,10 +51,10 @@ final class Mappers {
         @Override
         public medecin map(ResultSet rs) throws SQLException {
             medecin m = new medecin();
-            m.setIdmedecin(rs.getInt("idMedcin"));
+            m.setIdmedecin(rs.getInt("idMedecin"));
             m.setOrdmedcin(rs.getString("ordreMedecin"));
             m.setNom(rs.getString("nomMedecin"));
-            m.setPrenom(rs.getString("prenomMedcin"));
+            m.setPrenom(rs.getString("prenomMedecin"));
             m.setTitre(rs.getString("titre"));
             m.setSpecialite(rs.getString("specialite"));
             m.setAdresse(rs.getString("adresse"));

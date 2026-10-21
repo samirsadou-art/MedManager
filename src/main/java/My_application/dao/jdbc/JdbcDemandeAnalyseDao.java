@@ -22,7 +22,7 @@ public class JdbcDemandeAnalyseDao implements DemandeAnalyseDao {
         for (analyse a : analyses) {
             lignes.add(new Object[]{idConsultation, a.getIdAnal(), a.getObserv(), a.getResultat(), a.getNote()});
         }
-        jdbc.batch("INSERT INTO demandanalyse (idconsultation, idAnalyse, observation, resultat, note) "
+        jdbc.batch("INSERT INTO demandeanalyse (idconsultation, idAnalyse, observation, resultat, note) "
                 + "VALUES (?,?,?,?,?)", lignes);
     }
 
@@ -32,7 +32,7 @@ public class JdbcDemandeAnalyseDao implements DemandeAnalyseDao {
         for (analyse a : analyses) {
             lignes.add(new Object[]{a.getResultat(), a.getNote(), a.getIdAnal(), idConsultation});
         }
-        jdbc.batch("UPDATE demandanalyse SET resultat=?, note=? WHERE idAnalyse=? AND idconsultation=?", lignes);
+        jdbc.batch("UPDATE demandeanalyse SET resultat=?, note=? WHERE idAnalyse=? AND idconsultation=?", lignes);
     }
 
     private static final RowMapper<analyse> LIGNE = new RowMapper<analyse>() {
@@ -51,14 +51,14 @@ public class JdbcDemandeAnalyseDao implements DemandeAnalyseDao {
     @Override
     public List<analyse> findByConsultation(int idConsultation) {
         return jdbc.query("SELECT a.idanalyse, a.designation, d.observation, d.resultat, d.note "
-                + "FROM demandanalyse d JOIN analyse a ON a.idanalyse = d.idAnalyse WHERE d.idconsultation=?",
+                + "FROM demandeanalyse d JOIN analyse a ON a.idanalyse = d.idAnalyse WHERE d.idconsultation=?",
                 LIGNE, idConsultation);
     }
 
     @Override
     public Map<Integer, List<analyse>> findByPatient(int idPatient) {
         return jdbc.queryParCle("SELECT d.idconsultation, a.idanalyse, a.designation, d.observation, d.resultat, d.note "
-                + "FROM demandanalyse d JOIN analyse a ON a.idanalyse = d.idAnalyse "
+                + "FROM demandeanalyse d JOIN analyse a ON a.idanalyse = d.idAnalyse "
                 + "JOIN consultation c ON c.idConsultation = d.idconsultation WHERE c.idPatient=?",
                 "idconsultation", LIGNE, idPatient);
     }

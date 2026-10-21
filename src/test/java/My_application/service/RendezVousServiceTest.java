@@ -55,6 +55,40 @@ public class RendezVousServiceTest {
     }
 
     @Test
+    public void leRendezVousEstPrisAvecLeMedecinDuPoste() {
+        assertEquals(Integer.valueOf(RendezVousService.MEDECIN_PAR_DEFAUT), prendre(10, DEMAIN, 9).getIdMedecin());
+    }
+
+    @Test
+    public void deuxMedecinsRecoiventAuMemeCreneau() {
+        int[] medecin = {1};
+        ZoneId zone = ZoneId.systemDefault();
+        RendezVousService parMedecin = new RendezVousService(base,
+                Clock.fixed(MAINTENANT.atZone(zone).toInstant(), zone), 8, 9, 4, JournalAcces.AUCUN,
+                () -> medecin[0]);
+        Rendez_Vous r1 = parMedecin.proposer(base.patients.get(10), secretaire, DEMAIN, 9);
+        parMedecin.confirmer(r1);
+        medecin[0] = 2;
+        Rendez_Vous r2 = parMedecin.proposer(base.patients.get(11), secretaire, DEMAIN, 9);
+        parMedecin.confirmer(r2);
+        assertEquals("créneau libre chez le médecin 2", LocalTime.of(9, 0), r2.getHeure());
+        assertEquals(Integer.valueOf(2), r2.getIdMedecin());
+        try {
+            parMedecin.proposer(base.patients.get(10), secretaire, DEMAIN, 9);
+            fail("un patient n'a qu'un rendez-vous par heure, tous médecins confondus");
+        } catch (MetierException attendu) {
+            assertTrue(attendu.getMessage().contains("par heure"));
+        }
+    }
+
+    @Test
+    public void unRendezVousSansMedecinOccupeLeCreneauPourTous() {
+        Rendez_Vous ancien = prendre(10, DEMAIN, 9);
+        ancien.setIdMedecin(null);
+        assertEquals(LocalTime.of(9, 15), prendre(11, DEMAIN, 9).getHeure());
+    }
+
+    @Test
     public void uneHeureCompleteEstRefusee() {
         for (int i = 10; i < 14; i++) {
             prendre(i, DEMAIN, 9);

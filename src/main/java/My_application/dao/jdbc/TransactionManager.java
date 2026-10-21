@@ -11,7 +11,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * ({@code commit}) ou tout est annulé ({@code rollback}).
  * <p>
  * Exemple : enregistrer une consultation écrit dans six tables (consultation,
- * consultsymptome, consultpathologie, prescrire, demandanalyse). Sans
+ * consultsymptome, consultpathologie, prescrire, demandeanalyse). Sans
  * transaction, une erreur au milieu laissait une consultation à moitié
  * enregistrée.
  * <p>

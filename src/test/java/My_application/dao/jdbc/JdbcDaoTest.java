@@ -56,11 +56,11 @@ public class JdbcDaoTest {
     @Test
     public void ordonnancesDuPatientChargeesEnUneRequeteEtRegroupeesParConsultation() {
         base.quand("FROM prescrire p JOIN medicaments m",
-                ligne("idConsul", 5, "idMedicament", 10, "nomMedicament", "DOLIPRANE", "unite", 1,
+                ligne("idConsultation", 5, "idMedicament", 10, "nomMedicament", "DOLIPRANE", "unite", 1,
                         "posologie", 3, "duree", 5, "mode", 2),
-                ligne("idConsul", 8, "idMedicament", 11, "nomMedicament", "AUGMENTIN", "unite", 1,
+                ligne("idConsultation", 8, "idMedicament", 11, "nomMedicament", "AUGMENTIN", "unite", 1,
                         "posologie", 2, "duree", 7, "mode", 1),
-                ligne("idConsul", 5, "idMedicament", 12, "nomMedicament", "SPASFON", "unite", 2,
+                ligne("idConsultation", 5, "idMedicament", 12, "nomMedicament", "SPASFON", "unite", 2,
                         "posologie", 1, "duree", 3, "mode", 1));
         Map<Integer, List<medicament>> r = daos.getPrescriptionDao().findByPatient(3);
         assertEquals(1, base.executions.size());
@@ -114,6 +114,35 @@ public class JdbcDaoTest {
     }
 
     @Test
+    public void constantesNonMesureesEcritesEnNull() {
+        consultation c = new consultation(Donnees.patient(3, "X"), Donnees.medecin(1));
+        c.setDate_cons(LocalDate.parse("2026-10-08"));
+        c.setHeure_cons(LocalTime.parse("10:30:00"));
+        c.setPoids(72.5);
+        daos.getConsultationDao().insert(c);
+        FauxJdbc.Execution e = base.derniere();
+        assertNull("température", e.param(5));
+        assertNull("pulsation", e.param(6));
+        assertNull("pression vide", e.param(7));
+        assertNull("respiration", e.param(8));
+        assertEquals(72.5, e.param(9));
+    }
+
+    @Test
+    public void constantesNullReluesCommeNonRenseignees() {
+        base.quand("FROM consultation", ligne("idConsultation", 4, "dateConsultation",
+                java.sql.Date.valueOf("2026-10-08"), "heureConsultation", java.sql.Time.valueOf("10:30:00"),
+                "idMedecin", 1, "idPatient", 3, "temperature", null, "pulsation", 80, "pression", null,
+                "respiration", null, "poids", 70.0));
+        consultation c = daos.getConsultationDao().findByPatient(3).get(0);
+        assertEquals(consultation.NON_RENSEIGNE, c.getTemperature(), 0);
+        assertEquals(80, c.getPul_Cardiaque());
+        assertEquals("", c.getPressionA());
+        assertEquals(consultation.NON_RENSEIGNE, c.getTauxRespir());
+        assertEquals(70.0, c.getPoids(), 0);
+    }
+
+    @Test
     public void symptomesInseresEnLot() {
         daos.getConsultationDao().ajouterSymptomes(9,
                 Arrays.asList(new symptome(1, "Toux"), new symptome(2, "Fièvre")));
@@ -146,9 +175,9 @@ public class JdbcDaoTest {
 
     @Test
     public void rendezVousLusAvecPatientEtUtilisateurEnUneRequete() {
-        base.quand("FROM rondezvous", ligne("idUser", 1, "idPatient", 2, "date", java.sql.Date.valueOf("2026-10-09"),
-                "heure", java.sql.Time.valueOf("09:15:00"), "dateFix", java.sql.Date.valueOf("2026-10-01"),
-                "heureFix", java.sql.Time.valueOf("08:00:00"), "etat", 0, "nomPatient", "B", "prenomPatient", "b",
+        base.quand("FROM rendezvous", ligne("idUser", 1, "idPatient", 2, "date", java.sql.Date.valueOf("2026-10-09"),
+                "heure", java.sql.Time.valueOf("09:15:00"),
+                "prisLe", java.sql.Timestamp.valueOf("2026-10-01 08:00:00"), "etat", 0, "nomPatient", "B", "prenomPatient", "b",
                 "date_Nais_Patient", java.sql.Date.valueOf("2000-01-01"), "sexePatient", 0, "nom", "SAHAB",
                 "prenom", "Said", "qualite", "Médecin"));
         List<Rendez_Vous> l = daos.getRendezVousDao().findEntre(LocalDate.parse("2026-10-04"),
@@ -156,6 +185,8 @@ public class JdbcDaoTest {
         assertEquals(1, base.executions.size());
         assertEquals("B", l.get(0).getPatient().getNom());
         assertEquals("SAHAB", l.get(0).getUtilisateur().getNom());
+        assertEquals(LocalDate.parse("2026-10-01"), l.get(0).getDateFix());
+        assertEquals(LocalTime.parse("08:00:00"), l.get(0).getHeureFix());
     }
 
     @Test
