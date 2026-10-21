@@ -3,8 +3,8 @@ package My_application.entities;
 /** Catégorie d'analyses biologiques (ex. « Bilan lipidique »). */
 public class CategAnalyse {
 
-    int id;
-    String designation;
+    private int id;
+    private String designation;
 
     public CategAnalyse() {
     }

@@ -5,8 +5,9 @@
  */
 package My_application.Ordonnance;
 
+import java.util.Locale;
 import My_application.vue.Theme;
-import My_application.AppContext;
+import My_application.service.CatalogueService;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
 import My_application.entities.medicament;
@@ -27,12 +28,12 @@ public class AddMedicamentForm extends JDialog implements Vue {
         this.nomMed.setText(NomMED);
     }
 
-    public AddMedicamentForm() {
+    public AddMedicamentForm(CatalogueService catalogue) {
         initComponents();
         Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
         this.setModal(true);
-        controleur = new CatalogueController(this, AppContext.get().getCatalogueService());
+        controleur = new CatalogueController(this, catalogue);
         for (String forme : controleur.formesMedicament()) {
             formMed.addItem(forme);
         }
@@ -202,7 +203,7 @@ public class AddMedicamentForm extends JDialog implements Vue {
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void nomMedKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_nomMedKeyReleased
-      nomMed.setText(nomMed.getText().toUpperCase());
+      nomMed.setText(nomMed.getText().toUpperCase(Locale.FRENCH));
     }//GEN-LAST:event_nomMedKeyReleased
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed

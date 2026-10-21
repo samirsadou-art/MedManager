@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Exclusions SpotBugs (mvn verify). Chaque exclusion est justifiée ; tout
+  autre constat fait échouer la construction.
+-->
+<FindBugsFilter>
+    <!-- Application de bureau sans code tiers chargé : exposer une liste ou une
+         entité mutable n'est pas une faille ici, et les entités, modèles Swing
+         et DAO partagent volontairement leurs objets. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2,MS_EXPOSE_REP"/>
+    </Match>
+    <!-- Noms historiques conservés (entities/patient, consultation, Rendez_Vous...,
+         formulaires NetBeans) : voir CLAUDE.md. -->
+    <Match>
+        <Bug pattern="NM_CLASS_NAMING_CONVENTION,NM_METHOD_NAMING_CONVENTION"/>
+    </Match>
+    <!-- Les services valident leurs paramètres dans le constructeur ; les classes
+         ne sont pas sérialisables ni sensibles aux attaques par finaliseur. -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+    <!-- System.exit voulu : sortie de l'application et code retour des outils
+         en ligne de commande. -->
+    <Match>
+        <Bug pattern="DM_EXIT"/>
+    </Match>
+    <!-- switch sans default dans les renderers historiques : à revoir à l'étape 5. -->
+    <Match>
+        <Bug pattern="SF_SWITCH_NO_DEFAULT"/>
+    </Match>
+</FindBugsFilter>

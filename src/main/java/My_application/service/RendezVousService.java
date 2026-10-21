@@ -1,13 +1,12 @@
 package My_application.service;
 
 import My_application.dao.DAOFactory;
+import My_application.dao.DoublonException;
 import My_application.dao.RendezVousDao;
 import My_application.dao.UniteDeTravail;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
 import My_application.entities.patient;
-import java.sql.Date;
-import java.sql.Time;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -39,18 +38,31 @@ public class RendezVousService {
     public static final int NOMBRE_HEURES = 9;
     public static final int MAX_PAR_HEURE = 4;
 
+    static final String CRENEAU_PRIS = "Ce créneau vient d'être attribué à un autre patient. "
+            + "Veuillez en choisir un autre.";
+
     private final DAOFactory daos;
     private final RendezVousDao rendezVousDao;
     private final Clock horloge;
     private final int heureOuverture;
     private final int nombreHeures;
     private final int maxParHeure;
+    private final JournalAcces journal;
 
     public RendezVousService(DAOFactory daos) {
-        this(daos, Clock.systemDefaultZone(), HEURE_OUVERTURE, NOMBRE_HEURES, MAX_PAR_HEURE);
+        this(daos, JournalAcces.AUCUN);
+    }
+
+    public RendezVousService(DAOFactory daos, JournalAcces journal) {
+        this(daos, Clock.systemDefaultZone(), HEURE_OUVERTURE, NOMBRE_HEURES, MAX_PAR_HEURE, journal);
     }
 
     public RendezVousService(DAOFactory daos, Clock horloge, int heureOuverture, int nombreHeures, int maxParHeure) {
+        this(daos, horloge, heureOuverture, nombreHeures, maxParHeure, JournalAcces.AUCUN);
+    }
+
+    public RendezVousService(DAOFactory daos, Clock horloge, int heureOuverture, int nombreHeures, int maxParHeure,
+            JournalAcces journal) {
         if (maxParHeure <= 0 || 60 % maxParHeure != 0) {
             throw new IllegalArgumentException("maxParHeure doit diviser 60 : " + maxParHeure);
         }
@@ -60,6 +72,7 @@ public class RendezVousService {
         this.heureOuverture = heureOuverture;
         this.nombreHeures = nombreHeures;
         this.maxParHeure = maxParHeure;
+        this.journal = journal;
     }
 
     public int getMaxParHeure() {
@@ -86,11 +99,11 @@ public class RendezVousService {
     // ----- consultation de l'agenda -----
 
     public List<Rendez_Vous> duJour(LocalDate jour) {
-        return rendezVousDao.findEntre(Date.valueOf(jour), Date.valueOf(jour));
+        return rendezVousDao.findEntre(jour, jour);
     }
 
     public List<Rendez_Vous> deLaSemaine(LocalDate dimanche) {
-        return rendezVousDao.findEntre(Date.valueOf(dimanche), Date.valueOf(dimanche.plusDays(6)));
+        return rendezVousDao.findEntre(dimanche, dimanche.plusDays(6));
     }
 
     // ----- prise de rendez-vous -----
@@ -127,7 +140,7 @@ public class RendezVousService {
         int pas = 60 / maxParHeure;
         boolean[] occupe = new boolean[maxParHeure];
         for (Rendez_Vous r : dansLHeure) {
-            int indice = r.getHeure().toLocalTime().getMinute() / pas;
+            int indice = r.getHeure().getMinute() / pas;
             if (indice < maxParHeure) {
                 occupe[indice] = true;
             }
@@ -149,11 +162,11 @@ public class RendezVousService {
             LocalDateTime maintenant) {
         Rendez_Vous r = new Rendez_Vous();
         r.setPatient(malade);
-        r.setUtilsateur(utilisateur);
-        r.setDate(Date.valueOf(debut.toLocalDate()));
-        r.setHeure(Time.valueOf(debut.toLocalTime()));
-        r.setDateFix(Date.valueOf(maintenant.toLocalDate()));
-        r.setHeureFix(Time.valueOf(maintenant.toLocalTime()));
+        r.setUtilisateur(utilisateur);
+        r.setDate(debut.toLocalDate());
+        r.setHeure(debut.toLocalTime());
+        r.setDateFix(maintenant.toLocalDate());
+        r.setHeureFix(maintenant.toLocalTime());
         return r;
     }
 
@@ -165,35 +178,50 @@ public class RendezVousService {
         daos.enTransaction(new UniteDeTravail<Void>() {
             @Override
             public Void executer() {
-                LocalDate jour = rdv.getDate().toLocalDate();
-                LocalTime h = rdv.getHeure().toLocalTime();
+                LocalDate jour = rdv.getDate();
+                LocalTime h = rdv.getHeure();
                 List<Rendez_Vous> dansLHeure = dansLHeure(duJour(jour), jour, h.getHour());
                 for (Rendez_Vous r : dansLHeure) {
                     if (r.getPatient().getIdentPat() == rdv.getPatient().getIdentPat()) {
                         throw new MetierException("Vous ne pouvez pas prendre plus d'un rendez-vous par heure !");
                     }
-                    if (r.getHeure().toLocalTime().equals(h)) {
-                        throw new MetierException("Ce créneau vient d'être attribué à un autre patient. "
-                                + "Veuillez en choisir un autre.");
+                    if (r.getHeure().equals(h)) {
+                        throw new MetierException(CRENEAU_PRIS);
                     }
                 }
                 if (dansLHeure.size() >= maxParHeure) {
                     throw new MetierException("Ce créneau horaire est complet.");
                 }
-                rendezVousDao.insert(rdv);
+                try {
+                    rendezVousDao.insert(rdv);
+                } catch (DoublonException e) {
+                    // Un autre poste a enregistré ce créneau entre la vérification et
+                    // l'insertion : la clé primaire (date, heure) l'a refusé.
+                    throw new MetierException(CRENEAU_PRIS);
+                }
+                journal.noter(JournalAcces.Action.RENDEZ_VOUS_PRIS, rdv.getPatient().getIdentPat(),
+                        rdv.getDate() + " " + rdv.getHeure());
                 return null;
             }
         });
     }
 
     /** Annule un rendez-vous à venir du patient {@code demandeur}. */
-    public void annuler(Rendez_Vous rdv, patient demandeur) {
+    public void annuler(final Rendez_Vous rdv, patient demandeur) {
         if (!peutEtreAnnule(rdv, demandeur)) {
             throw new MetierException("Seul un rendez-vous à venir du patient courant peut être annulé.");
         }
-        if (!rendezVousDao.delete(rdv)) {
-            throw new MetierException("Ce rendez-vous n'existe plus.");
-        }
+        daos.enTransaction(new UniteDeTravail<Void>() {
+            @Override
+            public Void executer() {
+                if (!rendezVousDao.delete(rdv)) {
+                    throw new MetierException("Ce rendez-vous n'existe plus.");
+                }
+                journal.noter(JournalAcces.Action.RENDEZ_VOUS_ANNULE, rdv.getPatient().getIdentPat(),
+                        rdv.getDate() + " " + rdv.getHeure());
+                return null;
+            }
+        });
     }
 
     public boolean peutEtreAnnule(Rendez_Vous rdv, patient demandeur) {
@@ -205,7 +233,7 @@ public class RendezVousService {
     private static List<Rendez_Vous> dansLHeure(List<Rendez_Vous> rdvs, LocalDate jour, int heure) {
         List<Rendez_Vous> r = new ArrayList<>();
         for (Rendez_Vous x : rdvs) {
-            if (x.getDate().toLocalDate().equals(jour) && x.getHeure().toLocalTime().getHour() == heure) {
+            if (x.getDate().equals(jour) && x.getHeure().getHour() == heure) {
                 r.add(x);
             }
         }

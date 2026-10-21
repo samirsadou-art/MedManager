@@ -1,6 +1,7 @@
 package My_application.dao.jdbc;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -33,7 +34,7 @@ public class DatabaseConfigTest {
         DatabaseConfig c = DatabaseConfig.charger();
         assertEquals("du-fichier-local", c.getPassword());
         assertTrue(c.getUrl().startsWith("jdbc:mysql://localhost:3306/autre?"));
-        assertEquals("root", c.getUser());
+        assertEquals("gestimed", c.getUser());
     }
 
     @Test
@@ -64,10 +65,24 @@ public class DatabaseConfigTest {
     @Test
     public void lectureDuFichierDuProjet() {
         DatabaseConfig c = DatabaseConfig.charger();
-        assertEquals("jdbc:mysql://localhost:3306/medicale?useSSL=false&allowPublicKeyRetrieval=true"
+        assertEquals("jdbc:mysql://localhost:3306/medicale?sslMode=PREFERRED&allowPublicKeyRetrieval=true"
                 + "&characterEncoding=UTF-8", c.getUrl());
-        assertEquals("root", c.getUser());
+        assertEquals("gestimed", c.getUser());
         assertEquals("com.mysql.cj.jdbc.Driver", c.getDriver());
+    }
+
+    @Test
+    public void laConfigurationLivreeNUtilisePasRootNiLeChiffrementDesactive() {
+        DatabaseConfig c = DatabaseConfig.charger();
+        assertFalse(c.estCompteAdministrateur());
+        assertFalse(c.getUrl().contains("useSSL=false"));
+        assertFalse(c.getUrl().contains("sslMode=DISABLED"));
+    }
+
+    @Test
+    public void rootEstReconnuCommeCompteAdministrateur() {
+        assertTrue(new DatabaseConfig("jdbc:mysql://h/b", " Root ", "", "").estCompteAdministrateur());
+        assertFalse(new DatabaseConfig("jdbc:mysql://h/b", "gestimed", "", "").estCompteAdministrateur());
     }
 
     @Test

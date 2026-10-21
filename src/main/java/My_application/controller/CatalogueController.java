@@ -4,7 +4,7 @@ import My_application.entities.CategAnalyse;
 import My_application.entities.analyse;
 import My_application.entities.medicament;
 import My_application.service.CatalogueService;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -22,84 +22,39 @@ public class CatalogueController extends ControleurBase {
         this.catalogue = catalogue;
     }
 
-    public List<medicament> rechercherMedicaments(final String prefixe) {
-        final List<medicament> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogue.medicaments(prefixe));
-            }
-        });
-        return r;
+    public List<medicament> rechercherMedicaments(String prefixe) {
+        return tenter(() -> catalogue.medicaments(prefixe), Collections.<medicament>emptyList());
     }
 
     public List<String> formesMedicament() {
-        final List<String> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogue.formesMedicament());
-            }
-        });
-        return r;
+        return tenter(catalogue::formesMedicament, Collections.<String>emptyList());
     }
 
-    public medicament creerMedicament(final String nom, final String forme, final String dosage) {
-        final medicament[] m = new medicament[1];
-        if (tenter(new Runnable() {
-            @Override
-            public void run() {
-                m[0] = catalogue.creerMedicament(nom, forme, dosage);
-            }
-        })) {
-            vue.afficherInformation("Médicament « " + m[0].getDesignmed() + " » ajouté.");
+    public medicament creerMedicament(String nom, String forme, String dosage) {
+        medicament m = tenter(() -> catalogue.creerMedicament(nom, forme, dosage), null);
+        if (m != null) {
+            vue.afficherInformation("Médicament « " + m.getDesignmed() + " » ajouté.");
         }
-        return m[0];
+        return m;
     }
 
-    public List<analyse> rechercherAnalyses(final String prefixe) {
-        final List<analyse> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogue.analyses(prefixe));
-            }
-        });
-        return r;
+    public List<analyse> rechercherAnalyses(String prefixe) {
+        return tenter(() -> catalogue.analyses(prefixe), Collections.<analyse>emptyList());
     }
 
     public List<CategAnalyse> categoriesAnalyse() {
-        final List<CategAnalyse> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogue.categoriesAnalyse());
-            }
-        });
-        return r;
+        return tenter(catalogue::categoriesAnalyse, Collections.<CategAnalyse>emptyList());
     }
 
-    public List<analyse> analysesDeCategorie(final CategAnalyse categorie) {
-        final List<analyse> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogue.analysesDeCategorie(categorie));
-            }
-        });
-        return r;
+    public List<analyse> analysesDeCategorie(CategAnalyse categorie) {
+        return tenter(() -> catalogue.analysesDeCategorie(categorie), Collections.<analyse>emptyList());
     }
 
-    public analyse creerAnalyse(final String designation, final CategAnalyse categorie) {
-        final analyse[] a = new analyse[1];
-        if (tenter(new Runnable() {
-            @Override
-            public void run() {
-                a[0] = catalogue.creerAnalyse(designation, categorie);
-            }
-        })) {
-            vue.afficherInformation("Analyse « " + a[0].getDesign() + " » ajoutée.");
+    public analyse creerAnalyse(String designation, CategAnalyse categorie) {
+        analyse a = tenter(() -> catalogue.creerAnalyse(designation, categorie), null);
+        if (a != null) {
+            vue.afficherInformation("Analyse « " + a.getDesign() + " » ajoutée.");
         }
-        return a[0];
+        return a;
     }
 }

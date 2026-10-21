@@ -1,5 +1,6 @@
 package My_application.controller;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -15,16 +16,21 @@ import My_application.fake.Donnees;
 import My_application.fake.FausseVue;
 import My_application.fake.MemoireDAOFactory;
 import My_application.report.RapportService;
+import My_application.service.AuthentificationService;
 import My_application.service.CatalogueService;
 import My_application.service.DossierService;
+import My_application.service.JournalAcces;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.Session;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 /**
  * Tests des contrôleurs MVC avec de fausses vues : on vérifie ce que la vue
@@ -33,6 +39,9 @@ import org.junit.Test;
 public class ControleursTest {
 
     private MemoireDAOFactory base;
+
+    @Rule
+    public TemporaryFolder dossierDocuments = new TemporaryFolder();
 
     @Before
     public void preparer() {
@@ -77,6 +86,9 @@ public class ControleursTest {
         assertNull(vue.affiches);
         assertEquals(1, vue.erreurs.size());
         assertTrue(vue.erreurs.get(0).contains("base de données"));
+        // Le détail technique va dans le journal, jamais à l'écran.
+        assertFalse(vue.erreurs.get(0).contains("Panne simulée"));
+        assertFalse(vue.erreurs.get(0).contains("patient.findByNom"));
     }
 
     @Test
@@ -100,7 +112,19 @@ public class ControleursTest {
     private DossierPatientController dossier(FausseVue vue) {
         DossierService ds = new DossierService(base);
         DossierPatient d = ds.ouvrirDossier(base.patients.get(1), base.medecins.get(1));
-        return new DossierPatientController(vue, d, ds, new CatalogueService(base), new RapportService());
+        // jamais le dossier réel ~/GestiMed/Documents pendant les tests
+        RapportService rapports = new RapportService(dossierDocuments.getRoot(), new RapportService.Afficheur() {
+            @Override
+            public void ouvrir(java.io.File pdf) throws java.io.IOException {
+                throw new java.io.IOException("aucune visionneuse");
+            }
+
+            @Override
+            public boolean imprimer(java.io.File pdf) throws java.io.IOException {
+                throw new java.io.IOException("aucune visionneuse");
+            }
+        });
+        return new DossierPatientController(vue, d, ds, new CatalogueService(base), rapports);
     }
 
     @Test
@@ -166,6 +190,17 @@ public class ControleursTest {
     }
 
     @Test
+    public void visionneuseAbsenteLeMessageDitOuEstLeDocument() {
+        FausseVue vue = new FausseVue();
+        DossierPatientController ctrl = dossier(vue);
+        consultation c = ctrl.nouvelleConsultation();
+        c.getOrdoPat().ajouter(Donnees.medicament(1, "DOLIPRANE 1G", 1, 3, 2, 5));
+        ctrl.ordonnance(c, false);
+        assertTrue(vue.erreurs.get(0), vue.erreurs.get(0).contains(dossierDocuments.getRoot().getAbsolutePath()));
+        assertFalse(vue.erreurs.get(0).contains("aucune visionneuse"));
+    }
+
+    @Test
     public void impressionIndisponibleLeDocumentEstOuvertEtLUtilisateurPrevenu() throws Exception {
         FausseVue vue = new FausseVue();
         final List<java.io.File> ouverts = new ArrayList<>();
@@ -194,7 +229,38 @@ public class ControleursTest {
         assertTrue(vue.erreurs.isEmpty());
     }
 
+    // ----- connexion -----
+
+    @Test
+    public void connexionRefuseeAfficheLeMessageEtEffaceLeMotDePasse() {
+        FausseVue vue = new FausseVue();
+        Session session = new Session(base, 1, 1);
+        ConnexionController ctrl = new ConnexionController(vue,
+                new AuthentificationService(base, session, JournalAcces.AUCUN));
+        assertEquals(Boolean.TRUE, ctrl.premiereUtilisation());
+        char[] mdp = "Cabinet2026".toCharArray();
+        assertNotNull(ctrl.creerPremierCompte("medecin", mdp, "Cabinet2026".toCharArray()));
+        assertArrayEquals(new char[mdp.length], mdp);
+        char[] faux = "Mauvais2026".toCharArray();
+        assertNull(ctrl.connecter("medecin", faux));
+        assertEquals("Identifiant ou mot de passe incorrect.", vue.erreurs.get(0));
+        assertArrayEquals(new char[faux.length], faux);
+        assertNotNull(ctrl.connecter("medecin", "Cabinet2026".toCharArray()));
+    }
+
     // ----- rendez-vous -----
+
+    @Test
+    public void unePanneDeBasePendantLApercuEstSignaleeSansDetailTechnique() {
+        FausseVue vue = new FausseVue();
+        RendezVousController ctrl = new RendezVousController(vue, new RendezVousService(base),
+                base.patients.get(1), Donnees.utilisateur(1));
+        base.echouerSur("rdv.findEntre");
+        assertNull(ctrl.apercu(LocalDate.now().plusDays(1), 9));
+        assertEquals(1, vue.erreurs.size());
+        assertTrue(vue.erreurs.get(0).contains("base de données"));
+        assertFalse(vue.erreurs.get(0).contains("Panne simulée"));
+    }
 
     @Test
     public void priseDeRendezVousComplete() {
@@ -220,8 +286,8 @@ public class ControleursTest {
     // ----- accueil -----
 
     static class FausseAccueil extends FausseVue implements AccueilVue {
-        List<Rendez_Vous> rdv = new ArrayList<>();
-        List<consultation> consultations = new ArrayList<>();
+        List<Rendez_Vous> rdv;
+        List<consultation> consultations;
 
         @Override
         public void afficherRendezVousDuJour(List<Rendez_Vous> rendezVous) {
@@ -241,9 +307,36 @@ public class ControleursTest {
         ds.nouvelleConsultation(d);
         ds.enregistrer(d);
         FausseAccueil vue = new FausseAccueil();
-        new AccueilController(vue, ds, new RendezVousService(base)).rafraichir();
+        new AccueilController(vue, ds, new RendezVousService(base), Executeur.IMMEDIAT).rafraichir();
         assertEquals(1, vue.consultations.size());
         assertTrue(vue.erreurs.isEmpty());
+    }
+
+    @Test
+    public void accueilLitEnArrierePlanEtNAfficheQuEnsuite() {
+        final List<Runnable> suites = new ArrayList<>();
+        Executeur differe = new Executeur() {
+            @Override
+            public void executer(Runnable travail, Runnable suite) {
+                travail.run();
+                suites.add(suite);
+            }
+        };
+        FausseAccueil vue = new FausseAccueil();
+        new AccueilController(vue, new DossierService(base), new RendezVousService(base), differe).rafraichir();
+        assertNull("rien n'est affiché depuis le fil de lecture", vue.consultations);
+        suites.get(0).run();
+        assertNotNull(vue.consultations);
+    }
+
+    @Test
+    public void accueilSignaleUnePanneDeLectureSansDetailTechnique() {
+        base.echouerSur("consultation.findByDate");
+        FausseAccueil vue = new FausseAccueil();
+        new AccueilController(vue, new DossierService(base), new RendezVousService(base), Executeur.IMMEDIAT)
+                .rafraichir();
+        assertEquals(Arrays.asList(ControleurBase.ERREUR_BASE), vue.erreurs);
+        assertNull(vue.consultations);
     }
 
     // ----- nouveau patient -----
@@ -260,7 +353,7 @@ public class ControleursTest {
         patient p = ctrl.enregistrer(s);
         assertNotNull(p);
         assertEquals("ZIANI", p.getNom());
-        assertEquals(LocalDate.of(1992, 2, 29), p.getDat_nais().toLocalDate());
+        assertEquals(LocalDate.of(1992, 2, 29), p.getDat_nais());
         assertTrue(vue.informations.get(0).contains("enregistré"));
     }
 

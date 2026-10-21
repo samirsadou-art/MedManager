@@ -1,26 +1,22 @@
 -- =====================================================================
--- GestiMed : création de la base réelle « medicale ».
+-- GestiMed, migration V1 : schéma initial (avant l'écran de connexion).
 --
--- Script NON destructif, relançable sans perte de données :
--- CREATE DATABASE IF NOT EXISTS et CREATE TABLE IF NOT EXISTS uniquement.
--- Une table qui existe déjà n'est PAS modifiée (pas de migration) : pour
--- faire évoluer une base existante, écrire un script ALTER TABLE dédié.
+-- Reconstitué à partir des requêtes du code (dao/jdbc/Jdbc*Dao.java,
+-- Mappers.java) et des règles des services.
 --
--- Définitions des tables identiques à sql/schema_gestimed.sql (utilisé par
--- le test d'intégration) : toute modification doit être faite dans les deux.
+-- Ne jamais modifier une migration déjà appliquée : Flyway vérifie leur
+-- somme de contrôle. Toute évolution passe par un nouveau fichier
+-- V<n>__description.sql (voir My_application.outils.MigrationBase).
 --
--- Exécution (XAMPP) :
---   D:/xampp/mysql/bin/mysql.exe -u root --default-character-set=utf8mb4 < sql/medicale.sql
--- puis les données de départ : sql/donnees_initiales.sql
+-- Une base existante créée avant Flyway n'exécute pas ce fichier : elle est
+-- marquée « déjà en version 1 » (ou 2) lors de sa première mise à jour.
+--
+-- IMPORTANT : ENGINE=InnoDB. Avec MyISAM, MySQL ignore les transactions et
+-- le ROLLBACK de DossierService n'annulerait rien.
+-- Compatible MySQL 8 et MariaDB 10.4+ (les CHECK sont ignorés avant 10.2).
+-- Noms de tables et colonnes imposés par le code : ne pas les renommer
+-- (rondezvous, demandanalyse, idMedcin, prenomMedcin, ...).
 -- =====================================================================
-
-SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-CREATE DATABASE IF NOT EXISTS medicale
-  DEFAULT CHARACTER SET utf8mb4
-  DEFAULT COLLATE utf8mb4_unicode_ci;
-
-USE medicale;
 
 -- ---------------------------------------------------------------------
 -- Patients. idPatient = numéro de dossier : auto-incrémenté, ou saisi
@@ -28,7 +24,7 @@ USE medicale;
 -- Nom, prénom, date de naissance et sexe sont obligatoires (PatientService).
 -- sexePatient : 1 = masculin, 0 = féminin (patient.isMasculin).
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS patient (
+CREATE TABLE patient (
   idPatient            INT          NOT NULL AUTO_INCREMENT,
   nomPatient           VARCHAR(60)  NOT NULL,
   prenomPatient        VARCHAR(60)  NOT NULL,
@@ -52,7 +48,7 @@ CREATE TABLE IF NOT EXISTS patient (
 -- exister. Identifiant mal orthographié (idMedcin, prenomMedcin) imposé
 -- par Mappers.MEDECIN.
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS medecin (
+CREATE TABLE medecin (
   idMedcin      INT          NOT NULL AUTO_INCREMENT,
   ordreMedecin  VARCHAR(30)  NULL,
   nomMedecin    VARCHAR(60)  NOT NULL,
@@ -71,7 +67,7 @@ CREATE TABLE IF NOT EXISTS medecin (
 -- ---------------------------------------------------------------------
 -- Utilisateurs (personnel qui prend les rendez-vous).
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS utilisateur (
+CREATE TABLE utilisateur (
   idUtilisateur INT          NOT NULL AUTO_INCREMENT,
   nom           VARCHAR(60)  NOT NULL,
   prenom        VARCHAR(60)  NOT NULL,
@@ -85,14 +81,14 @@ CREATE TABLE IF NOT EXISTS utilisateur (
 -- créer une. L'index unique sert aussi les recherches LIKE 'préfixe%'
 -- et les ORDER BY designation des DAO.
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS symptomes (
+CREATE TABLE symptomes (
   idsymptome  INT          NOT NULL AUTO_INCREMENT,
   designation VARCHAR(150) NOT NULL,
   PRIMARY KEY (idsymptome),
   UNIQUE KEY uk_symptomes_designation (designation)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS pathologies (
+CREATE TABLE pathologies (
   idpathologie INT          NOT NULL AUTO_INCREMENT,
   designation  VARCHAR(150) NOT NULL,
   PRIMARY KEY (idpathologie),
@@ -102,7 +98,7 @@ CREATE TABLE IF NOT EXISTS pathologies (
 -- nomMedicament = désignation complète « NOM FORME DOSAGE ».
 -- type : 'P' = ajouté par le praticien (JdbcMedicamentDao.insert),
 --        'R' = référentiel livré avec l'application (donnees_initiales.sql).
-CREATE TABLE IF NOT EXISTS medicaments (
+CREATE TABLE medicaments (
   idMedicament  INT          NOT NULL AUTO_INCREMENT,
   nomMedicament VARCHAR(200) NOT NULL,
   forme         VARCHAR(60)  NULL,
@@ -112,7 +108,7 @@ CREATE TABLE IF NOT EXISTS medicaments (
   KEY idx_medicaments_forme (forme)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS categanalyse (
+CREATE TABLE categanalyse (
   idcateganalyse INT          NOT NULL AUTO_INCREMENT,
   categorie      VARCHAR(80)  NOT NULL,
   PRIMARY KEY (idcateganalyse),
@@ -120,7 +116,7 @@ CREATE TABLE IF NOT EXISTS categanalyse (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Une analyse appartient obligatoirement à une catégorie (CatalogueService.creerAnalyse).
-CREATE TABLE IF NOT EXISTS analyse (
+CREATE TABLE analyse (
   idanalyse   INT          NOT NULL AUTO_INCREMENT,
   designation VARCHAR(150) NOT NULL,
   idcategorie INT          NOT NULL,
@@ -137,7 +133,7 @@ CREATE TABLE IF NOT EXISTS analyse (
 -- vide. Bornes reprises de ConstantesVitales.
 -- RESTRICT : on ne supprime ni un patient ni un médecin qui a un historique.
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS consultation (
+CREATE TABLE consultation (
   idConsultation    INT          NOT NULL AUTO_INCREMENT,
   dateConsultation  DATE         NOT NULL,
   heureConsultation TIME         NOT NULL,
@@ -169,7 +165,7 @@ CREATE TABLE IF NOT EXISTS consultation (
 -- Une même entrée ne figure qu'une fois par consultation (addSymptome,
 -- addPathologie, ordonnance.ajouter, my_modelAnalyse refusent les doublons).
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS consultsymptome (
+CREATE TABLE consultsymptome (
   idconsultation INT NOT NULL,
   idsymptome     INT NOT NULL,
   PRIMARY KEY (idconsultation, idsymptome),
@@ -180,7 +176,7 @@ CREATE TABLE IF NOT EXISTS consultsymptome (
     REFERENCES symptomes (idsymptome) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS consultpathologie (
+CREATE TABLE consultpathologie (
   idconsultation INT NOT NULL,
   idpathologie   INT NOT NULL,
   PRIMARY KEY (idconsultation, idpathologie),
@@ -193,7 +189,7 @@ CREATE TABLE IF NOT EXISTS consultpathologie (
 
 -- Ordonnance : une ligne par médicament prescrit.
 -- mode : 0 = soir, 1 = matin, 2 = indifférent (medicament.MODE_*).
-CREATE TABLE IF NOT EXISTS prescrire (
+CREATE TABLE prescrire (
   idMed     INT      NOT NULL,
   idConsul  INT      NOT NULL,
   unite     SMALLINT NOT NULL DEFAULT 0,
@@ -212,7 +208,7 @@ CREATE TABLE IF NOT EXISTS prescrire (
 
 -- Analyses demandées. resultat et note sont saisis plus tard
 -- (DemandeAnalyseDao.updateResultats). note : interprétation de 0 à 4.
-CREATE TABLE IF NOT EXISTS demandanalyse (
+CREATE TABLE demandanalyse (
   idconsultation INT          NOT NULL,
   idAnalyse      INT          NOT NULL,
   observation    VARCHAR(500) NULL,
@@ -234,7 +230,7 @@ CREATE TABLE IF NOT EXISTS demandanalyse (
 -- etat n'est pas écrit par le code : 0 par défaut.
 -- dateFix / heureFix : date et heure de la prise du rendez-vous.
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS rondezvous (
+CREATE TABLE rondezvous (
   idUser    INT     NOT NULL,
   idPatient INT     NOT NULL,
   `date`    DATE    NOT NULL,

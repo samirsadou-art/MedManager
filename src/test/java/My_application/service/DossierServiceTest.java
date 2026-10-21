@@ -93,16 +93,20 @@ public class DossierServiceTest {
     }
 
     @Test
-    public void leMedecinNEstLuQuUneFoisPourToutLeDossier() {
+    public void leNombreDeRequetesNeDependPasDuNombreDeConsultations() {
         for (int i = 0; i < 3; i++) {
-            DossierPatient d = service.ouvrirDossier(base.patients.get(1), base.medecins.get(1));
-            service.nouvelleConsultation(d);
-            service.enregistrer(d);
+            service.enregistrer(dossierAvecNouvelleConsultation());
         }
         base.requetes = 0;
         service.ouvrirDossier(base.patients.get(1), null);
-        // 1 requête consultations + 1 seule lecture du médecin (cache), pas 3.
-        assertEquals(2, base.requetes);
+        // 1 requête consultations + 4 requêtes groupées (symptômes, pathologies,
+        // ordonnances, analyses) + 1 seule lecture du médecin (cache) : 6, que
+        // le dossier compte 3 consultations ou 300.
+        assertEquals(6, base.requetes);
+        DossierPatient d = service.ouvrirDossier(base.patients.get(1), null);
+        assertEquals(3, d.getNombreConsultation());
+        assertEquals("Toux", d.getConsultationAt(2).getSymptomes().get(0).getDesignation());
+        assertEquals("GLYCEMIE", d.getConsultationAt(2).getAnaPat().getListeAnaly().get(0).getDesign());
     }
 
     @Test

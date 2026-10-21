@@ -16,13 +16,12 @@ public class ServiceClientTchat extends Thread{
     private static final Logger LOG = Logger.getLogger(ServiceClientTchat.class.getName());
 
     volatile Socket        Sock;
-    DataInputStream   input;
+    volatile DataInputStream input;
     volatile DataOutputStream output;
-    int port=7777;
-    String host="127.0.0.1";
+    static final int port=7777;
+    static final String host="127.0.0.1";
     volatile boolean connected=false;
-    boolean paused=false;
-    Descussion disc;
+    final Descussion disc;
 
     public ServiceClientTchat(Descussion disc) {
         this.disc=disc;

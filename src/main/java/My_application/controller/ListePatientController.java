@@ -1,6 +1,5 @@
 package My_application.controller;
 
-import My_application.entities.DossierPatient;
 import My_application.entities.patient;
 import My_application.service.DossierService;
 import My_application.service.PatientService;
@@ -22,22 +21,11 @@ public class ListePatientController extends ControleurBase {
         this.session = session;
     }
 
-    public void rechercher(final String debutDuNom) {
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                vue.afficherPatients(patientService.rechercher(debutDuNom));
-            }
-        });
+    public void rechercher(String debutDuNom) {
+        tenter(() -> vue.afficherPatients(patientService.rechercher(debutDuNom)));
     }
 
-    public boolean ouvrirDossier(final patient p) {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                DossierPatient dossier = dossierService.ouvrirDossier(p, session.getMedecinTraitant());
-                vue.afficherDossier(dossier);
-            }
-        });
+    public boolean ouvrirDossier(patient p) {
+        return tenter(() -> vue.afficherDossier(dossierService.ouvrirDossier(p, session.getMedecinTraitant())));
     }
 }

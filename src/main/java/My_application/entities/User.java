@@ -8,10 +8,14 @@ package My_application.entities;
  */
 public class User {
 
-    int ident;
-    String nom;
-    String prenom;
-    String quailite;
+    private int ident;
+    private String nom;
+    private String prenom;
+    private String quailite;
+    private String login;
+    private boolean actif = true;
+    /** Médecin traitant de la session quand cet utilisateur se connecte (null : celui par défaut). */
+    private Integer idMedecin;
 
     public User() {
     }
@@ -53,6 +57,30 @@ public class User {
 
     public void setQuailite(String quailite) {
         this.quailite = quailite;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public boolean isActif() {
+        return actif;
+    }
+
+    public void setActif(boolean actif) {
+        this.actif = actif;
+    }
+
+    public Integer getIdMedecin() {
+        return idMedecin;
+    }
+
+    public void setIdMedecin(Integer idMedecin) {
+        this.idMedecin = idMedecin;
     }
 
     @Override

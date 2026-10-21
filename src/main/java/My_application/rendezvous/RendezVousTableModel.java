@@ -53,9 +53,9 @@ public class RendezVousTableModel extends AbstractTableModel {
             }
         }
         for (Rendez_Vous r : rendezVous) {
-            LocalDate jour = r.getDate().toLocalDate();
+            LocalDate jour = r.getDate();
             int col = (int) java.time.temporal.ChronoUnit.DAYS.between(dimanche, jour) + 1;
-            int row = r.getHeure().toLocalTime().getHour() - heureOuverture;
+            int row = r.getHeure().getHour() - heureOuverture;
             if (col >= 1 && col <= 7 && row >= 0 && row < data.length) {
                 ajouter(r, row, col);
             }
