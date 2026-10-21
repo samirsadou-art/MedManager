@@ -31,7 +31,6 @@ public class NouveauPatientController extends ControleurBase {
 
     private final Vue vue;
     private final PatientService patientService;
-    private patient cree;
 
     public NouveauPatientController(Vue vue, PatientService patientService) {
         super(vue);
@@ -40,15 +39,9 @@ public class NouveauPatientController extends ControleurBase {
     }
 
     /** Renvoie le patient créé, ou null si la saisie est invalide (message déjà affiché). */
-    public patient enregistrer(final Saisie s) {
-        cree = null;
-        boolean ok = tenter(new Runnable() {
-            @Override
-            public void run() {
-                cree = patientService.creer(versPatient(s));
-            }
-        });
-        if (ok) {
+    public patient enregistrer(Saisie s) {
+        patient cree = tenter(() -> patientService.creer(versPatient(s)), null);
+        if (cree != null) {
             vue.afficherInformation("Patient " + cree + " enregistré (dossier n° " + cree.getIdentPat() + ").");
         }
         return cree;

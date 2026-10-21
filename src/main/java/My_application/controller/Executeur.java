@@ -13,30 +13,22 @@ public interface Executeur {
     void executer(Runnable travail, Runnable suite);
 
     /** Travail dans un {@link SwingWorker}, suite dans {@code done()} (sur l'EDT). */
-    Executeur SWING = new Executeur() {
+    Executeur SWING = (travail, suite) -> new SwingWorker<Void, Void>() {
         @Override
-        public void executer(final Runnable travail, final Runnable suite) {
-            new SwingWorker<Void, Void>() {
-                @Override
-                protected Void doInBackground() {
-                    travail.run();
-                    return null;
-                }
-
-                @Override
-                protected void done() {
-                    suite.run();
-                }
-            }.execute();
-        }
-    };
-
-    /** Tout de suite, dans le fil appelant (tests). */
-    Executeur IMMEDIAT = new Executeur() {
-        @Override
-        public void executer(Runnable travail, Runnable suite) {
+        protected Void doInBackground() {
             travail.run();
+            return null;
+        }
+
+        @Override
+        protected void done() {
             suite.run();
         }
+    }.execute();
+
+    /** Tout de suite, dans le fil appelant (tests). */
+    Executeur IMMEDIAT = (travail, suite) -> {
+        travail.run();
+        suite.run();
     };
 }

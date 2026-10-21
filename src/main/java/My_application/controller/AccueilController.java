@@ -33,21 +33,15 @@ public class AccueilController extends ControleurBase {
 
     /** Relit l'activité du jour en arrière-plan : la fenêtre reste utilisable pendant la lecture. */
     public void rafraichir() {
-        enArrierePlan(new Lecture<Activite>() {
-            @Override
-            public Activite lire() {
-                LocalDate jour = rendezVousService.aujourdhui();
-                Activite a = new Activite();
-                a.rendezVous = rendezVousService.duJour(jour);
-                a.consultations = dossierService.consultationsDuJour(jour);
-                return a;
-            }
-        }, new Affichage<Activite>() {
-            @Override
-            public void afficher(Activite a) {
-                vue.afficherRendezVousDuJour(a.rendezVous);
-                vue.afficherConsultationsDuJour(a.consultations);
-            }
+        enArrierePlan(() -> {
+            LocalDate jour = rendezVousService.aujourdhui();
+            Activite a = new Activite();
+            a.rendezVous = rendezVousService.duJour(jour);
+            a.consultations = dossierService.consultationsDuJour(jour);
+            return a;
+        }, a -> {
+            vue.afficherRendezVousDuJour(a.rendezVous);
+            vue.afficherConsultationsDuJour(a.consultations);
         });
     }
 }

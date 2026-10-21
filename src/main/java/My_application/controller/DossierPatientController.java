@@ -8,7 +8,7 @@ import My_application.report.RapportService;
 import My_application.service.CatalogueService;
 import My_application.service.ConstantesVitales;
 import My_application.service.DossierService;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -40,38 +40,17 @@ public class DossierPatientController extends ControleurBase {
 
     /** Démarre une nouvelle consultation ; null si impossible. */
     public consultation nouvelleConsultation() {
-        final consultation[] c = new consultation[1];
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                c[0] = dossierService.nouvelleConsultation(dossier);
-            }
-        });
-        return c[0];
+        return tenter(() -> dossierService.nouvelleConsultation(dossier), null);
     }
 
     // ----- auto-complétion -----
 
-    public List<symptome> suggestionsSymptomes(final String prefixe) {
-        final List<symptome> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogueService.symptomes(prefixe));
-            }
-        });
-        return r;
+    public List<symptome> suggestionsSymptomes(String prefixe) {
+        return tenter(() -> catalogueService.symptomes(prefixe), Collections.<symptome>emptyList());
     }
 
-    public List<pathologie> suggestionsPathologies(final String prefixe) {
-        final List<pathologie> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogueService.pathologies(prefixe));
-            }
-        });
-        return r;
+    public List<pathologie> suggestionsPathologies(String prefixe) {
+        return tenter(() -> catalogueService.pathologies(prefixe), Collections.<pathologie>emptyList());
     }
 
     // ----- symptômes / pathologies de la consultation -----
@@ -81,24 +60,13 @@ public class DossierPatientController extends ControleurBase {
      * l'utilisateur a tapé un libellé libre, le symptôme correspondant
      * (créé dans le référentiel s'il n'existe pas).
      */
-    public boolean ajouterSymptome(final consultation c, final symptome choisi, final String saisie) {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                symptome s = choisi != null ? choisi : catalogueService.obtenirOuCreerSymptome(saisie);
-                c.addSymptome(s);
-            }
-        });
+    public boolean ajouterSymptome(consultation c, symptome choisi, String saisie) {
+        return tenter(() -> c.addSymptome(choisi != null ? choisi : catalogueService.obtenirOuCreerSymptome(saisie)));
     }
 
-    public boolean ajouterPathologie(final consultation c, final pathologie choisie, final String saisie) {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                pathologie p = choisie != null ? choisie : catalogueService.obtenirOuCreerPathologie(saisie);
-                c.addPathologie(p);
-            }
-        });
+    public boolean ajouterPathologie(consultation c, pathologie choisie, String saisie) {
+        return tenter(() -> c.addPathologie(
+                choisie != null ? choisie : catalogueService.obtenirOuCreerPathologie(saisie)));
     }
 
     // ----- constantes vitales -----
@@ -112,29 +80,26 @@ public class DossierPatientController extends ControleurBase {
      * Valide la saisie d'une constante et la recopie dans la consultation.
      * Renvoie false (et affiche la règle non respectée) si la valeur est invalide.
      */
-    public boolean saisirConstante(final consultation c, final Constante champ, final String saisie) {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                switch (champ) {
-                    case TEMPERATURE:
-                        c.setTemperature(ConstantesVitales.temperature(saisie));
-                        break;
-                    case PULSATION:
-                        c.setPul_Cardiaque(ConstantesVitales.pulsation(saisie));
-                        break;
-                    case PRESSION:
-                        c.setPressionA(ConstantesVitales.pression(saisie));
-                        break;
-                    case RESPIRATION:
-                        c.setTauxRespir(ConstantesVitales.respiration(saisie));
-                        break;
-                    case POIDS:
-                        c.setPoids(ConstantesVitales.poids(saisie));
-                        break;
-                    default:
-                        throw new IllegalArgumentException(String.valueOf(champ));
-                }
+    public boolean saisirConstante(consultation c, Constante champ, String saisie) {
+        return tenter(() -> {
+            switch (champ) {
+                case TEMPERATURE:
+                    c.setTemperature(ConstantesVitales.temperature(saisie));
+                    break;
+                case PULSATION:
+                    c.setPul_Cardiaque(ConstantesVitales.pulsation(saisie));
+                    break;
+                case PRESSION:
+                    c.setPressionA(ConstantesVitales.pression(saisie));
+                    break;
+                case RESPIRATION:
+                    c.setTauxRespir(ConstantesVitales.respiration(saisie));
+                    break;
+                case POIDS:
+                    c.setPoids(ConstantesVitales.poids(saisie));
+                    break;
+                default:
+                    throw new IllegalArgumentException(String.valueOf(champ));
             }
         });
     }
@@ -147,38 +112,24 @@ public class DossierPatientController extends ControleurBase {
 
     /** Enregistre le dossier ; renvoie true si tout a été écrit. */
     public boolean enregistrer() {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                dossierService.enregistrer(dossier);
-            }
-        });
+        return tenter(() -> dossierService.enregistrer(dossier));
     }
 
     // ----- documents -----
 
     /** Aperçu (imprimer = false) ou impression de l'ordonnance au format PDF. */
-    public void ordonnance(final consultation c, final boolean imprimer) {
-        final boolean[] fait = {true};
-        if (tenter(new Runnable() {
-            @Override
-            public void run() {
-                fait[0] = rapportService.ordonnance(c, imprimer);
-            }
-        }) && !fait[0]) {
-            vue.afficherInformation(IMPRESSION_INDISPONIBLE);
-        }
+    public void ordonnance(consultation c, boolean imprimer) {
+        signalerSiNonImprime(tenter(() -> rapportService.ordonnance(c, imprimer), null));
     }
 
     /** Aperçu (imprimer = false) ou impression de la demande d'analyses au format PDF. */
-    public void analyses(final consultation c, final boolean imprimer) {
-        final boolean[] fait = {true};
-        if (tenter(new Runnable() {
-            @Override
-            public void run() {
-                fait[0] = rapportService.analyses(c, imprimer);
-            }
-        }) && !fait[0]) {
+    public void analyses(consultation c, boolean imprimer) {
+        signalerSiNonImprime(tenter(() -> rapportService.analyses(c, imprimer), null));
+    }
+
+    /** {@code fait} vaut null si la génération a échoué (erreur déjà affichée). */
+    private void signalerSiNonImprime(Boolean fait) {
+        if (Boolean.FALSE.equals(fait)) {
             vue.afficherInformation(IMPRESSION_INDISPONIBLE);
         }
     }

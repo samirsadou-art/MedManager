@@ -6,7 +6,7 @@ import My_application.entities.patient;
 import My_application.service.MetierException;
 import My_application.service.RendezVousService;
 import java.time.LocalDate;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /** Contrôleur de l'agenda ({@code calandar}, {@code DetailRendez}). */
@@ -33,58 +33,34 @@ public class RendezVousController extends ControleurBase {
         return malade;
     }
 
-    public List<Rendez_Vous> semaine(final LocalDate dimanche) {
-        final List<Rendez_Vous> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(service.deLaSemaine(dimanche));
-            }
-        });
-        return r;
+    public List<Rendez_Vous> semaine(LocalDate dimanche) {
+        return tenter(() -> service.deLaSemaine(dimanche), Collections.<Rendez_Vous>emptyList());
     }
 
     /**
      * Calcule le créneau qui serait attribué, sans rien afficher en cas de
      * refus (simple clic : aperçu) ; renvoie null si aucun créneau possible.
      */
-    public Rendez_Vous apercu(final LocalDate jour, final int heure) {
-        final Rendez_Vous[] r = new Rendez_Vous[1];
+    public Rendez_Vous apercu(LocalDate jour, int heure) {
         // Une panne de base passe par tenter (journal + message clair) ;
         // seul le refus métier reste silencieux.
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    r[0] = service.proposer(malade, utilisateur, jour, heure);
-                } catch (MetierException e) {
-                    r[0] = null;
-                }
+        return tenter(() -> {
+            try {
+                return service.proposer(malade, utilisateur, jour, heure);
+            } catch (MetierException e) {
+                return null;
             }
-        });
-        return r[0];
+        }, null);
     }
 
     /** Double clic : calcule le créneau ; la règle refusée est affichée. */
-    public Rendez_Vous proposer(final LocalDate jour, final int heure) {
-        final Rendez_Vous[] r = new Rendez_Vous[1];
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r[0] = service.proposer(malade, utilisateur, jour, heure);
-            }
-        });
-        return r[0];
+    public Rendez_Vous proposer(LocalDate jour, int heure) {
+        return tenter(() -> service.proposer(malade, utilisateur, jour, heure), null);
     }
 
     /** Enregistre le rendez-vous ; true si réussi. */
-    public boolean confirmer(final Rendez_Vous rdv) {
-        boolean ok = tenter(new Runnable() {
-            @Override
-            public void run() {
-                service.confirmer(rdv);
-            }
-        });
+    public boolean confirmer(Rendez_Vous rdv) {
+        boolean ok = tenter(() -> service.confirmer(rdv));
         if (ok) {
             vue.afficherInformation("Prise du rendez-vous réussie !");
         }
@@ -95,12 +71,7 @@ public class RendezVousController extends ControleurBase {
         return service.peutEtreAnnule(rdv, malade);
     }
 
-    public boolean annuler(final Rendez_Vous rdv) {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                service.annuler(rdv, malade);
-            }
-        });
+    public boolean annuler(Rendez_Vous rdv) {
+        return tenter(() -> service.annuler(rdv, malade));
     }
 }

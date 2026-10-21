@@ -2,6 +2,8 @@ package My_application.controller;
 
 import My_application.dao.DataAccessException;
 import My_application.service.MetierException;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -27,16 +29,6 @@ abstract class ControleurBase {
         this.executeur = executeur;
     }
 
-    /** Lecture exécutée hors de l'EDT : elle ne doit pas toucher à l'interface. */
-    protected interface Lecture<T> {
-        T lire();
-    }
-
-    /** Affichage du résultat d'une {@link Lecture}, sur l'EDT. */
-    protected interface Affichage<T> {
-        void afficher(T resultat);
-    }
-
     /** Exécute l'action ; renvoie false (et prévient l'utilisateur) en cas d'échec. */
     protected boolean tenter(Runnable action) {
         try {
@@ -44,43 +36,44 @@ abstract class ControleurBase {
             return true;
         } catch (RuntimeException e) {
             signaler(e);
+            return false;
         }
-        return false;
+    }
+
+    /** Renvoie le résultat de l'action, ou {@code siEchec} (utilisateur prévenu) en cas d'échec. */
+    protected <T> T tenter(Supplier<T> action, T siEchec) {
+        try {
+            return action.get();
+        } catch (RuntimeException e) {
+            signaler(e);
+            return siEchec;
+        }
     }
 
     /**
-     * Lit en arrière-plan puis affiche sur l'EDT ; une erreur de lecture est
-     * signalée comme avec {@link #tenter(Runnable)}.
+     * Lit en arrière-plan (la lecture ne doit pas toucher à l'interface), puis
+     * affiche le résultat sur l'EDT ; une erreur de lecture est signalée comme
+     * avec {@link #tenter(Runnable)}.
      */
-    protected <T> void enArrierePlan(final Lecture<T> lecture, final Affichage<T> affichage) {
-        final Object[] resultat = new Object[1];
-        final Throwable[] erreur = new Throwable[1];
-        executeur.executer(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    resultat[0] = lecture.lire();
-                } catch (RuntimeException | Error e) {
-                    erreur[0] = e;
-                }
+    protected <T> void enArrierePlan(Supplier<T> lecture, Consumer<T> affichage) {
+        Object[] resultat = new Object[1];
+        Throwable[] erreur = new Throwable[1];
+        executeur.executer(() -> {
+            try {
+                resultat[0] = lecture.get();
+            } catch (RuntimeException | Error e) {
+                erreur[0] = e;
             }
-        }, new Runnable() {
-            @Override
-            @SuppressWarnings("unchecked")
-            public void run() {
-                if (erreur[0] instanceof RuntimeException) {
-                    signaler((RuntimeException) erreur[0]);
-                } else if (erreur[0] != null) {
-                    LOG.log(Level.SEVERE, "Erreur inattendue", erreur[0]);
-                    vue.afficherErreur(ERREUR_INATTENDUE);
-                } else {
-                    tenter(new Runnable() {
-                        @Override
-                        public void run() {
-                            affichage.afficher((T) resultat[0]);
-                        }
-                    });
-                }
+        }, () -> {
+            if (erreur[0] instanceof RuntimeException) {
+                signaler((RuntimeException) erreur[0]);
+            } else if (erreur[0] != null) {
+                LOG.log(Level.SEVERE, "Erreur inattendue", erreur[0]);
+                vue.afficherErreur(ERREUR_INATTENDUE);
+            } else {
+                @SuppressWarnings("unchecked")
+                T lu = (T) resultat[0];
+                tenter(() -> affichage.accept(lu));
             }
         });
     }

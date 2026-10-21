@@ -19,58 +19,30 @@ public class ConnexionController extends ControleurBase {
      * null si la base est inaccessible (message déjà affiché).
      */
     public Boolean premiereUtilisation() {
-        final Boolean[] r = new Boolean[1];
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r[0] = service.premiereUtilisation();
-            }
-        });
-        return r[0];
+        return tenter(service::premiereUtilisation, null);
     }
 
     /** Utilisateur dont on crée le compte à la première utilisation ; null si introuvable. */
     public User utilisateurInitial() {
-        final User[] r = new User[1];
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r[0] = service.utilisateurInitial();
-            }
-        });
-        return r[0];
+        return tenter(service::utilisateurInitial, null);
     }
 
     /** Utilisateur connecté, ou null (refus affiché). Le mot de passe est effacé dans tous les cas. */
-    public User connecter(final String login, final char[] motDePasse) {
-        final User[] r = new User[1];
+    public User connecter(String login, char[] motDePasse) {
         try {
-            tenter(new Runnable() {
-                @Override
-                public void run() {
-                    r[0] = service.connecter(login, motDePasse);
-                }
-            });
+            return tenter(() -> service.connecter(login, motDePasse), null);
         } finally {
             MotDePasse.effacer(motDePasse);
         }
-        return r[0];
     }
 
     /** Crée le premier compte et connecte l'utilisateur ; null si refusé (message affiché). */
-    public User creerPremierCompte(final String login, final char[] motDePasse, final char[] confirmation) {
-        final User[] r = new User[1];
+    public User creerPremierCompte(String login, char[] motDePasse, char[] confirmation) {
         try {
-            tenter(new Runnable() {
-                @Override
-                public void run() {
-                    r[0] = service.creerPremierCompte(login, motDePasse, confirmation);
-                }
-            });
+            return tenter(() -> service.creerPremierCompte(login, motDePasse, confirmation), null);
         } finally {
             MotDePasse.effacer(motDePasse);
             MotDePasse.effacer(confirmation);
         }
-        return r[0];
     }
 }
