@@ -8,6 +8,7 @@ import My_application.entities.User;
 import My_application.entities.patient;
 import My_application.service.RendezVousService;
 import My_application.vue.Dialogues;
+import My_application.vue.EnTetePage;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import com.formdev.flatlaf.ui.FlatLineBorder;
@@ -38,6 +39,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.Scrollable;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.DocumentEvent;
@@ -127,6 +129,11 @@ public class calandar extends javax.swing.JFrame implements Vue {
             public void windowClosed(WindowEvent e) {
                 minute.stop();
             }
+
+            @Override
+            public void windowOpened(WindowEvent e) {
+                recherche.requestFocusInWindow();
+            }
         });
 
         afficherAucunDetail();
@@ -139,29 +146,9 @@ public class calandar extends javax.swing.JFrame implements Vue {
     // ----- construction -----
 
     private JComponent enTete() {
-        JPanel p = new JPanel(new BorderLayout(16, 0));
-        p.setOpaque(false);
-
-        JLabel icone = new JLabel(Icones.svg("calendar-event", 40, Theme.PRIMAIRE));
-        JLabel titre = new JLabel("Rendez-vous");
-        titre.setFont(Theme.police(Font.BOLD, 24));
-        titre.setForeground(Theme.TEXTE);
-        JLabel sousTitre = new JLabel("Planifiez et gérez les consultations");
-        sousTitre.setFont(Theme.police(Font.PLAIN, 14));
-        sousTitre.setForeground(Theme.TEXTE_SECONDAIRE);
-        JPanel textes = new JPanel();
-        textes.setOpaque(false);
-        textes.setLayout(new BoxLayout(textes, BoxLayout.Y_AXIS));
-        textes.add(titre);
-        textes.add(sousTitre);
-        JPanel gauche = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
-        gauche.setOpaque(false);
-        gauche.add(icone);
-        gauche.add(textes);
-        p.add(gauche, BorderLayout.WEST);
-
-        JPanel droite = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 6));
-        droite.setOpaque(false);
+        EnTetePage p = new EnTetePage("calendar-event", "Rendez-vous", malade == null
+                ? "Consultez l'agenda ; pour prendre un rendez-vous, ouvrez le dossier du patient"
+                : "Planifiez et gérez les consultations");
         if (malade != null) {
             JLabel pourPatient = new JLabel("Patient : " + nomComplet(malade),
                     Icones.svg("user", 18, Theme.SUCCES), JLabel.LEFT);
@@ -173,20 +160,11 @@ public class calandar extends javax.swing.JFrame implements Vue {
                     new FlatLineBorder(new Insets(0, 0, 0, 0), Theme.SUCCES_CLAIR.darker(), 1f, 18),
                     BorderFactory.createEmptyBorder(6, 12, 6, 14)));
             pourPatient.setIconTextGap(8);
-            droite.add(pourPatient);
-            droite.add(Box.createHorizontalStrut(8));
+            p.ajouterAction(pourPatient);
         }
-        JButton aujourdhui = new JButton("Aujourd'hui", Icones.svg("calendar", 18, Theme.PRIMAIRE));
-        aujourdhui.addActionListener(e -> afficherSemaine(controleur.getService().aujourdhui()));
-        JButton actualiser = new JButton("Actualiser", Icones.svg("refresh", 18, Theme.PRIMAIRE));
-        actualiser.addActionListener(e -> rafraichir());
-        JButton fermer = new JButton("Fermer", Icones.svg("x", 18, Theme.PRIMAIRE));
-        fermer.addActionListener(e -> dispose());
-        for (JButton b : new JButton[]{aujourdhui, actualiser, fermer}) {
-            b.setPreferredSize(new Dimension(b.getPreferredSize().width + 8, 38));
-            droite.add(b);
-        }
-        p.add(droite, BorderLayout.EAST);
+        p.ajouterBouton("Aujourd'hui", "calendar", () -> afficherSemaine(controleur.getService().aujourdhui()));
+        p.ajouterBouton("Actualiser", "refresh", this::rafraichir);
+        p.ajouterBouton("Fermer", "x", this::dispose);
         return p;
     }
 
@@ -256,7 +234,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
     }
 
     private JComponent colonneDroite() {
-        JPanel colonne = new JPanel();
+        JPanel colonne = new ColonneDefilante();
         colonne.setOpaque(false);
         colonne.setLayout(new BoxLayout(colonne, BoxLayout.Y_AXIS));
 
@@ -297,6 +275,37 @@ public class calandar extends javax.swing.JFrame implements Vue {
         defilementColonne.getVerticalScrollBar().setUnitIncrement(16);
         defilementColonne.setPreferredSize(new Dimension(310, 0));
         return defilementColonne;
+    }
+
+    /** Colonne qui suit la largeur de son JScrollPane (les textes longs y passent à la ligne). */
+    private static final class ColonneDefilante extends JPanel implements Scrollable {
+
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visible, int orientation, int direction) {
+            return 16;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visible, int orientation, int direction) {
+            return visible.height;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
     }
 
     /** Panneau blanc à coins arrondis. */
@@ -452,6 +461,9 @@ public class calandar extends javax.swing.JFrame implements Vue {
     // ----- prise et détail des rendez-vous -----
 
     private void choisirCreneau(LocalDate jour, int heure, boolean doubleClic) {
+        if (malade == null) {
+            return; // agenda ouvert sans patient : consultation seulement
+        }
         agenda.setSelection(null);
         Rendez_Vous r = doubleClic ? controleur.proposer(jour, heure) : controleur.apercu(jour, heure);
         agenda.setPropose(r);
@@ -537,9 +549,10 @@ public class calandar extends javax.swing.JFrame implements Vue {
 
     private void afficherAucunDetail() {
         nouveauxDetails("Détails du rendez-vous");
-        JLabel aide = new JLabel("<html>Cliquez sur un rendez-vous pour voir son détail, "
-                + "ou sur une heure libre pour proposer un créneau"
-                + (malade == null ? "." : " à <b>" + nomComplet(malade) + "</b>.") + "</html>");
+        JLabel aide = new JLabel("<html>Cliquez sur un rendez-vous pour voir son détail"
+                + (malade == null ? ". Pour prendre un rendez-vous, ouvrez le dossier du patient."
+                : ", ou sur une heure libre pour proposer un créneau à <b>" + nomComplet(malade) + "</b>.")
+                + "</html>");
         aide.setFont(Theme.police(Font.PLAIN, 12));
         aide.setForeground(Theme.TEXTE_SECONDAIRE);
         aide.setAlignmentX(Component.LEFT_ALIGNMENT);

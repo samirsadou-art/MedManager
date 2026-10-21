@@ -13,9 +13,21 @@ import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.consultation;
+import My_application.rendezvous.calandar;
+import My_application.vue.Bandeau;
 import My_application.vue.Dialogues;
+import My_application.vue.EnTetePage;
+import My_application.vue.MenuLateral;
+import java.awt.BorderLayout;
+import java.awt.Container;
 import java.awt.Frame;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
+import javax.swing.BorderFactory;
+import javax.swing.JComponent;
+import javax.swing.JPanel;
 
 /**
  * Fenêtre principale (Vue) : rendez-vous et consultations du jour.
@@ -34,6 +46,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     public PrincipalForm() {
         initComponents();
         Theme.harmoniser(this);
+        presenterNavigation();
         this.setLocationRelativeTo(null);
         this.setExtendedState(Frame.MAXIMIZED_BOTH);
         disc = new Tchat(this);
@@ -78,6 +91,45 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     public void refresh() {
         controleur.rafraichir();
         nbAttente.setText("0");
+    }
+
+    /**
+     * Habillage de la fenêtre principale (comme l'agenda) : bandeau en haut,
+     * menu latéral à gauche et en-tête de page. L'ancienne barre d'icônes
+     * sans libellés est remplacée par le menu, qui reprend ses actions.
+     */
+    private void presenterNavigation() {
+        Fnord.setVisible(false);
+        Fsud.setVisible(false);
+
+        EnTetePage entete = new EnTetePage("home", "Accueil",
+                "Consultations, rendez-vous et salle d'attente du jour");
+        entete.setBorder(BorderFactory.createEmptyBorder(16, 20, 8, 20));
+        entete.ajouterBouton("Actualiser", "refresh", this::refresh);
+        JPanel page = new JPanel(new BorderLayout());
+        page.setBackground(Theme.FOND);
+        page.add(entete, BorderLayout.NORTH);
+        Container contenu = getContentPane();
+        ((JComponent) contenu).setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+        page.add(contenu, BorderLayout.CENTER);
+
+        MenuLateral menu = new MenuLateral();
+        menu.ajouter("home", "Accueil", true, this::refresh);
+        menu.ajouter("users", "Patients", false, () -> userMenuBtn.doClick());
+        menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null).setVisible(true));
+        menu.ajouter("message-circle", "Messagerie", false, () -> ChatBtn.doClick());
+        menu.selectionner("Accueil");
+        menu.setPied("GestiMed<br>Gestion du cabinet médical");
+
+        Bandeau bandeau = new Bandeau("GestiMed", "Cabinet médical");
+        String date = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH).format(LocalDate.now());
+        bandeau.ajouterInfo("calendar", Character.toUpperCase(date.charAt(0)) + date.substring(1));
+
+        JPanel racine = new JPanel(new BorderLayout());
+        racine.add(bandeau, BorderLayout.NORTH);
+        racine.add(menu, BorderLayout.WEST);
+        racine.add(page, BorderLayout.CENTER);
+        setContentPane(racine);
     }
 
     @SuppressWarnings("unchecked")

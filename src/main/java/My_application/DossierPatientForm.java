@@ -1,6 +1,7 @@
 
 package My_application;
 
+import My_application.vue.EnTetePage;
 import My_application.vue.Theme;
 import My_application.Analyse.AnalyseForm;
 import My_application.Analyse.PaneauAnalyse;
@@ -69,6 +70,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     public DossierPatientForm(DossierPatient doss) {
         initComponents();
         Theme.harmoniser(this);
+        EnTetePage.installer(this, "folder-open", "Dossier patient", doss.getMalade().getNom().toUpperCase()
+                + " " + doss.getMalade().getPrenom() + "  ·  " + doss.getMalade().getStringAge());
         presenterActionsDossier();
         this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         this.photo.setIcon(Icones.patient(doss.getMalade(), 128));
