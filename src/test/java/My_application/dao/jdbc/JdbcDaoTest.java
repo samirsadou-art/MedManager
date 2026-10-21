@@ -56,11 +56,11 @@ public class JdbcDaoTest {
     @Test
     public void ordonnancesDuPatientChargeesEnUneRequeteEtRegroupeesParConsultation() {
         base.quand("FROM prescrire p JOIN medicaments m",
-                ligne("idConsul", 5, "idMedicament", 10, "nomMedicament", "DOLIPRANE", "unite", 1,
+                ligne("idConsultation", 5, "idMedicament", 10, "nomMedicament", "DOLIPRANE", "unite", 1,
                         "posologie", 3, "duree", 5, "mode", 2),
-                ligne("idConsul", 8, "idMedicament", 11, "nomMedicament", "AUGMENTIN", "unite", 1,
+                ligne("idConsultation", 8, "idMedicament", 11, "nomMedicament", "AUGMENTIN", "unite", 1,
                         "posologie", 2, "duree", 7, "mode", 1),
-                ligne("idConsul", 5, "idMedicament", 12, "nomMedicament", "SPASFON", "unite", 2,
+                ligne("idConsultation", 5, "idMedicament", 12, "nomMedicament", "SPASFON", "unite", 2,
                         "posologie", 1, "duree", 3, "mode", 1));
         Map<Integer, List<medicament>> r = daos.getPrescriptionDao().findByPatient(3);
         assertEquals(1, base.executions.size());
@@ -176,8 +176,8 @@ public class JdbcDaoTest {
     @Test
     public void rendezVousLusAvecPatientEtUtilisateurEnUneRequete() {
         base.quand("FROM rendezvous", ligne("idUser", 1, "idPatient", 2, "date", java.sql.Date.valueOf("2026-10-09"),
-                "heure", java.sql.Time.valueOf("09:15:00"), "dateFix", java.sql.Date.valueOf("2026-10-01"),
-                "heureFix", java.sql.Time.valueOf("08:00:00"), "etat", 0, "nomPatient", "B", "prenomPatient", "b",
+                "heure", java.sql.Time.valueOf("09:15:00"),
+                "prisLe", java.sql.Timestamp.valueOf("2026-10-01 08:00:00"), "etat", 0, "nomPatient", "B", "prenomPatient", "b",
                 "date_Nais_Patient", java.sql.Date.valueOf("2000-01-01"), "sexePatient", 0, "nom", "SAHAB",
                 "prenom", "Said", "qualite", "Médecin"));
         List<Rendez_Vous> l = daos.getRendezVousDao().findEntre(LocalDate.parse("2026-10-04"),
@@ -185,6 +185,8 @@ public class JdbcDaoTest {
         assertEquals(1, base.executions.size());
         assertEquals("B", l.get(0).getPatient().getNom());
         assertEquals("SAHAB", l.get(0).getUtilisateur().getNom());
+        assertEquals(LocalDate.parse("2026-10-01"), l.get(0).getDateFix());
+        assertEquals(LocalTime.parse("08:00:00"), l.get(0).getHeureFix());
     }
 
     @Test

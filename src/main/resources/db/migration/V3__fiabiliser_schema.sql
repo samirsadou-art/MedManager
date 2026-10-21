@@ -36,6 +36,10 @@ ALTER TABLE demandanalyse     ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 CO
 ALTER TABLE rondezvous        ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE journal_acces     ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- Venant d'un autre jeu de caractères (latin1 par exemple), CONVERT agrandit
+-- TEXT en MEDIUMTEXT pour garder la même capacité : on revient au type de V1.
+ALTER TABLE demandanalyse MODIFY resultat TEXT NULL;
+
 -- CHECK de V1, recréés s'ils ont été perdus.
 ALTER TABLE patient
   DROP CONSTRAINT IF EXISTS ck_patient_sexe,

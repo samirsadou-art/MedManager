@@ -23,7 +23,7 @@ public class JdbcPrescriptionDao implements PrescriptionDao {
             lignes.add(new Object[]{m.getIdmed(), idConsultation, m.getUnite(), m.getPosologie(),
                 m.getDuree(), m.getMode()});
         }
-        jdbc.batch("INSERT INTO prescrire (idMed, idConsul, unite, posologie, duree, mode) "
+        jdbc.batch("INSERT INTO prescrire (idMedicament, idConsultation, unite, posologie, duree, mode) "
                 + "VALUES (?,?,?,?,?,?)", lignes);
     }
 
@@ -44,15 +44,15 @@ public class JdbcPrescriptionDao implements PrescriptionDao {
     @Override
     public List<medicament> findByConsultation(int idConsultation) {
         return jdbc.query("SELECT m.idMedicament, m.nomMedicament, p.unite, p.posologie, p.duree, p.mode "
-                + "FROM prescrire p JOIN medicaments m ON m.idMedicament = p.idMed WHERE p.idConsul=?",
+                + "FROM prescrire p JOIN medicaments m ON m.idMedicament = p.idMedicament WHERE p.idConsultation=?",
                 LIGNE, idConsultation);
     }
 
     @Override
     public Map<Integer, List<medicament>> findByPatient(int idPatient) {
-        return jdbc.queryParCle("SELECT p.idConsul, m.idMedicament, m.nomMedicament, p.unite, p.posologie, p.duree, p.mode "
-                + "FROM prescrire p JOIN medicaments m ON m.idMedicament = p.idMed "
-                + "JOIN consultation c ON c.idConsultation = p.idConsul WHERE c.idPatient=?",
-                "idConsul", LIGNE, idPatient);
+        return jdbc.queryParCle("SELECT p.idConsultation, m.idMedicament, m.nomMedicament, p.unite, p.posologie, p.duree, p.mode "
+                + "FROM prescrire p JOIN medicaments m ON m.idMedicament = p.idMedicament "
+                + "JOIN consultation c ON c.idConsultation = p.idConsultation WHERE c.idPatient=?",
+                "idConsultation", LIGNE, idPatient);
     }
 }

@@ -161,10 +161,10 @@ public class MySqlIntegrationTest {
 
     /**
      * Base réelle en version 2 (comme celle du cabinet) avec des valeurs
-     * sentinelles : V3 à V6 les convertissent sans perte.
+     * sentinelles : les migrations suivantes les convertissent sans perte.
      */
     @Test
-    public void lesDonneesDUneBaseEnVersion2SontConvertiesParV3aV6() throws Exception {
+    public void lesDonneesDUneBaseEnVersion2SontConverties() throws Exception {
         Flyway flyway = flywayDeTest().target("2").load();
         flyway.clean();
         flyway.migrate();
@@ -193,11 +193,13 @@ public class MySqlIntegrationTest {
             assertEquals(37.5, rs.getDouble(1), 0);
             assertEquals("12/8", rs.getString(3));
             rs.close();
-            rs = st.executeQuery("SELECT idRendezVous, idMedecin, etat FROM rendezvous");
+            rs = st.executeQuery("SELECT idRendezVous, idMedecin, etat, prisLe FROM rendezvous");
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
             assertEquals("seul médecin du cabinet", 1, rs.getInt(2));
             assertEquals(Rendez_Vous.ETAT_PREVU, rs.getInt(3));
+            assertEquals("sans date de prise : celle du rendez-vous",
+                    java.sql.Timestamp.valueOf("2026-10-20 10:00:00"), rs.getTimestamp(4));
             rs.close();
             try {
                 st.execute("UPDATE consultation SET temperature = -1 WHERE idConsultation = 2");

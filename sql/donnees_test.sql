@@ -111,7 +111,7 @@ INSERT INTO consultpathologie (idconsultation, idpathologie) VALUES
   (9014, 9);
 
 -- Ordonnances (mode : 0 = soir, 1 = matin, 2 = indifférent ; durée en jours)
-INSERT INTO prescrire (idMed, idConsul, unite, posologie, duree, mode) VALUES
+INSERT INTO prescrire (idMedicament, idConsultation, unite, posologie, duree, mode) VALUES
   (51, 9001, 1, 1, 30, 1),   -- amlodipine 5 mg
   (52, 9002, 1, 1, 90, 1),   -- amlodipine 10 mg
   (38, 9003, 1, 2, 8, 2),    -- amoxicilline/ac. clavulanique
@@ -155,27 +155,27 @@ INSERT INTO demandeanalyse (idconsultation, idAnalyse, observation, resultat, no
 
 -- ---------------------------------------------------------------------
 -- Rendez-vous (utilisateur n° 1, médecin n° 1). Créneaux de 8 h à 17 h, par quarts
--- d'heure. dateFix/heureFix : moment où le rendez-vous a été pris.
+-- d'heure. prisLe : moment où le rendez-vous a été pris.
 -- INSERT IGNORE : un créneau déjà occupé par un vrai rendez-vous est
 -- laissé tel quel.
 -- ---------------------------------------------------------------------
-INSERT IGNORE INTO rendezvous (idUser, idPatient, idMedecin, `date`, heure, dateFix, heureFix, etat) VALUES
+INSERT IGNORE INTO rendezvous (idUser, idPatient, idMedecin, `date`, heure, prisLe, etat) VALUES
   -- Passé
-  (1, 9001, 1, DATE_SUB(CURDATE(), INTERVAL 60 DAY), '10:00:00', DATE_SUB(CURDATE(), INTERVAL 120 DAY), '09:40:00', 0),
-  (1, 9003, 1, DATE_SUB(CURDATE(), INTERVAL 30 DAY), '09:30:00', DATE_SUB(CURDATE(), INTERVAL 90 DAY),  '09:10:00', 0),
+  (1, 9001, 1, DATE_SUB(CURDATE(), INTERVAL 60 DAY), '10:00:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 120 DAY), '09:40:00'), 0),
+  (1, 9003, 1, DATE_SUB(CURDATE(), INTERVAL 30 DAY), '09:30:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 90 DAY),  '09:10:00'), 0),
   -- Aujourd'hui
-  (1, 9005, 1, CURDATE(), '10:30:00', DATE_SUB(CURDATE(), INTERVAL 15 DAY), '15:20:00', 0),
-  (1, 9009, 1, CURDATE(), '14:00:00', DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:30:00', 0),
-  (1, 9007, 1, CURDATE(), '15:15:00', DATE_SUB(CURDATE(), INTERVAL 7 DAY),  '16:20:00', 0),
-  (1, 9008, 1, CURDATE(), '16:45:00', DATE_SUB(CURDATE(), INTERVAL 1 DAY),  '09:20:00', 0),
+  (1, 9005, 1, CURDATE(), '10:30:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 15 DAY), '15:20:00'), 0),
+  (1, 9009, 1, CURDATE(), '14:00:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:30:00'), 0),
+  (1, 9007, 1, CURDATE(), '15:15:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 7 DAY),  '16:20:00'), 0),
+  (1, 9008, 1, CURDATE(), '16:45:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY),  '09:20:00'), 0),
   -- À venir
-  (1, 9001, 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  '09:00:00', CURDATE(), '08:00:00', 0),
-  (1, 9004, 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  '09:15:00', DATE_SUB(CURDATE(), INTERVAL 20 DAY), '14:40:00', 0),
-  (1, 9006, 1, DATE_ADD(CURDATE(), INTERVAL 2 DAY),  '11:00:00', DATE_SUB(CURDATE(), INTERVAL 10 DAY), '11:10:00', 0),
-  (1, 9002, 1, DATE_ADD(CURDATE(), INTERVAL 3 DAY),  '08:30:00', CURDATE(), '08:50:00', 0),
-  (1, 9010, 1, DATE_ADD(CURDATE(), INTERVAL 5 DAY),  '13:45:00', CURDATE(), '10:05:00', 0),
-  (1, 9003, 1, DATE_ADD(CURDATE(), INTERVAL 8 DAY),  '10:15:00', DATE_SUB(CURDATE(), INTERVAL 30 DAY), '09:50:00', 0),
-  (1, 9009, 1, DATE_ADD(CURDATE(), INTERVAL 14 DAY), '15:30:00', DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:35:00', 0);
+  (1, 9001, 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  '09:00:00', TIMESTAMP(CURDATE(), '08:00:00'), 0),
+  (1, 9004, 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  '09:15:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 20 DAY), '14:40:00'), 0),
+  (1, 9006, 1, DATE_ADD(CURDATE(), INTERVAL 2 DAY),  '11:00:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 10 DAY), '11:10:00'), 0),
+  (1, 9002, 1, DATE_ADD(CURDATE(), INTERVAL 3 DAY),  '08:30:00', TIMESTAMP(CURDATE(), '08:50:00'), 0),
+  (1, 9010, 1, DATE_ADD(CURDATE(), INTERVAL 5 DAY),  '13:45:00', TIMESTAMP(CURDATE(), '10:05:00'), 0),
+  (1, 9003, 1, DATE_ADD(CURDATE(), INTERVAL 8 DAY),  '10:15:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 30 DAY), '09:50:00'), 0),
+  (1, 9009, 1, DATE_ADD(CURDATE(), INTERVAL 14 DAY), '15:30:00', TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:35:00'), 0);
 
 COMMIT;
 
@@ -183,7 +183,7 @@ COMMIT;
 SELECT 'patients de test'      AS donnees, COUNT(*) AS lignes FROM patient      WHERE idPatient BETWEEN 9001 AND 9999
 UNION ALL SELECT 'consultations',          COUNT(*) FROM consultation WHERE idConsultation BETWEEN 9001 AND 9999
 UNION ALL SELECT 'consultations du jour',  COUNT(*) FROM consultation WHERE idConsultation BETWEEN 9001 AND 9999 AND dateConsultation = CURDATE()
-UNION ALL SELECT 'prescriptions',          COUNT(*) FROM prescrire    WHERE idConsul BETWEEN 9001 AND 9999
+UNION ALL SELECT 'prescriptions',          COUNT(*) FROM prescrire    WHERE idConsultation BETWEEN 9001 AND 9999
 UNION ALL SELECT 'demandes d''analyses',   COUNT(*) FROM demandeanalyse WHERE idconsultation BETWEEN 9001 AND 9999
 UNION ALL SELECT 'rendez-vous',            COUNT(*) FROM rendezvous   WHERE idPatient BETWEEN 9001 AND 9999
 UNION ALL SELECT 'rendez-vous du jour',    COUNT(*) FROM rendezvous   WHERE idPatient BETWEEN 9001 AND 9999 AND `date` = CURDATE();
