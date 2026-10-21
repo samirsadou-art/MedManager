@@ -34,7 +34,7 @@ public class AuthentificationService {
     static final Duration ATTENTE = Duration.ofSeconds(30);
     static final String REFUS = "Identifiant ou mot de passe incorrect.";
     static final String BASE_NON_MIGREE = "La base de données n'est pas à jour pour l'écran de connexion.\n"
-            + "Exécutez une fois le script sql/migration_002_authentification.sql (voir la commande en tête du fichier).";
+            + "Faites une sauvegarde, puis lancez une fois l'outil My_application.outils.MigrationBase migrer.";
 
     /** Codes MySQL/MariaDB : colonne inconnue, table inconnue. */
     private static final int COLONNE_INCONNUE = 1054;

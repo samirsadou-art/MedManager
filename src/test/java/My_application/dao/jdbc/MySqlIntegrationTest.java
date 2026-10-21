@@ -1,6 +1,7 @@
 package My_application.dao.jdbc;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNoException;
@@ -28,14 +29,13 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.List;
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -50,23 +50,29 @@ import org.junit.Test;
  *   -Dgestimed.test.db.url=jdbc:mysql://localhost:3306/medicale_test
  *   -Dgestimed.test.db.user=root -Dgestimed.test.db.password=...
  * </pre>
- * Par sécurité, le nom de la base doit se terminer par « _test » : le script
- * {@code sql/schema_gestimed.sql} y SUPPRIME et recrée toutes les tables.
+ * Par sécurité, le nom de la base doit se terminer par « _test » : avant
+ * chaque test, Flyway y SUPPRIME toutes les tables ({@code clean}) puis
+ * rejoue les migrations de {@code db/migration}, ce qui vérifie aussi ces
+ * scripts sur un vrai serveur.
  */
 public class MySqlIntegrationTest {
 
     private static Database base;
+    private static String url;
+    private static String user;
+    private static String password;
     private static String echecSur;
     private DAOFactory daos;
     private int idMedecin;
 
     @BeforeClass
     public static void connecter() throws Exception {
-        String url = System.getProperty("gestimed.test.db.url");
+        url = System.getProperty("gestimed.test.db.url");
         assumeTrue("Base de test non configurée : test d'intégration ignoré", url != null);
         assumeTrue("Le nom de la base de test doit se terminer par _test", url.matches(".*_test(\\?.*)?$"));
-        base = new Database(new DatabaseConfig(url, System.getProperty("gestimed.test.db.user", "root"),
-                System.getProperty("gestimed.test.db.password", ""),
+        user = System.getProperty("gestimed.test.db.user", "root");
+        password = System.getProperty("gestimed.test.db.password", "");
+        base = new Database(new DatabaseConfig(url, user, password,
                 System.getProperty("gestimed.test.db.driver", "com.mysql.cj.jdbc.Driver")));
         try {
             base.getConnection();
@@ -84,15 +90,10 @@ public class MySqlIntegrationTest {
 
     @Before
     public void recreerLeSchema() throws Exception {
-        String script = new String(Files.readAllBytes(Paths.get("sql/schema_gestimed.sql")), StandardCharsets.UTF_8);
+        Flyway flyway = flywayDeTest().load();
+        flyway.clean();
+        flyway.migrate();
         try (Statement st = base.getConnection().createStatement()) {
-            st.execute("SET FOREIGN_KEY_CHECKS=0");
-            for (String ordre : script.replaceAll("(?m)^--.*$", "").split(";")) {
-                if (!ordre.trim().isEmpty()) {
-                    st.execute(ordre);
-                }
-            }
-            st.execute("SET FOREIGN_KEY_CHECKS=1");
             st.execute("INSERT INTO utilisateur (nom, prenom, qualite) VALUES ('SAHAB', 'Said', 'Médecin')");
             st.execute("INSERT INTO medecin (nomMedecin, prenomMedcin, titre) VALUES ('SAHAB', 'Said', 'Dr')");
             st.execute("INSERT INTO medicaments (nomMedicament, forme, type) VALUES ('DOLIPRANE 1G', 'comprimé', 'P')");
@@ -100,6 +101,51 @@ public class MySqlIntegrationTest {
         echecSur = null;
         daos = new JdbcDAOFactory(fournisseurAvecPanne());
         idMedecin = 1;
+    }
+
+    /** Seule configuration où clean est permis : base *_test vérifiée dans connecter(). */
+    private static FluentConfiguration flywayDeTest() {
+        return Migrations.configuration(url, user, password).cleanDisabled(false);
+    }
+
+    /** Simule une base créée avant Flyway, à la version donnée, sans historique. */
+    private void baseAncienneEnVersion(String version) throws SQLException {
+        Flyway flyway = flywayDeTest().target(version).load();
+        flyway.clean();
+        flyway.migrate();
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("DROP TABLE " + Migrations.TABLE_HISTORIQUE);
+        }
+    }
+
+    @Test
+    public void lesMigrationsAmenentUneBaseNeuveALaDerniereVersion() {
+        Migrations.Etat etat = new Migrations(url, user, password).etat();
+        assertTrue(etat.estSuivie());
+        assertFalse(etat.estEnRetard());
+        assertEquals(etat.getVersionCode(), etat.getVersionBase());
+    }
+
+    @Test
+    public void uneBaseAncienneSansHistoriqueEstAdopteePuisMiseAJour() throws Exception {
+        baseAncienneEnVersion("1");
+        Migrations migrations = new Migrations(url, user, password);
+        assertFalse(migrations.etat().estSuivie());
+        assertEquals(1, migrations.migrer());
+        assertEquals("2", migrations.etat().getVersionBase());
+        // V2 a bien été appliquée par-dessus la base existante.
+        Session session = new Session(daos, 1, idMedecin);
+        assertTrue(new AuthentificationService(daos, session, new JournalAccesEnBase(daos.getJournalDao(), session))
+                .premiereUtilisation());
+    }
+
+    @Test
+    public void uneBaseDejaMigreeALaMainNeRejouePasV2() throws Exception {
+        baseAncienneEnVersion("2");
+        Migrations migrations = new Migrations(url, user, password);
+        assertEquals(0, migrations.migrer());
+        assertEquals("2", migrations.etat().getVersionBase());
+        assertFalse(migrations.etat().estEnRetard());
     }
 
     /** Connexion réelle, mais qui peut simuler une panne sur une table donnée. */

@@ -12,10 +12,14 @@ import My_application.TableModelPrincipale.RendezJourTableRondu;
 import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
 import My_application.entities.Rendez_Vous;
+import My_application.dao.jdbc.DatabaseConfig;
+import My_application.dao.jdbc.Migrations;
 import My_application.entities.consultation;
 import My_application.vue.Dialogues;
 import java.awt.Frame;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Fenêtre principale (Vue) : rendez-vous et consultations du jour.
@@ -393,6 +397,34 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     
  
+    static final String BASE_EN_RETARD = "La base de données est plus ancienne que cette version de GestiMed.\n"
+            + "Faites une sauvegarde, puis mettez-la à jour avec la commande :\n"
+            + "  java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.MigrationBase migrer\n\n";
+
+    /**
+     * Compare la version de la base aux migrations livrées. Si la vérification
+     * est impossible (serveur arrêté...), on laisse l'écran de connexion
+     * signaler l'erreur habituelle.
+     */
+    private static boolean baseAJour() {
+        Logger log = Logger.getLogger("GestiMed");
+        try {
+            Migrations.Etat etat = new Migrations(DatabaseConfig.charger()).etat();
+            if (etat.estEnRetard()) {
+                log.severe("Schéma en retard : " + etat);
+                Dialogues.erreur(null, BASE_EN_RETARD + etat);
+                return false;
+            }
+            if (!etat.estSuivie()) {
+                log.warning("Schéma non suivi par les migrations (" + etat + ") : lancer une fois "
+                        + "My_application.outils.MigrationBase migrer pour l'adopter.");
+            }
+        } catch (RuntimeException e) {
+            log.log(Level.WARNING, "Vérification de la version du schéma impossible", e);
+        }
+        return true;
+    }
+
     public static void main(String args[]) {
         // Détail technique des erreurs : dans ~/GestiMed/gestimed0.log, pas à l'écran.
         Journal.installer();
@@ -402,8 +434,9 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
+                // Une base en retard sur le code ferait échouer les saisies : on s'arrête avant.
                 // Personne n'accède aux dossiers sans s'être identifié.
-                if (ConnexionForm.demander() == null) {
+                if (!baseAJour() || ConnexionForm.demander() == null) {
                     AppContext.fermer();
                     System.exit(0);
                 }

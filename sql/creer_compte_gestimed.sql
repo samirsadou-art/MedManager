@@ -1,7 +1,8 @@
 -- =====================================================================
 -- GestiMed : compte MySQL dédié à l'application.
 --
--- À exécuter UNE fois, en administrateur (root), après sql/medicale.sql :
+-- À exécuter UNE fois, en administrateur (root), après la création du
+-- schéma (outil My_application.outils.MigrationBase migrer) :
 --     mysql -u root -p < sql/creer_compte_gestimed.sql
 --
 -- Remplacer CHANGER_CE_MOT_DE_PASSE avant l'exécution (ne pas enregistrer
@@ -10,8 +11,9 @@
 --     password = <le mot de passe choisi>
 --
 -- Le compte ne peut que lire et écrire les données de la base medicale :
--- ni DROP, ni ALTER, ni CREATE, ni accès aux autres bases. Il n'est
--- utilisable que depuis le poste du serveur (localhost).
+-- ni DROP, ni ALTER, ni CREATE, ni accès aux autres bases. Les évolutions
+-- du schéma passent donc par MigrationBase, lancé avec le compte root.
+-- Il n'est utilisable que depuis le poste du serveur (localhost).
 --
 -- Base sur un autre poste du cabinet : créer plutôt un compte par poste
 -- client, jamais 'gestimed'@'%', en exigeant le chiffrement, et passer

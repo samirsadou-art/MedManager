@@ -1,7 +1,8 @@
 -- =====================================================================
 -- GestiMed : données de départ de la base « medicale ».
 --
--- À exécuter après sql/medicale.sql :
+-- À exécuter après la création du schéma (outil MigrationBase migrer, qui
+-- applique src/main/resources/db/migration) :
 --   D:/xampp/mysql/bin/mysql.exe -u root --default-character-set=utf8mb4 < sql/donnees_initiales.sql
 --
 -- Relançable sans risque : INSERT IGNORE uniquement. Une ligne déjà

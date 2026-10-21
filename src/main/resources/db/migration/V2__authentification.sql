@@ -1,21 +1,11 @@
 -- =====================================================================
--- GestiMed : migration d'une base existante vers l'écran de connexion
--- et le journal des accès.
+-- GestiMed, migration V2 : écran de connexion et journal des accès.
 --
--- À exécuter UNE fois, en administrateur, sur une base créée avant cette
--- version (une base neuve créée avec sql/medicale.sql n'en a pas besoin) :
---     mysql -u root -p medicale < sql/migration_002_authentification.sql
---   (XAMPP : D:/xampp/mysql/bin/mysql.exe -u root medicale < sql/migration_002_authentification.sql)
---
--- Une seconde exécution échoue sur « Duplicate column name 'login' » sans
--- rien abîmer. Compatible MySQL 8 et MariaDB 10.4+.
---
--- Après la migration, aucun utilisateur n'a encore de mot de passe : au
--- premier lancement, GestiMed propose de créer le compte de l'utilisateur
--- n° 1 (ou de celui donné par -Dgestimed.utilisateur). Les comptes suivants
--- se créent avec l'outil en ligne de commande My_application.outils.GestionComptes.
+-- Identifiant, empreinte du mot de passe, état et médecin associé pour
+-- chaque utilisateur ; table journal_acces (qui a ouvert ou modifié quel
+-- dossier). Après cette migration, aucun utilisateur n'a de mot de passe :
+-- au premier lancement, GestiMed propose de créer le premier compte.
 -- =====================================================================
-
 ALTER TABLE utilisateur
   ADD COLUMN login      VARCHAR(40)  NULL AFTER qualite,
   ADD COLUMN motDePasse VARCHAR(200) NULL AFTER login,

@@ -1,17 +1,15 @@
 -- =====================================================================
--- GestiMed : schéma de la base, RECONSTITUÉ à partir des requêtes du code
--- (dao/jdbc/Jdbc*Dao.java, Mappers.java) et des règles des services.
+-- GestiMed, migration V1 : schéma initial (avant l'écran de connexion).
 --
--- Ce script SUPPRIME puis recrée les tables. Il est exécuté par le test
--- d'intégration MySqlIntegrationTest, uniquement sur une base dont le nom
--- se termine par « _test ». Pour la base réelle, utiliser sql/medicale.sql
--- (mêmes définitions, sans DROP).
+-- Reconstitué à partir des requêtes du code (dao/jdbc/Jdbc*Dao.java,
+-- Mappers.java) et des règles des services.
 --
--- Contraintes de format imposées par MySqlIntegrationTest, qui découpe ce
--- fichier lui-même :
---   les commentaires tiennent sur des lignes entières commençant par deux tirets,
---   aucun point-virgule dans un commentaire ni dans une chaîne,
---   un point-virgule termine chaque ordre SQL.
+-- Ne jamais modifier une migration déjà appliquée : Flyway vérifie leur
+-- somme de contrôle. Toute évolution passe par un nouveau fichier
+-- V<n>__description.sql (voir My_application.outils.MigrationBase).
+--
+-- Une base existante créée avant Flyway n'exécute pas ce fichier : elle est
+-- marquée « déjà en version 1 » (ou 2) lors de sa première mise à jour.
 --
 -- IMPORTANT : ENGINE=InnoDB. Avec MyISAM, MySQL ignore les transactions et
 -- le ROLLBACK de DossierService n'annulerait rien.
@@ -19,22 +17,6 @@
 -- Noms de tables et colonnes imposés par le code : ne pas les renommer
 -- (rondezvous, demandanalyse, idMedcin, prenomMedcin, ...).
 -- =====================================================================
-
-DROP TABLE IF EXISTS journal_acces;
-DROP TABLE IF EXISTS demandanalyse;
-DROP TABLE IF EXISTS prescrire;
-DROP TABLE IF EXISTS consultpathologie;
-DROP TABLE IF EXISTS consultsymptome;
-DROP TABLE IF EXISTS rondezvous;
-DROP TABLE IF EXISTS consultation;
-DROP TABLE IF EXISTS analyse;
-DROP TABLE IF EXISTS categanalyse;
-DROP TABLE IF EXISTS medicaments;
-DROP TABLE IF EXISTS pathologies;
-DROP TABLE IF EXISTS symptomes;
-DROP TABLE IF EXISTS utilisateur;
-DROP TABLE IF EXISTS medecin;
-DROP TABLE IF EXISTS patient;
 
 -- ---------------------------------------------------------------------
 -- Patients. idPatient = numéro de dossier : auto-incrémenté, ou saisi
@@ -84,25 +66,13 @@ CREATE TABLE medecin (
 
 -- ---------------------------------------------------------------------
 -- Utilisateurs (personnel qui prend les rendez-vous).
--- login / motDePasse : identifiants de l'écran de connexion. motDePasse
--- contient une empreinte PBKDF2 (service.MotDePasse), jamais le mot de
--- passe en clair. NULL tant que le compte n'a pas été activé.
--- idMedecin : médecin traitant de la session quand cet utilisateur se connecte.
 -- ---------------------------------------------------------------------
 CREATE TABLE utilisateur (
   idUtilisateur INT          NOT NULL AUTO_INCREMENT,
   nom           VARCHAR(60)  NOT NULL,
   prenom        VARCHAR(60)  NOT NULL,
   qualite       VARCHAR(60)  NULL,
-  login         VARCHAR(40)  NULL,
-  motDePasse    VARCHAR(200) NULL,
-  actif         TINYINT(1)   NOT NULL DEFAULT 1,
-  idMedecin     INT          NULL,
-  PRIMARY KEY (idUtilisateur),
-  UNIQUE KEY uk_utilisateur_login (login),
-  KEY idx_utilisateur_medecin (idMedecin),
-  CONSTRAINT fk_utilisateur_medecin FOREIGN KEY (idMedecin)
-    REFERENCES medecin (idMedcin) ON DELETE SET NULL ON UPDATE CASCADE
+  PRIMARY KEY (idUtilisateur)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -274,27 +244,5 @@ CREATE TABLE rondezvous (
   CONSTRAINT fk_rondezvous_patient FOREIGN KEY (idPatient)
     REFERENCES patient (idPatient) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_rondezvous_utilisateur FOREIGN KEY (idUser)
-    REFERENCES utilisateur (idUtilisateur) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ---------------------------------------------------------------------
--- Journal des accès (traçabilité du dossier médical) : qui a ouvert ou
--- modifié quel dossier, et quand (service.JournalAcces). L'application
--- n'y fait que des INSERT et des SELECT.
--- idUtilisateur est NULL pour une tentative de connexion échouée.
--- Pas de clé étrangère vers patient : la trace doit survivre au dossier.
--- ---------------------------------------------------------------------
-CREATE TABLE journal_acces (
-  idJournal     BIGINT       NOT NULL AUTO_INCREMENT,
-  dateHeure     DATETIME     NOT NULL,
-  idUtilisateur INT          NULL,
-  action        VARCHAR(40)  NOT NULL,
-  idPatient     INT          NULL,
-  detail        VARCHAR(255) NULL,
-  poste         VARCHAR(100) NULL,
-  PRIMARY KEY (idJournal),
-  KEY idx_journal_patient (idPatient, dateHeure),
-  KEY idx_journal_utilisateur (idUtilisateur, dateHeure),
-  CONSTRAINT fk_journal_utilisateur FOREIGN KEY (idUtilisateur)
     REFERENCES utilisateur (idUtilisateur) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
