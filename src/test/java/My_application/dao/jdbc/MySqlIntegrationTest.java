@@ -19,6 +19,7 @@ import My_application.entities.patient;
 import My_application.entities.symptome;
 import My_application.fake.Donnees;
 import My_application.service.AuthentificationService;
+import My_application.service.JournalAcces;
 import My_application.service.JournalAccesEnBase;
 import My_application.service.MetierException;
 import My_application.service.Session;
@@ -327,5 +328,33 @@ public class MySqlIntegrationTest {
         List<Rendez_Vous> restants = rdv.duJour(jour);
         assertEquals(1, restants.size());
         assertEquals("B", restants.get(0).getPatient().getNom());
+    }
+
+    @Test
+    public void deuxMedecinsPeuventRecevoirAuMemeCreneau() throws Exception {
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO medecin (nomMedecin, prenomMedecin, titre) VALUES ('AMRANI', 'Lina', 'Dr')");
+        }
+        patient a = creerPatient("A");
+        patient b = creerPatient("B");
+        LocalDate jour = LocalDate.now().plusDays(2);
+        RendezVousService medecin1 = new RendezVousService(daos, JournalAcces.AUCUN, () -> 1);
+        RendezVousService medecin2 = new RendezVousService(daos, JournalAcces.AUCUN, () -> 2);
+        Rendez_Vous ra = medecin1.proposer(a, Donnees.utilisateur(1), jour, 9);
+        medecin1.confirmer(ra);
+        Rendez_Vous rb = medecin2.proposer(b, Donnees.utilisateur(1), jour, 9);
+        medecin2.confirmer(rb);
+        assertEquals(ra.getHeure(), rb.getHeure());
+        List<Rendez_Vous> lus = medecin1.duJour(jour);
+        assertEquals(2, lus.size());
+        assertEquals(Integer.valueOf(1), lus.get(0).getIdMedecin());
+        // Même médecin, même créneau : refusé par la contrainte unique.
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO rendezvous (idUser, idPatient, idMedecin, date, heure) VALUES (1, "
+                    + b.getIdentPat() + ", 1, '" + jour + "', '" + ra.getHeure() + "')");
+            fail("créneau déjà pris chez ce médecin");
+        } catch (SQLException attendu) {
+            // uk_rendezvous_creneau
+        }
     }
 }

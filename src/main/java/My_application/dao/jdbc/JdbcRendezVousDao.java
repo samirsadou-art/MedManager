@@ -33,6 +33,7 @@ public class JdbcRendezVousDao implements RendezVousDao {
                 r.setDateFix(prisLe.toLocalDateTime().toLocalDate());
                 r.setHeureFix(prisLe.toLocalDateTime().toLocalTime());
             }
+            r.setIdMedecin((Integer) rs.getObject("idMedecin"));
             r.setEtat(rs.getByte("etat"));
             return r;
         }
@@ -43,10 +44,10 @@ public class JdbcRendezVousDao implements RendezVousDao {
         // prisLe (migration V8) : date et heure de la prise ; sans elles, l'heure du serveur.
         LocalDateTime prisLe = rdv.getDateFix() == null || rdv.getHeureFix() == null ? null
                 : LocalDateTime.of(rdv.getDateFix(), rdv.getHeureFix());
-        jdbc.update("INSERT INTO rendezvous (idUser, idPatient, date, heure, prisLe) "
-                + "VALUES (?,?,?,?,COALESCE(?, CURRENT_TIMESTAMP))",
-                rdv.getUtilisateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure(),
-                prisLe);
+        jdbc.update("INSERT INTO rendezvous (idUser, idPatient, idMedecin, date, heure, prisLe) "
+                + "VALUES (?,?,?,?,?,COALESCE(?, CURRENT_TIMESTAMP))",
+                rdv.getUtilisateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getIdMedecin(), rdv.getDate(),
+                rdv.getHeure(), prisLe);
     }
 
     @Override
@@ -58,11 +59,11 @@ public class JdbcRendezVousDao implements RendezVousDao {
     @Override
     public List<Rendez_Vous> findEntre(LocalDate debut, LocalDate fin) {
         // Une requête avec jointures au lieu de 1 + 2×N requêtes auparavant.
-        return jdbc.query("SELECT r.idUser, r.idPatient, r.date, r.heure, r.prisLe, r.etat, "
+        return jdbc.query("SELECT r.idUser, r.idPatient, r.idMedecin, r.date, r.heure, r.prisLe, r.etat, "
                 + "p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient, "
                 + "u.nom, u.prenom, u.qualite "
                 + "FROM rendezvous r JOIN patient p ON p.idPatient = r.idPatient "
                 + "LEFT JOIN utilisateur u ON u.idUtilisateur = r.idUser "
-                + "WHERE r.date BETWEEN ? AND ? ORDER BY r.date, r.heure", MAPPER, debut, fin);
+                + "WHERE r.date BETWEEN ? AND ? ORDER BY r.date, r.heure, r.idMedecin", MAPPER, debut, fin);
     }
 }

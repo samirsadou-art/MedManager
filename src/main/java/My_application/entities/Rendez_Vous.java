@@ -34,6 +34,8 @@ public class Rendez_Vous {
     public static final int ETAT_ABSENT = 5;
 
     private int etat = ETAT_PREVU;
+    /** Médecin qui reçoit le patient (rendezvous.idMedecin) ; null pour un rendez-vous d'avant V5 non rattaché. */
+    private Integer idMedecin;
 
     public Rendez_Vous() {
     }
@@ -134,6 +136,14 @@ public class Rendez_Vous {
 
     public void setHeureFix(LocalTime heureFix) {
         this.heureFix = heureFix;
+    }
+
+    public Integer getIdMedecin() {
+        return idMedecin;
+    }
+
+    public void setIdMedecin(Integer idMedecin) {
+        this.idMedecin = idMedecin;
     }
 
     public int getEtat() {
