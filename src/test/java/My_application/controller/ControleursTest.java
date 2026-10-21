@@ -1,5 +1,6 @@
 package My_application.controller;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -15,8 +16,10 @@ import My_application.fake.Donnees;
 import My_application.fake.FausseVue;
 import My_application.fake.MemoireDAOFactory;
 import My_application.report.RapportService;
+import My_application.service.AuthentificationService;
 import My_application.service.CatalogueService;
 import My_application.service.DossierService;
+import My_application.service.JournalAcces;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.Session;
@@ -195,6 +198,25 @@ public class ControleursTest {
         assertTrue(ouverts.get(0).getName().endsWith(".pdf"));
         assertEquals(DossierPatientController.IMPRESSION_INDISPONIBLE, vue.informations.get(0));
         assertTrue(vue.erreurs.isEmpty());
+    }
+
+    // ----- connexion -----
+
+    @Test
+    public void connexionRefuseeAfficheLeMessageEtEffaceLeMotDePasse() {
+        FausseVue vue = new FausseVue();
+        Session session = new Session(base, 1, 1);
+        ConnexionController ctrl = new ConnexionController(vue,
+                new AuthentificationService(base, session, JournalAcces.AUCUN));
+        assertEquals(Boolean.TRUE, ctrl.premiereUtilisation());
+        char[] mdp = "Cabinet2026".toCharArray();
+        assertNotNull(ctrl.creerPremierCompte("medecin", mdp, "Cabinet2026".toCharArray()));
+        assertArrayEquals(new char[mdp.length], mdp);
+        char[] faux = "Mauvais2026".toCharArray();
+        assertNull(ctrl.connecter("medecin", faux));
+        assertEquals("Identifiant ou mot de passe incorrect.", vue.erreurs.get(0));
+        assertArrayEquals(new char[faux.length], faux);
+        assertNotNull(ctrl.connecter("medecin", "Cabinet2026".toCharArray()));
     }
 
     // ----- rendez-vous -----

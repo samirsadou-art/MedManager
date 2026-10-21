@@ -35,9 +35,15 @@ public class DossierService {
     private final MedecinDao medecinDao;
     private final PrescriptionDao prescriptionDao;
     private final DemandeAnalyseDao demandeAnalyseDao;
+    private final JournalAcces journal;
 
     public DossierService(DAOFactory daos) {
+        this(daos, JournalAcces.AUCUN);
+    }
+
+    public DossierService(DAOFactory daos, JournalAcces journal) {
         this.daos = daos;
+        this.journal = journal;
         this.consultationDao = daos.getConsultationDao();
         this.medecinDao = daos.getMedecinDao();
         this.prescriptionDao = daos.getPrescriptionDao();
@@ -62,6 +68,7 @@ public class DossierService {
             consultations.add(c);
         }
         dossier.setConsultations(consultations);
+        journal.noter(JournalAcces.Action.OUVERTURE_DOSSIER, malade.getIdentPat(), null);
         return dossier;
     }
 
@@ -152,8 +159,12 @@ public class DossierService {
                     for (consultation c : aEcrire) {
                         if (nouvelles.contains(c)) {
                             inserer(c);
+                            journal.noter(JournalAcces.Action.ENREGISTREMENT_CONSULTATION,
+                                    c.getPatient().getIdentPat(), "consultation n° " + c.getIdConsul());
                         } else {
                             demandeAnalyseDao.updateResultats(c.getIdConsul(), c.getAnaPat().getListeAnaly());
+                            journal.noter(JournalAcces.Action.SAISIE_RESULTATS,
+                                    c.getPatient().getIdentPat(), "consultation n° " + c.getIdConsul());
                         }
                     }
                     return null;

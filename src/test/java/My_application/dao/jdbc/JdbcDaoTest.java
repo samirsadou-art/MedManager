@@ -6,6 +6,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import My_application.entities.Compte;
+import My_application.entities.EntreeJournal;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.consultation;
 import My_application.entities.medicament;
@@ -15,7 +17,9 @@ import My_application.fake.Donnees;
 import My_application.fake.FauxJdbc;
 import java.sql.Date;
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.After;
@@ -124,5 +128,55 @@ public class JdbcDaoTest {
     @Test
     public void symptomeIntrouvable() {
         assertNull(daos.getSymptomeDao().findByDesignation("inconnu"));
+    }
+
+    // ----- comptes et journal des accès -----
+
+    @Test
+    public void lectureDUnCompteParSonIdentifiant() {
+        base.quand("FROM utilisateur WHERE login=?", ligne("idUtilisateur", 3, "nom", "SAHAB", "prenom", "Said",
+                "qualite", "Médecin", "login", "medecin", "actif", 1, "idMedecin", 2,
+                "motDePasse", "pbkdf2-sha256$1$c2Vs$ZW1w"));
+        Compte c = daos.getUtilisateurDao().findCompte("medecin");
+        assertEquals(3, c.getUtilisateur().getIdent());
+        assertEquals("medecin", c.getUtilisateur().getLogin());
+        assertTrue(c.getUtilisateur().isActif());
+        assertEquals(Integer.valueOf(2), c.getUtilisateur().getIdMedecin());
+        assertEquals("pbkdf2-sha256$1$c2Vs$ZW1w", c.getEmpreinte());
+        assertEquals("medecin", base.derniere().param(1));
+    }
+
+    @Test
+    public void lesIdentifiantsSontEcritsEnParametres() {
+        daos.getUtilisateurDao().definirIdentifiants(3, "medecin", "pbkdf2-sha256$1$a$b");
+        FauxJdbc.Execution e = base.derniere();
+        assertEquals("UPDATE utilisateur SET login=?, motDePasse=? WHERE idUtilisateur=?", e.sql);
+        assertEquals("medecin", e.param(1));
+        assertEquals("pbkdf2-sha256$1$a$b", e.param(2));
+        assertEquals(3, e.param(3));
+    }
+
+    @Test
+    public void ajoutAuJournalDesAcces() {
+        LocalDateTime t = LocalDateTime.of(2026, 10, 21, 9, 30);
+        daos.getJournalDao().ajouter(new EntreeJournal(t, 1, "OUVERTURE_DOSSIER", 7, null, "POSTE-1"));
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("INSERT INTO journal_acces"));
+        assertEquals(Timestamp.valueOf(t), e.param(1));
+        assertEquals(1, e.param(2));
+        assertEquals("OUVERTURE_DOSSIER", e.param(3));
+        assertEquals(7, e.param(4));
+        assertNull(e.param(5));
+        assertEquals("POSTE-1", e.param(6));
+    }
+
+    @Test
+    public void lectureDuJournalDUnPatient() {
+        base.quand("FROM journal_acces WHERE idPatient=?", ligne("dateHeure", Timestamp.valueOf("2026-10-21 09:30:00"),
+                "idUtilisateur", null, "action", "ECHEC_CONNEXION", "idPatient", 7, "detail", "x", "poste", null));
+        List<EntreeJournal> r = daos.getJournalDao().findByPatient(7);
+        assertEquals(1, r.size());
+        assertNull(r.get(0).getIdUtilisateur());
+        assertEquals(LocalDateTime.of(2026, 10, 21, 9, 30), r.get(0).getDateHeure());
     }
 }

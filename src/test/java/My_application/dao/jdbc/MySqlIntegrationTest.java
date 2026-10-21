@@ -9,6 +9,7 @@ import static org.junit.Assume.assumeTrue;
 import My_application.dao.DAOFactory;
 import My_application.dao.DataAccessException;
 import My_application.entities.DossierPatient;
+import My_application.entities.EntreeJournal;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
@@ -16,6 +17,10 @@ import My_application.entities.medicament;
 import My_application.entities.patient;
 import My_application.entities.symptome;
 import My_application.fake.Donnees;
+import My_application.service.AuthentificationService;
+import My_application.service.JournalAccesEnBase;
+import My_application.service.MetierException;
+import My_application.service.Session;
 import My_application.service.CatalogueService;
 import My_application.service.DossierService;
 import My_application.service.RendezVousService;
@@ -124,6 +129,30 @@ public class MySqlIntegrationTest {
 
     private patient creerPatient(String nom) {
         return daos.getPatientDao().insert(Donnees.patient(0, nom));
+    }
+
+    @Test
+    public void premierCompteConnexionEtJournalSurUneVraieBase() {
+        Session session = new Session(daos, 1, idMedecin);
+        AuthentificationService auth = new AuthentificationService(daos, session,
+                new JournalAccesEnBase(daos.getJournalDao(), session));
+        assertTrue(auth.premiereUtilisation());
+        auth.creerPremierCompte("medecin", "Cabinet2026".toCharArray(), "Cabinet2026".toCharArray());
+        assertTrue(!auth.premiereUtilisation());
+        try {
+            auth.connecter("medecin", "Mauvais2026".toCharArray());
+            fail();
+        } catch (MetierException attendu) {
+            // refus attendu, tracé sans utilisateur
+        }
+        assertEquals(1, auth.connecter("MEDECIN", "Cabinet2026".toCharArray()).getIdent());
+        patient p = creerPatient("TRACE");
+        new DossierService(daos, new JournalAccesEnBase(daos.getJournalDao(), session))
+                .ouvrirDossier(p, daos.getMedecinDao().findById(idMedecin));
+        List<EntreeJournal> acces = daos.getJournalDao().findByPatient(p.getIdentPat());
+        assertEquals(1, acces.size());
+        assertEquals("OUVERTURE_DOSSIER", acces.get(0).getAction());
+        assertEquals(Integer.valueOf(1), acces.get(0).getIdUtilisateur());
     }
 
     @Test

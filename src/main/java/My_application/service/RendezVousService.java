@@ -49,12 +49,22 @@ public class RendezVousService {
     private final int heureOuverture;
     private final int nombreHeures;
     private final int maxParHeure;
+    private final JournalAcces journal;
 
     public RendezVousService(DAOFactory daos) {
-        this(daos, Clock.systemDefaultZone(), HEURE_OUVERTURE, NOMBRE_HEURES, MAX_PAR_HEURE);
+        this(daos, JournalAcces.AUCUN);
+    }
+
+    public RendezVousService(DAOFactory daos, JournalAcces journal) {
+        this(daos, Clock.systemDefaultZone(), HEURE_OUVERTURE, NOMBRE_HEURES, MAX_PAR_HEURE, journal);
     }
 
     public RendezVousService(DAOFactory daos, Clock horloge, int heureOuverture, int nombreHeures, int maxParHeure) {
+        this(daos, horloge, heureOuverture, nombreHeures, maxParHeure, JournalAcces.AUCUN);
+    }
+
+    public RendezVousService(DAOFactory daos, Clock horloge, int heureOuverture, int nombreHeures, int maxParHeure,
+            JournalAcces journal) {
         if (maxParHeure <= 0 || 60 % maxParHeure != 0) {
             throw new IllegalArgumentException("maxParHeure doit diviser 60 : " + maxParHeure);
         }
@@ -64,6 +74,7 @@ public class RendezVousService {
         this.heureOuverture = heureOuverture;
         this.nombreHeures = nombreHeures;
         this.maxParHeure = maxParHeure;
+        this.journal = journal;
     }
 
     public int getMaxParHeure() {
@@ -190,19 +201,29 @@ public class RendezVousService {
                     // l'insertion : la clé primaire (date, heure) l'a refusé.
                     throw new MetierException(CRENEAU_PRIS);
                 }
+                journal.noter(JournalAcces.Action.RENDEZ_VOUS_PRIS, rdv.getPatient().getIdentPat(),
+                        rdv.getDate() + " " + rdv.getHeure());
                 return null;
             }
         });
     }
 
     /** Annule un rendez-vous à venir du patient {@code demandeur}. */
-    public void annuler(Rendez_Vous rdv, patient demandeur) {
+    public void annuler(final Rendez_Vous rdv, patient demandeur) {
         if (!peutEtreAnnule(rdv, demandeur)) {
             throw new MetierException("Seul un rendez-vous à venir du patient courant peut être annulé.");
         }
-        if (!rendezVousDao.delete(rdv)) {
-            throw new MetierException("Ce rendez-vous n'existe plus.");
-        }
+        daos.enTransaction(new UniteDeTravail<Void>() {
+            @Override
+            public Void executer() {
+                if (!rendezVousDao.delete(rdv)) {
+                    throw new MetierException("Ce rendez-vous n'existe plus.");
+                }
+                journal.noter(JournalAcces.Action.RENDEZ_VOUS_ANNULE, rdv.getPatient().getIdentPat(),
+                        rdv.getDate() + " " + rdv.getHeure());
+                return null;
+            }
+        });
     }
 
     public boolean peutEtreAnnule(Rendez_Vous rdv, patient demandeur) {

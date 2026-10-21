@@ -20,6 +20,7 @@
 -- (rondezvous, demandanalyse, idMedcin, prenomMedcin, ...).
 -- =====================================================================
 
+DROP TABLE IF EXISTS journal_acces;
 DROP TABLE IF EXISTS demandanalyse;
 DROP TABLE IF EXISTS prescrire;
 DROP TABLE IF EXISTS consultpathologie;
@@ -83,13 +84,25 @@ CREATE TABLE medecin (
 
 -- ---------------------------------------------------------------------
 -- Utilisateurs (personnel qui prend les rendez-vous).
+-- login / motDePasse : identifiants de l'écran de connexion. motDePasse
+-- contient une empreinte PBKDF2 (service.MotDePasse), jamais le mot de
+-- passe en clair. NULL tant que le compte n'a pas été activé.
+-- idMedecin : médecin traitant de la session quand cet utilisateur se connecte.
 -- ---------------------------------------------------------------------
 CREATE TABLE utilisateur (
   idUtilisateur INT          NOT NULL AUTO_INCREMENT,
   nom           VARCHAR(60)  NOT NULL,
   prenom        VARCHAR(60)  NOT NULL,
   qualite       VARCHAR(60)  NULL,
-  PRIMARY KEY (idUtilisateur)
+  login         VARCHAR(40)  NULL,
+  motDePasse    VARCHAR(200) NULL,
+  actif         TINYINT(1)   NOT NULL DEFAULT 1,
+  idMedecin     INT          NULL,
+  PRIMARY KEY (idUtilisateur),
+  UNIQUE KEY uk_utilisateur_login (login),
+  KEY idx_utilisateur_medecin (idMedecin),
+  CONSTRAINT fk_utilisateur_medecin FOREIGN KEY (idMedecin)
+    REFERENCES medecin (idMedcin) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -261,5 +274,27 @@ CREATE TABLE rondezvous (
   CONSTRAINT fk_rondezvous_patient FOREIGN KEY (idPatient)
     REFERENCES patient (idPatient) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_rondezvous_utilisateur FOREIGN KEY (idUser)
+    REFERENCES utilisateur (idUtilisateur) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- Journal des accès (traçabilité du dossier médical) : qui a ouvert ou
+-- modifié quel dossier, et quand (service.JournalAcces). L'application
+-- n'y fait que des INSERT et des SELECT.
+-- idUtilisateur est NULL pour une tentative de connexion échouée.
+-- Pas de clé étrangère vers patient : la trace doit survivre au dossier.
+-- ---------------------------------------------------------------------
+CREATE TABLE journal_acces (
+  idJournal     BIGINT       NOT NULL AUTO_INCREMENT,
+  dateHeure     DATETIME     NOT NULL,
+  idUtilisateur INT          NULL,
+  action        VARCHAR(40)  NOT NULL,
+  idPatient     INT          NULL,
+  detail        VARCHAR(255) NULL,
+  poste         VARCHAR(100) NULL,
+  PRIMARY KEY (idJournal),
+  KEY idx_journal_patient (idPatient, dateHeure),
+  KEY idx_journal_utilisateur (idUtilisateur, dateHeure),
+  CONSTRAINT fk_journal_utilisateur FOREIGN KEY (idUtilisateur)
     REFERENCES utilisateur (idUtilisateur) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

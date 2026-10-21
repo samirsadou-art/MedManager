@@ -2,6 +2,7 @@ package My_application.service;
 
 import My_application.dao.DAOFactory;
 import My_application.dao.PatientDao;
+import My_application.dao.UniteDeTravail;
 import My_application.entities.patient;
 import java.time.LocalDate;
 import java.util.List;
@@ -9,10 +10,18 @@ import java.util.List;
 /** Règles métier liées aux patients. */
 public class PatientService {
 
+    private final DAOFactory daos;
     private final PatientDao patientDao;
+    private final JournalAcces journal;
 
     public PatientService(DAOFactory daos) {
+        this(daos, JournalAcces.AUCUN);
+    }
+
+    public PatientService(DAOFactory daos, JournalAcces journal) {
+        this.daos = daos;
         this.patientDao = daos.getPatientDao();
+        this.journal = journal;
     }
 
     public List<patient> rechercher(String debutDuNom) {
@@ -24,14 +33,21 @@ public class PatientService {
     }
 
     /** Crée le patient après validation ; renvoie le patient avec son identifiant. */
-    public patient creer(patient p) {
+    public patient creer(final patient p) {
         valider(p);
         p.setNom(p.getNom().trim().toUpperCase());
         p.setPrenom(capitaliser(p.getPrenom().trim()));
         if (p.getIdentPat() > 0 && patientDao.findById(p.getIdentPat()) != null) {
             throw new MetierException("Le numéro de dossier " + p.getIdentPat() + " est déjà utilisé.");
         }
-        return patientDao.insert(p);
+        return daos.enTransaction(new UniteDeTravail<patient>() {
+            @Override
+            public patient executer() {
+                patient cree = patientDao.insert(p);
+                journal.noter(JournalAcces.Action.CREATION_PATIENT, cree.getIdentPat(), null);
+                return cree;
+            }
+        });
     }
 
     static void valider(patient p) {

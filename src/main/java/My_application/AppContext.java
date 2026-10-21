@@ -4,8 +4,11 @@ import My_application.dao.DAOFactory;
 import My_application.dao.jdbc.Database;
 import My_application.dao.jdbc.JdbcDAOFactory;
 import My_application.report.RapportService;
+import My_application.service.AuthentificationService;
 import My_application.service.CatalogueService;
 import My_application.service.DossierService;
+import My_application.service.JournalAcces;
+import My_application.service.JournalAccesEnBase;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.Session;
@@ -36,18 +39,22 @@ public final class AppContext {
     private final RendezVousService rendezVousService;
     private final RapportService rapportService;
     private final Session session;
+    private final JournalAcces journal;
+    private final AuthentificationService authentificationService;
     private AutoCloseable ressource;
 
     private AppContext(DAOFactory daos) {
         this.daos = daos;
-        this.patientService = new PatientService(daos);
-        this.dossierService = new DossierService(daos);
-        this.catalogueService = new CatalogueService(daos);
-        this.rendezVousService = new RendezVousService(daos);
-        this.rapportService = new RapportService();
         this.session = new Session(daos,
                 Integer.getInteger("gestimed.utilisateur", ID_UTILISATEUR_DEFAUT),
                 Integer.getInteger("gestimed.medecin", ID_MEDECIN_DEFAUT));
+        this.journal = new JournalAccesEnBase(daos.getJournalDao(), session);
+        this.authentificationService = new AuthentificationService(daos, session, journal);
+        this.patientService = new PatientService(daos, journal);
+        this.dossierService = new DossierService(daos, journal);
+        this.catalogueService = new CatalogueService(daos);
+        this.rendezVousService = new RendezVousService(daos, journal);
+        this.rapportService = new RapportService();
     }
 
     public static synchronized AppContext get() {
@@ -102,5 +109,13 @@ public final class AppContext {
 
     public Session getSession() {
         return session;
+    }
+
+    public AuthentificationService getAuthentificationService() {
+        return authentificationService;
+    }
+
+    public JournalAcces getJournal() {
+        return journal;
     }
 }

@@ -29,8 +29,9 @@ VALUES
   (1, NULL, 'BENALI', 'Karim', 'Dr', 'Médecine générale',
    'Adresse du cabinet à renseigner', NULL, NULL, NULL, 'Cabinet médical');
 
-INSERT IGNORE INTO utilisateur (idUtilisateur, nom, prenom, qualite)
-VALUES (1, 'BENALI', 'Karim', 'Médecin');
+-- Sans identifiant ni mot de passe : GestiMed les fait choisir au premier lancement.
+INSERT IGNORE INTO utilisateur (idUtilisateur, nom, prenom, qualite, idMedecin)
+VALUES (1, 'BENALI', 'Karim', 'Médecin', 1);
 
 -- ---------------------------------------------------------------------
 -- Catégories d'analyses

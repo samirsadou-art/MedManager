@@ -402,7 +402,11 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-             
+                // Personne n'accède aux dossiers sans s'être identifié.
+                if (ConnexionForm.demander() == null) {
+                    AppContext.fermer();
+                    System.exit(0);
+                }
                 new PrincipalForm().setVisible(true);
             }
         });

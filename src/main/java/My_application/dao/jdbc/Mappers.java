@@ -64,8 +64,12 @@ final class Mappers {
     static final RowMapper<User> UTILISATEUR = new RowMapper<User>() {
         @Override
         public User map(ResultSet rs) throws SQLException {
-            return new User(rs.getInt("idUtilisateur"), rs.getString("nom"),
+            User u = new User(rs.getInt("idUtilisateur"), rs.getString("nom"),
                     rs.getString("prenom"), rs.getString("qualite"));
+            u.setLogin(rs.getString("login"));
+            u.setActif(rs.getBoolean("actif"));
+            u.setIdMedecin((Integer) rs.getObject("idMedecin"));
+            return u;
         }
     };
 

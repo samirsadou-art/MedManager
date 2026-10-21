@@ -12,6 +12,10 @@ public class User {
     String nom;
     String prenom;
     String quailite;
+    String login;
+    boolean actif = true;
+    /** Médecin traitant de la session quand cet utilisateur se connecte (null : celui par défaut). */
+    Integer idMedecin;
 
     public User() {
     }
@@ -53,6 +57,30 @@ public class User {
 
     public void setQuailite(String quailite) {
         this.quailite = quailite;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public boolean isActif() {
+        return actif;
+    }
+
+    public void setActif(boolean actif) {
+        this.actif = actif;
+    }
+
+    public Integer getIdMedecin() {
+        return idMedecin;
+    }
+
+    public void setIdMedecin(Integer idMedecin) {
+        this.idMedecin = idMedecin;
     }
 
     @Override

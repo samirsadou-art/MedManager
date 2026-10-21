@@ -5,6 +5,7 @@ import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
 import My_application.dao.DataAccessException;
 import My_application.dao.DemandeAnalyseDao;
+import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
 import My_application.dao.MedicamentDao;
 import My_application.dao.PathologieDao;
@@ -15,6 +16,8 @@ import My_application.dao.SymptomeDao;
 import My_application.dao.UniteDeTravail;
 import My_application.dao.UtilisateurDao;
 import My_application.entities.CategAnalyse;
+import My_application.entities.Compte;
+import My_application.entities.EntreeJournal;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
 import My_application.entities.analyse;
@@ -28,9 +31,11 @@ import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Implémentation EN MÉMOIRE de toute la couche DAO, pour les tests.
@@ -49,6 +54,11 @@ public class MemoireDAOFactory implements DAOFactory {
     public final Map<Integer, patient> patients = new LinkedHashMap<>();
     public final Map<Integer, medecin> medecins = new HashMap<>();
     public final Map<Integer, User> utilisateurs = new HashMap<>();
+    /** Comptes : identifiant et empreinte par idUtilisateur, et comptes désactivés. */
+    public final Map<Integer, String> logins = new HashMap<>();
+    public final Map<Integer, String> empreintes = new HashMap<>();
+    public final Set<Integer> inactifs = new HashSet<>();
+    public final List<EntreeJournal> journal = new ArrayList<>();
     public final List<consultation> consultations = new ArrayList<>();
     public final List<int[]> consultSymptome = new ArrayList<>();
     public final List<int[]> consultPathologie = new ArrayList<>();
@@ -120,6 +130,10 @@ public class MemoireDAOFactory implements DAOFactory {
         final List<Rendez_Vous> rv = new ArrayList<>(rendezVous);
         final List<symptome> sy = new ArrayList<>(symptomes);
         final List<pathologie> pa = new ArrayList<>(pathologies);
+        final Map<Integer, String> lo = new HashMap<>(logins);
+        final Map<Integer, String> em = new HashMap<>(empreintes);
+        final Set<Integer> in = new HashSet<>(inactifs);
+        final List<EntreeJournal> jo = new ArrayList<>(journal);
 
         void restaurer() {
             remplacer(consultations, c);
@@ -132,6 +146,13 @@ public class MemoireDAOFactory implements DAOFactory {
             remplacer(rendezVous, rv);
             remplacer(symptomes, sy);
             remplacer(pathologies, pa);
+            logins.clear();
+            logins.putAll(lo);
+            empreintes.clear();
+            empreintes.putAll(em);
+            inactifs.clear();
+            inactifs.addAll(in);
+            remplacer(journal, jo);
         }
     }
 
@@ -223,7 +244,93 @@ public class MemoireDAOFactory implements DAOFactory {
             @Override
             public User findById(int id) {
                 appel("utilisateur.findById");
-                return utilisateurs.get(id);
+                return avecCompte(utilisateurs.get(id));
+            }
+
+            @Override
+            public List<User> findAll() {
+                appel("utilisateur.findAll");
+                List<User> r = new ArrayList<>();
+                for (User u : utilisateurs.values()) {
+                    r.add(avecCompte(u));
+                }
+                return r;
+            }
+
+            @Override
+            public Compte findCompte(String login) {
+                appel("utilisateur.findCompte");
+                for (Map.Entry<Integer, String> e : logins.entrySet()) {
+                    if (e.getValue().equals(login)) {
+                        return new Compte(avecCompte(utilisateurs.get(e.getKey())), empreintes.get(e.getKey()));
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            public boolean existeUnCompte() {
+                appel("utilisateur.existeUnCompte");
+                for (Integer id : logins.keySet()) {
+                    if (empreintes.get(id) != null) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public void definirIdentifiants(int idUtilisateur, String login, String empreinte) {
+                appel("utilisateur.definirIdentifiants");
+                for (Map.Entry<Integer, String> e : logins.entrySet()) {
+                    if (e.getValue().equals(login) && e.getKey() != idUtilisateur) {
+                        throw new My_application.dao.DoublonException("login " + login + " déjà pris", null);
+                    }
+                }
+                logins.put(idUtilisateur, login);
+                empreintes.put(idUtilisateur, empreinte);
+            }
+
+            @Override
+            public void definirActif(int idUtilisateur, boolean actif) {
+                appel("utilisateur.definirActif");
+                if (actif) {
+                    inactifs.remove(idUtilisateur);
+                } else {
+                    inactifs.add(idUtilisateur);
+                }
+            }
+        };
+    }
+
+    private User avecCompte(User u) {
+        if (u != null) {
+            u.setLogin(logins.get(u.getIdent()));
+            u.setActif(!inactifs.contains(u.getIdent()));
+        }
+        return u;
+    }
+
+    @Override
+    public JournalDao getJournalDao() {
+        return new JournalDao() {
+            @Override
+            public void ajouter(EntreeJournal entree) {
+                appel("journal.ajouter");
+                journal.add(entree);
+            }
+
+            @Override
+            public List<EntreeJournal> findByPatient(int idPatient) {
+                appel("journal.findByPatient");
+                List<EntreeJournal> r = new ArrayList<>();
+                for (int i = journal.size() - 1; i >= 0; i--) {
+                    EntreeJournal e = journal.get(i);
+                    if (e.getIdPatient() != null && e.getIdPatient() == idPatient) {
+                        r.add(e);
+                    }
+                }
+                return r;
             }
         };
     }
