@@ -5,6 +5,7 @@
  */
 package My_application.Patient;
 
+import My_application.vue.EnTetePage;
 import My_application.vue.Theme;
 import My_application.service.PatientService;
 import My_application.controller.NouveauPatientController;
@@ -31,6 +32,7 @@ public class NewPatient extends javax.swing.JDialog implements Vue {
         super(parent, "Nouveau patient", ModalityType.APPLICATION_MODAL);
         initComponents();
         Theme.harmoniser(this);
+        EnTetePage.installer(this, "user-plus", "Nouveau patient", "Renseignez la fiche administrative et les antécédents");
         setLocationRelativeTo(parent);
         controleur = new NouveauPatientController(this, patientService);
         jTextField9.setToolTipText("jj/mm/aaaa");

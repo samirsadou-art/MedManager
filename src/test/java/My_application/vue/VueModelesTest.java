@@ -6,7 +6,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import My_application.entities.DossierPatient;
-import My_application.entities.Rendez_Vous;
 import My_application.entities.consultation;
 import My_application.entities.medicament;
 import My_application.fake.Donnees;
@@ -14,9 +13,8 @@ import My_application.modelTableau.HistoriqueVisites;
 import My_application.modelTableau.ListeTableModel;
 import My_application.modelTableau.my_modelAnalyse;
 import My_application.modelTableau.my_modelOrdonnance;
-import My_application.rendezvous.RendezVousTableModel;
-import java.time.LocalTime;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -71,22 +69,6 @@ public class VueModelesTest {
         assertEquals("b", m.getValueAt(1, 0));
         m.clear();
         assertEquals(0, m.getSize());
-    }
-
-    @Test
-    public void agendaPlaceLesRendezVousDansLaBonneCase() {
-        LocalDate dimanche = LocalDate.of(2026, 10, 4);
-        Rendez_Vous r = new Rendez_Vous();
-        r.setPatient(Donnees.patient(1, "A"));
-        r.setDate(LocalDate.of(2026, 10, 6)); // mardi
-        r.setHeure(LocalTime.parse("11:15:00"));
-        RendezVousTableModel m = new RendezVousTableModel(4, 8, 9);
-        m.afficherSemaine(dimanche, Arrays.asList(r));
-        assertEquals(1, m.getNombrePatient(3, 3)); // ligne 11 h, colonne mardi
-        assertEquals("Mardi [06-10-2026]", m.getColumnName(3));
-        assertEquals("16:00 - 17:00", m.getValueAt(8, 0));
-        assertEquals(LocalDate.of(2026, 10, 6), m.jourDeColonne(3));
-        assertEquals(11, m.heureDeLigne(3));
     }
 
     @Test

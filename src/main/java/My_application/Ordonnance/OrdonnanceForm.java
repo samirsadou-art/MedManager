@@ -5,6 +5,7 @@
  */
 package My_application.Ordonnance;
 
+import My_application.vue.EnTetePage;
 import My_application.vue.Theme;
 import My_application.service.CatalogueService;
 import My_application.controller.CatalogueController;
@@ -43,6 +44,11 @@ public class OrdonnanceForm extends JDialog implements Vue {
         this.catalogue = catalogue;
         initComponents();
         Theme.harmoniser(this);
+        // L'ancien bandeau « ORDONNANCE » laisse la place à l'en-tête commun.
+        jPanel1.setVisible(false);
+        EnTetePage.installer(this, "prescription", "Ordonnance", consult.getPatient().getNom().toUpperCase()
+                + " " + consult.getPatient().getPrenom() + "  ·  " + consult.getPatient().getStringAge());
+        pack();
         this.consult = consult;
         this.setLocationRelativeTo(null);
         this.validerBtn.setEnabled(false);

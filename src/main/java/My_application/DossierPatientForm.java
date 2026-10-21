@@ -1,6 +1,7 @@
 
 package My_application;
 
+import My_application.vue.EnTetePage;
 import My_application.Analyse.AnalyseForm;
 import My_application.Analyse.PaneauAnalyse;
 import My_application.Ordonnance.OrdonnanceForm;
@@ -74,6 +75,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         this.ctx = ctx;
         initComponents();
         Theme.harmoniser(this);
+        EnTetePage.installer(this, "folder-open", "Dossier patient", doss.getMalade().getNom().toUpperCase()
+                + " " + doss.getMalade().getPrenom() + "  ·  " + doss.getMalade().getStringAge());
         presenterActionsDossier();
         installerFiltres();
         masquerFonctionsAbsentes();

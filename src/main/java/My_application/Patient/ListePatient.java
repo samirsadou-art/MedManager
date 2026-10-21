@@ -5,6 +5,7 @@
  */
 package My_application.Patient;
 
+import My_application.vue.EnTetePage;
 import My_application.vue.Theme;
 import My_application.AppContext;
 import My_application.DossierPatientForm;
@@ -30,6 +31,7 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
         this.ctx = ctx;
         initComponents();
         Theme.harmoniser(this);
+        EnTetePage.installer(this, "users", "Patients", "Recherchez un patient pour ouvrir son dossier, ou créez sa fiche");
         this.choix.requestFocus();
         this.setLocationRelativeTo(null);
         table.setModel(listeModel);

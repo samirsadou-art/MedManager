@@ -5,6 +5,7 @@
  */
 package My_application.Analyse;
 
+import My_application.vue.EnTetePage;
 import My_application.vue.Theme;
 import My_application.service.CatalogueService;
 import My_application.controller.CatalogueController;
@@ -42,6 +43,11 @@ public class AnalyseForm extends javax.swing.JDialog implements Vue {
         this.catalogue = catalogue;
         initComponents();
         Theme.harmoniser(this);
+        // L'ancien bandeau « ANALYSES BIOLOGIQUES » laisse la place à l'en-tête commun.
+        jPanel1.setVisible(false);
+        EnTetePage.installer(this, "flask", "Analyses biologiques", con.getPatient().getNom().toUpperCase()
+                + " " + con.getPatient().getPrenom() + "  ·  " + con.getPatient().getStringAge());
+        pack();
         this.setModal(true);
         this.setLocationRelativeTo(null);
         consult = con;

@@ -1,6 +1,7 @@
 
 package My_application.Chat;
 
+import My_application.vue.EnTetePage;
 import My_application.vue.Theme;
 import java.awt.Component;
 import java.awt.Rectangle;
@@ -22,6 +23,7 @@ public class Tchat extends javax.swing.JFrame {
         this.princ=princ;
         initComponents();
         Theme.harmoniser(this);
+        EnTetePage.installer(this, "message-circle", "Messagerie", "Discussion entre les postes du cabinet");
         ActivBtn.setEnabled(false);
         messageTxt.requestFocus();
         setIconImage(Toolkit.getDefaultToolkit().getImage(Tchat.class.getResource("/res/icons/chat32.png")));

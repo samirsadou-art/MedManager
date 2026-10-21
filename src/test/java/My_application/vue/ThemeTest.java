@@ -4,8 +4,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
+import static org.junit.Assert.assertTrue;
+
 import java.awt.Color;
+import javax.swing.BorderFactory;
 import javax.swing.Icon;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import org.junit.Test;
 
 public class ThemeTest {
@@ -50,5 +55,29 @@ public class ThemeTest {
         assertEquals(24, Icones.taille(32));
         assertEquals(20, Icones.taille(24));
         assertEquals(16, Icones.taille(16));
+    }
+
+    @Test
+    public void unGroupeTitreDevientUneCarteBlanche() {
+        JPanel groupe = new JPanel();
+        groupe.setBorder(BorderFactory.createTitledBorder("Paramètres Vitaux"));
+        JPanel interieur = new JPanel();
+        JLabel cellule = new JLabel("Num:");
+        cellule.setOpaque(true);
+        cellule.setBackground(new Color(204, 204, 204));
+        interieur.add(cellule);
+        groupe.add(interieur);
+        JPanel fenetre = new JPanel();
+        fenetre.add(groupe);
+
+        Theme.harmoniser(fenetre);
+
+        assertTrue(groupe.getBorder() instanceof BordureCarte);
+        assertEquals("Paramètres Vitaux", ((BordureCarte) groupe.getBorder()).getTitre());
+        assertEquals(Theme.SURFACE, groupe.getBackground());
+        assertTrue(Theme.estCarte(groupe));
+        assertEquals("le panneau intérieur prend le blanc de la carte", Theme.SURFACE, interieur.getBackground());
+        assertEquals("les cellules grisées restent grises", Theme.FOND, cellule.getBackground());
+        assertEquals("hors carte, le fond de fenêtre reste", false, Theme.estCarte(fenetre));
     }
 }
