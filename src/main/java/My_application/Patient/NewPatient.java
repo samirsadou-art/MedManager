@@ -6,7 +6,7 @@
 package My_application.Patient;
 
 import My_application.vue.Theme;
-import My_application.AppContext;
+import My_application.service.PatientService;
 import My_application.controller.NouveauPatientController;
 import My_application.controller.Vue;
 import My_application.entities.patient;
@@ -27,12 +27,12 @@ public class NewPatient extends javax.swing.JDialog implements Vue {
     private final NouveauPatientController controleur;
     private patient patientCree;
 
-    public NewPatient(Window parent) {
+    public NewPatient(Window parent, PatientService patientService) {
         super(parent, "Nouveau patient", ModalityType.APPLICATION_MODAL);
         initComponents();
         Theme.harmoniser(this);
         setLocationRelativeTo(parent);
-        controleur = new NouveauPatientController(this, AppContext.get().getPatientService());
+        controleur = new NouveauPatientController(this, patientService);
         jTextField9.setToolTipText("jj/mm/aaaa");
         jButton1.addActionListener(new java.awt.event.ActionListener() {
             @Override

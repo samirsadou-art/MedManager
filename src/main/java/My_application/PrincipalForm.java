@@ -30,12 +30,14 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     private final RendezJourTableModel RJModel = new RendezJourTableModel();
     private final ConsultJourTableModel CJModel = new ConsultJourTableModel();
+    private final AppContext ctx;
     private final AccueilController controleur;
     private Tchat disc;
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
 
-    public PrincipalForm() {
+    public PrincipalForm(AppContext ctx) {
+        this.ctx = ctx;
         initComponents();
         Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
@@ -45,7 +47,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         TableRendezvous.setDefaultRenderer(Object.class, new RendezJourTableRondu());
         TableConsult.setModel(CJModel);
         TableConsult.setDefaultRenderer(Object.class, new ConsultJourTableRondu());
-        AppContext ctx = AppContext.get();
         controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService());
         refresh();
     }
@@ -371,7 +372,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     private void userMenuBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_userMenuBtnActionPerformed
      
-        new ListePatient().setVisible(true);
+        new ListePatient(ctx).setVisible(true);
      
         
     }//GEN-LAST:event_userMenuBtnActionPerformed
@@ -388,7 +389,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         disc.Close();
-        AppContext.fermer();
+        ctx.close();
     }//GEN-LAST:event_formWindowClosing
 
     
@@ -436,11 +437,13 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             public void run() {
                 // Une base en retard sur le code ferait échouer les saisies : on s'arrête avant.
                 // Personne n'accède aux dossiers sans s'être identifié.
-                if (!baseAJour() || ConnexionForm.demander() == null) {
-                    AppContext.fermer();
+                // Seul endroit qui assemble l'application : tout le reste reçoit ses dépendances.
+                AppContext ctx = AppContext.mysql();
+                if (!baseAJour() || ConnexionForm.demander(ctx.getAuthentificationService()) == null) {
+                    ctx.close();
                     System.exit(0);
                 }
-                new PrincipalForm().setVisible(true);
+                new PrincipalForm(ctx).setVisible(true);
             }
         });
     }

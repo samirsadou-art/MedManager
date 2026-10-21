@@ -30,21 +30,23 @@ public final class GestionComptes {
     }
 
     public static void main(String[] args) {
-        int code = executer(args, System.out, System.err);
-        AppContext.fermer();
+        int code;
+        try (AppContext ctx = AppContext.mysql()) {
+            code = executer(args, ctx, System.out, System.err);
+        }
         System.exit(code);
     }
 
-    static int executer(String[] args, PrintStream out, PrintStream err) {
+    static int executer(String[] args, AppContext ctx, PrintStream out, PrintStream err) {
         if (args.length == 0) {
             usage(err);
             return 2;
         }
-        AuthentificationService service = AppContext.get().getAuthentificationService();
+        AuthentificationService service = ctx.getAuthentificationService();
         try {
             switch (args[0]) {
                 case "liste":
-                    for (User u : AppContext.get().getDaos().getUtilisateurDao().findAll()) {
+                    for (User u : ctx.getDaos().getUtilisateurDao().findAll()) {
                         out.printf("%4d  %-30s %-20s %s%n", u.getIdent(), u, u.getLogin() == null ? "(aucun)" : u.getLogin(),
                                 u.isActif() ? "actif" : "désactivé");
                     }
@@ -74,7 +76,7 @@ public final class GestionComptes {
                     return 0;
                 case "journal":
                     exiger(args, 2, err);
-                    for (EntreeJournal e : AppContext.get().getDaos().getJournalDao()
+                    for (EntreeJournal e : ctx.getDaos().getJournalDao()
                             .findByPatient(Integer.parseInt(args[1]))) {
                         out.printf("%s  utilisateur %-5s %-28s %s  %s%n", e.getDateHeure(),
                                 e.getIdUtilisateur() == null ? "-" : e.getIdUtilisateur(), e.getAction(),

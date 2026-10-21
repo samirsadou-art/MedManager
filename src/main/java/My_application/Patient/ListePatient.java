@@ -23,9 +23,11 @@ import javax.swing.JButton;
 public class ListePatient extends javax.swing.JDialog implements ListePatientVue {
 
     private final ListePatientTableModel listeModel = new ListePatientTableModel();
+    private final AppContext ctx;
     private final ListePatientController controleur;
 
-    public ListePatient() {
+    public ListePatient(AppContext ctx) {
+        this.ctx = ctx;
         initComponents();
         Theme.harmoniser(this);
         this.choix.requestFocus();
@@ -33,7 +35,6 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
         table.setModel(listeModel);
         table.setDefaultRenderer(Object.class, new ListePatientRondu());
         table.setRowHeight(42);
-        AppContext ctx = AppContext.get();
         controleur = new ListePatientController(this, ctx.getPatientService(), ctx.getDossierService(),
                 ctx.getSession());
         ajouterBoutonNouveauPatient();
@@ -46,7 +47,7 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
         nouveau.addActionListener(new java.awt.event.ActionListener() {
             @Override
             public void actionPerformed(java.awt.event.ActionEvent e) {
-                NewPatient fiche = new NewPatient(ListePatient.this);
+                NewPatient fiche = new NewPatient(ListePatient.this, ctx.getPatientService());
                 fiche.setVisible(true);
                 patient cree = fiche.getPatientCree();
                 if (cree != null) {
@@ -71,7 +72,7 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
 
     @Override
     public void afficherDossier(DossierPatient dossier) {
-        new DossierPatientForm(dossier).setVisible(true);
+        new DossierPatientForm(dossier, ctx).setVisible(true);
     }
 
     @Override

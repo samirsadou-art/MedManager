@@ -6,7 +6,7 @@
 package My_application.Ordonnance;
 
 import My_application.vue.Theme;
-import My_application.AppContext;
+import My_application.service.CatalogueService;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
 import My_application.entities.medicament;
@@ -27,12 +27,12 @@ public class AddMedicamentForm extends JDialog implements Vue {
         this.nomMed.setText(NomMED);
     }
 
-    public AddMedicamentForm() {
+    public AddMedicamentForm(CatalogueService catalogue) {
         initComponents();
         Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
         this.setModal(true);
-        controleur = new CatalogueController(this, AppContext.get().getCatalogueService());
+        controleur = new CatalogueController(this, catalogue);
         for (String forme : controleur.formesMedicament()) {
             formMed.addItem(forme);
         }

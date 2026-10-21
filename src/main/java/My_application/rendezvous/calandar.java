@@ -6,7 +6,6 @@
 package My_application.rendezvous;
 
 import My_application.vue.Theme;
-import My_application.AppContext;
 import My_application.controller.RendezVousController;
 import My_application.controller.Vue;
 import My_application.entities.Rendez_Vous;
@@ -41,11 +40,10 @@ public class calandar extends javax.swing.JFrame implements Vue {
     private LocalDate jourCourant;
     private int nombreJour = 0;
 
-    public calandar(patient Patient, User utilisateur) {
+    public calandar(patient Patient, User utilisateur, RendezVousService service) {
         initComponents();
         Theme.harmoniser(this);
         this.setExtendedState(MAXIMIZED_BOTH);
-        RendezVousService service = AppContext.get().getRendezVousService();
         controleur = new RendezVousController(this, service, Patient, utilisateur);
         model = new RendezVousTableModel(service.getMaxParHeure(), service.getHeureOuverture(),
                 service.getNombreHeures());

@@ -60,8 +60,7 @@ public class ConnexionForm extends JDialog implements Vue {
      * Affiche l'écran de connexion et attend : renvoie l'utilisateur connecté,
      * ou null si l'utilisateur a quitté ou si la base est inaccessible.
      */
-    public static User demander() {
-        AuthentificationService service = AppContext.get().getAuthentificationService();
+    public static User demander(AuthentificationService service) {
         // Avant que la fenêtre existe : les messages s'affichent sans parent.
         ConnexionController controleur = new ConnexionController(new Vue() {
             @Override

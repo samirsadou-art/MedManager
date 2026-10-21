@@ -66,14 +66,16 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     DefaultComboBoxModel BoxSympmodel = new DefaultComboBoxModel();
     DefaultComboBoxModel BoxPathomodel = new DefaultComboBoxModel();
 
-    public DossierPatientForm(DossierPatient doss) {
+    private final AppContext ctx;
+
+    public DossierPatientForm(DossierPatient doss, AppContext ctx) {
+        this.ctx = ctx;
         initComponents();
         Theme.harmoniser(this);
         presenterActionsDossier();
         this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         this.photo.setIcon(Icones.patient(doss.getMalade(), 128));
         dossier = doss;
-        AppContext ctx = AppContext.get();
         controleur = new DossierPatientController(this, doss, ctx.getDossierService(),
                 ctx.getCatalogueService(), ctx.getRapportService());
 
@@ -950,7 +952,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             return;
         }
         if (jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE) < 0) {
-            new OrdonnanceForm(consult).setVisible(true);
+            new OrdonnanceForm(consult, ctx.getCatalogueService()).setVisible(true);
             addOrdonnance(consult);
         } else {
             afficherInformation("Ordonnance déjà établie !");
@@ -974,7 +976,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             return;
         }
         if (jTabbedPane1.indexOfTab(ONGLET_ANALYSES) < 0) {
-            new AnalyseForm(consult).setVisible(true);
+            new AnalyseForm(consult, ctx.getCatalogueService()).setVisible(true);
             addAnalyse(consult);
         } else {
             afficherInformation("Analyses déjà établies !");
@@ -1170,8 +1172,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_respirationTxtFocusLost
 
     private void NewRendezVousBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NewRendezVousBtnActionPerformed
-        User util = AppContext.get().getSession().getUtilisateur();
-        new calandar(this.dossier.getMalade(), util).setVisible(true);
+        User util = ctx.getSession().getUtilisateur();
+        new calandar(this.dossier.getMalade(), util, ctx.getRendezVousService()).setVisible(true);
     }//GEN-LAST:event_NewRendezVousBtnActionPerformed
     // ----- onglets ordonnance / analyses -----
 

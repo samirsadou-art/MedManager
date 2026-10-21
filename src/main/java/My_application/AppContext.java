@@ -12,25 +12,24 @@ import My_application.service.JournalAccesEnBase;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.Session;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Point d'assemblage de l'application (« composition root »).
  * <p>
  * C'est le seul endroit qui choisit les implémentations concrètes : la base
- * MySQL, la fabrique de DAO JDBC, les services. Les vues reçoivent leurs
- * contrôleurs, qui reçoivent leurs services : aucune classe ne fait plus
- * {@code connexion.getConnexion()} elle-même.
- * <p>
- * Les tests appellent {@link #initialiser(DAOFactory)} avec une fabrique de
- * DAO en mémoire.
+ * MySQL, la fabrique de DAO JDBC, les services. Il est créé une seule fois,
+ * dans {@code PrincipalForm.main} (ou par un outil en ligne de commande), puis
+ * passé par constructeur : les fenêtres qui en ouvrent d'autres le reçoivent,
+ * les autres ne reçoivent que les services dont elles ont besoin. Il n'y a
+ * plus d'instance globale.
  */
-public final class AppContext {
+public final class AppContext implements AutoCloseable {
 
     /** Identifiants par défaut (ceux codés en dur dans la version d'origine). */
     public static final int ID_UTILISATEUR_DEFAUT = 1;
     public static final int ID_MEDECIN_DEFAUT = 1;
-
-    private static AppContext instance;
 
     private final DAOFactory daos;
     private final PatientService patientService;
@@ -41,9 +40,15 @@ public final class AppContext {
     private final Session session;
     private final JournalAcces journal;
     private final AuthentificationService authentificationService;
-    private AutoCloseable ressource;
+    private final AutoCloseable ressource;
 
-    private AppContext(DAOFactory daos) {
+    /** Assemblage sur une fabrique de DAO donnée (autre base, tests). */
+    public AppContext(DAOFactory daos) {
+        this(daos, null);
+    }
+
+    private AppContext(DAOFactory daos, AutoCloseable ressource) {
+        this.ressource = ressource;
         this.daos = daos;
         this.session = new Session(daos,
                 Integer.getInteger("gestimed.utilisateur", ID_UTILISATEUR_DEFAUT),
@@ -57,28 +62,21 @@ public final class AppContext {
         this.rapportService = new RapportService();
     }
 
-    public static synchronized AppContext get() {
-        if (instance == null) {
-            Database base = Database.getInstance();
-            instance = new AppContext(new JdbcDAOFactory(base));
-            instance.ressource = base;
-        }
-        return instance;
-    }
-
-    /** Remplace l'assemblage (tests, autre base de données). */
-    public static synchronized AppContext initialiser(DAOFactory daos) {
-        instance = new AppContext(daos);
-        return instance;
+    /** Assemblage de production : base MySQL de {@code gestimed.properties}. */
+    public static AppContext mysql() {
+        Database base = Database.getInstance();
+        return new AppContext(new JdbcDAOFactory(base), base);
     }
 
     /** À appeler à la fermeture de l'application : libère la connexion. */
-    public static synchronized void fermer() {
-        if (instance != null && instance.ressource != null) {
+    @Override
+    public void close() {
+        if (ressource != null) {
             try {
-                instance.ressource.close();
-            } catch (Exception ignored) {
-                // fermeture de l'application : rien d'autre à faire
+                ressource.close();
+            } catch (Exception e) {
+                // Fermeture de l'application : on le note, rien d'autre à faire.
+                Logger.getLogger("GestiMed").log(Level.WARNING, "Fermeture de la connexion impossible", e);
             }
         }
     }
