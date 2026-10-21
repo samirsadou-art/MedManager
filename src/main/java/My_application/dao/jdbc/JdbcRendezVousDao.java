@@ -35,14 +35,14 @@ public class JdbcRendezVousDao implements RendezVousDao {
 
     @Override
     public void insert(Rendez_Vous rdv) {
-        jdbc.update("INSERT INTO rondezvous (idUser, idPatient, date, heure, dateFix, heureFix) VALUES (?,?,?,?,?,?)",
+        jdbc.update("INSERT INTO rendezvous (idUser, idPatient, date, heure, dateFix, heureFix) VALUES (?,?,?,?,?,?)",
                 rdv.getUtilisateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure(),
                 rdv.getDateFix(), rdv.getHeureFix());
     }
 
     @Override
     public boolean delete(Rendez_Vous rdv) {
-        return jdbc.update("DELETE FROM rondezvous WHERE idPatient=? AND date=? AND heure=?",
+        return jdbc.update("DELETE FROM rendezvous WHERE idPatient=? AND date=? AND heure=?",
                 rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure()) > 0;
     }
 
@@ -52,7 +52,7 @@ public class JdbcRendezVousDao implements RendezVousDao {
         return jdbc.query("SELECT r.idUser, r.idPatient, r.date, r.heure, r.dateFix, r.heureFix, r.etat, "
                 + "p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient, "
                 + "u.nom, u.prenom, u.qualite "
-                + "FROM rondezvous r JOIN patient p ON p.idPatient = r.idPatient "
+                + "FROM rendezvous r JOIN patient p ON p.idPatient = r.idPatient "
                 + "LEFT JOIN utilisateur u ON u.idUtilisateur = r.idUser "
                 + "WHERE r.date BETWEEN ? AND ? ORDER BY r.date, r.heure", MAPPER, debut, fin);
     }

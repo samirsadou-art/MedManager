@@ -24,7 +24,7 @@ USE medicale;
 -- n° 1, l'application lève « Le médecin n° 1 est introuvable dans la base ».
 -- ---------------------------------------------------------------------
 INSERT IGNORE INTO medecin
-  (idMedcin, ordreMedecin, nomMedecin, prenomMedcin, titre, specialite, adresse,
+  (idMedecin, ordreMedecin, nomMedecin, prenomMedecin, titre, specialite, adresse,
    telephone1, telephone2, email, nomCabinet)
 VALUES
   (1, NULL, 'BENALI', 'Karim', 'Dr', 'Médecine générale',

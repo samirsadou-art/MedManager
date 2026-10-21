@@ -25,7 +25,15 @@ public class Rendez_Vous {
     private LocalTime heureFix;
     private LocalDate date;
     private LocalTime heure;
-    private int etat;
+    /** État du rendez-vous (colonne rendezvous.etat, migration V5). */
+    public static final int ETAT_PREVU = 0;
+    public static final int ETAT_ARRIVE = 1;
+    public static final int ETAT_EN_CONSULTATION = 2;
+    public static final int ETAT_TERMINE = 3;
+    public static final int ETAT_ANNULE = 4;
+    public static final int ETAT_ABSENT = 5;
+
+    private int etat = ETAT_PREVU;
 
     public Rendez_Vous() {
     }

@@ -4,7 +4,7 @@ import My_application.entities.analyse;
 import java.util.List;
 import java.util.Map;
 
-/** Analyses demandées lors d'une consultation (table {@code demandanalyse}). */
+/** Analyses demandées lors d'une consultation (table {@code demandeanalyse}). */
 public interface DemandeAnalyseDao {
 
     void insertAll(int idConsultation, List<analyse> analyses);

@@ -11,7 +11,7 @@ USE medicale;
 
 START TRANSACTION;
 
-DELETE FROM rondezvous   WHERE idPatient BETWEEN 9001 AND 9999;
+DELETE FROM rendezvous   WHERE idPatient BETWEEN 9001 AND 9999;
 DELETE FROM consultation WHERE idConsultation BETWEEN 9001 AND 9999
                             OR idPatient BETWEEN 9001 AND 9999;
 DELETE FROM patient      WHERE idPatient BETWEEN 9001 AND 9999;

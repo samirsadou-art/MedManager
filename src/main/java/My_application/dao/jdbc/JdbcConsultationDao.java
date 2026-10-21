@@ -29,11 +29,11 @@ public class JdbcConsultationDao implements ConsultationDao {
             c.setIdConsul(rs.getInt("idConsultation"));
             c.setDate_cons(Mappers.jour(rs, "dateConsultation"));
             c.setHeure_cons(Mappers.heure(rs, "heureConsultation"));
-            c.setTemperature(rs.getDouble("temperature"));
-            c.setPul_Cardiaque(rs.getInt("pulsation"));
+            c.setTemperature(mesure(rs, "temperature"));
+            c.setPul_Cardiaque((int) mesure(rs, "pulsation"));
             c.setPressionA(rs.getString("pression"));
-            c.setTauxRespir(rs.getInt("respiration"));
-            c.setPoids(rs.getDouble("poids"));
+            c.setTauxRespir((int) mesure(rs, "respiration"));
+            c.setPoids(mesure(rs, "poids"));
             medecin m = new medecin();
             m.setIdmedecin(rs.getInt("idMedecin"));
             c.setMedTraitant(m);
@@ -49,9 +49,29 @@ public class JdbcConsultationDao implements ConsultationDao {
         int id = jdbc.insertAndGetKey("INSERT INTO consultation (dateConsultation, heureConsultation, idMedecin, "
                 + "idPatient, temperature, pulsation, pression, respiration, poids) VALUES (?,?,?,?,?,?,?,?,?)",
                 c.getDate_cons(), c.getHeure_cons(), c.getMedecin().getIdmedecin(), c.getPatient().getIdentPat(),
-                c.getTemperature(), c.getPul_Cardiaque(), c.getPressionA(), c.getTauxRespir(), c.getPoids());
+                mesure(c.getTemperature()), mesure(c.getPul_Cardiaque()),
+                c.getPressionA().trim().isEmpty() ? null : c.getPressionA(),
+                mesure(c.getTauxRespir()), mesure(c.getPoids()));
         c.setIdConsul(id);
         return c;
+    }
+
+    /**
+     * Constante vitale lue en base : NULL (non mesurée, migration V4)
+     * devient {@link consultation#NON_RENSEIGNE} dans l'entité.
+     */
+    static double mesure(ResultSet rs, String colonne) throws SQLException {
+        double v = rs.getDouble(colonne);
+        return rs.wasNull() ? consultation.NON_RENSEIGNE : v;
+    }
+
+    /** Constante vitale à écrire : {@link consultation#NON_RENSEIGNE} est enregistrée comme NULL. */
+    static Double mesure(double valeur) {
+        return valeur == consultation.NON_RENSEIGNE ? null : valeur;
+    }
+
+    static Integer mesure(int valeur) {
+        return valeur == consultation.NON_RENSEIGNE ? null : valeur;
     }
 
     @Override

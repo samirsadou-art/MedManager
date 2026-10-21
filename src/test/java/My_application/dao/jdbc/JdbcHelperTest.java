@@ -71,9 +71,9 @@ public class JdbcHelperTest {
 
     @Test
     public void uneCleDejaPriseDevientUneDoublonException() {
-        base.echouerSur("INSERT INTO rondezvous", JdbcHelper.MYSQL_DOUBLON);
+        base.echouerSur("INSERT INTO rendezvous", JdbcHelper.MYSQL_DOUBLON);
         try {
-            jdbc.update("INSERT INTO rondezvous (idUser) VALUES (?)", 1);
+            jdbc.update("INSERT INTO rendezvous (idUser) VALUES (?)", 1);
             fail();
         } catch (DoublonException e) {
             assertEquals(JdbcHelper.MYSQL_DOUBLON, ((SQLException) e.getCause()).getErrorCode());
