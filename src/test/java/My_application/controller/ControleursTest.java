@@ -77,6 +77,9 @@ public class ControleursTest {
         assertNull(vue.affiches);
         assertEquals(1, vue.erreurs.size());
         assertTrue(vue.erreurs.get(0).contains("base de données"));
+        // Le détail technique va dans le journal, jamais à l'écran.
+        assertFalse(vue.erreurs.get(0).contains("Panne simulée"));
+        assertFalse(vue.erreurs.get(0).contains("patient.findByNom"));
     }
 
     @Test
@@ -195,6 +198,18 @@ public class ControleursTest {
     }
 
     // ----- rendez-vous -----
+
+    @Test
+    public void unePanneDeBasePendantLApercuEstSignaleeSansDetailTechnique() {
+        FausseVue vue = new FausseVue();
+        RendezVousController ctrl = new RendezVousController(vue, new RendezVousService(base),
+                base.patients.get(1), Donnees.utilisateur(1));
+        base.echouerSur("rdv.findEntre");
+        assertNull(ctrl.apercu(LocalDate.now().plusDays(1), 9));
+        assertEquals(1, vue.erreurs.size());
+        assertTrue(vue.erreurs.get(0).contains("base de données"));
+        assertFalse(vue.erreurs.get(0).contains("Panne simulée"));
+    }
 
     @Test
     public void priseDeRendezVousComplete() {

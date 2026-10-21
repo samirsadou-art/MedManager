@@ -1,6 +1,7 @@
 package My_application.dao.jdbc;
 
 import My_application.dao.DataAccessException;
+import My_application.dao.DoublonException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -19,7 +20,8 @@ import java.util.List;
  * SQL, et les apostrophes (« maux d'estomac ») ne cassent plus les requêtes.</li>
  * <li>{@code Statement} et {@code ResultSet} sont toujours fermés
  * (try-with-resources) ; l'ancien code en laissait des dizaines ouverts.</li>
- * <li>Les {@link SQLException} sont converties en {@link DataAccessException}.</li>
+ * <li>Les {@link SQLException} sont converties en {@link DataAccessException}
+ * ({@link DoublonException} pour une clé déjà prise).</li>
  * </ul>
  */
 public class JdbcHelper {
@@ -129,7 +131,14 @@ public class JdbcHelper {
         }
     }
 
+    /** Code d'erreur MySQL/MariaDB « Duplicate entry » (ER_DUP_ENTRY). */
+    static final int MYSQL_DOUBLON = 1062;
+
     private static DataAccessException erreur(String sql, SQLException e) {
-        return new DataAccessException("Erreur SQL (" + e.getMessage() + ") pour : " + sql, e);
+        String message = "Erreur SQL (" + e.getMessage() + ") pour : " + sql;
+        if (e.getErrorCode() == MYSQL_DOUBLON) {
+            return new DoublonException(message, e);
+        }
+        return new DataAccessException(message, e);
     }
 }

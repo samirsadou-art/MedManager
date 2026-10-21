@@ -7,9 +7,9 @@ import java.util.logging.Logger;
 
 /**
  * Traitement commun des erreurs : une règle métier non respectée est affichée
- * telle quelle ; une erreur technique est journalisée et un message clair est
- * affiché, au lieu d'être avalée dans un {@code Logger} invisible pour
- * l'utilisateur comme dans la version d'origine.
+ * telle quelle ; une erreur technique est journalisée (avec la requête SQL et
+ * la trace, voir {@code Journal}) et seul un message clair est affiché :
+ * l'écran ne montre jamais le SQL ni les noms de tables.
  */
 abstract class ControleurBase {
 
@@ -30,11 +30,18 @@ abstract class ControleurBase {
             vue.afficherErreur(e.getMessage());
         } catch (DataAccessException e) {
             LOG.log(Level.SEVERE, "Erreur d'accès aux données", e);
-            vue.afficherErreur("Erreur d'accès à la base de données.\n" + e.getMessage());
+            vue.afficherErreur(ERREUR_BASE);
         } catch (RuntimeException e) {
             LOG.log(Level.SEVERE, "Erreur inattendue", e);
-            vue.afficherErreur("Erreur inattendue : " + e);
+            vue.afficherErreur(ERREUR_INATTENDUE);
         }
         return false;
     }
+
+    static final String ERREUR_BASE = "Erreur d'accès à la base de données.\n"
+            + "Vérifiez que le serveur MySQL est démarré, puis réessayez.\n"
+            + "Le détail technique est enregistré dans le journal (dossier GestiMed).";
+
+    static final String ERREUR_INATTENDUE = "Une erreur inattendue s'est produite.\n"
+            + "Le détail technique est enregistré dans le journal (dossier GestiMed).";
 }

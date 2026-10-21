@@ -4,6 +4,7 @@ import My_application.dao.DataAccessException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.logging.Logger;
 
 /**
  * Fournisseur de connexion de l'application de bureau (remplace l'ancienne
@@ -17,6 +18,8 @@ import java.sql.SQLException;
  */
 public final class Database implements ConnectionProvider, AutoCloseable {
 
+    private static final Logger LOG = Logger.getLogger(Database.class.getName());
+
     private static Database instance;
 
     private final DatabaseConfig config;
@@ -24,6 +27,10 @@ public final class Database implements ConnectionProvider, AutoCloseable {
 
     public Database(DatabaseConfig config) {
         this.config = config;
+        if (config.estCompteAdministrateur()) {
+            LOG.warning("Connexion à MySQL avec le compte « " + config.getUser() + " » : utiliser un compte "
+                    + "dédié aux droits limités (sql/creer_compte_gestimed.sql).");
+        }
     }
 
     /** Instance unique, configurée à partir de {@code db.proprieties}. */

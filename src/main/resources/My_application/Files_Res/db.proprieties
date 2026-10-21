@@ -3,10 +3,19 @@
 
 url=jdbc:mysql://localhost:3306/
 dbName = medicale
-# Options du pilote MySQL Connector/J 8 (ajoutees apres le nom de la base)
-parametres = useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+# Options du pilote MySQL Connector/J 8 (ajoutees apres le nom de la base).
+# sslMode=PREFERRED : la connexion est chiffree des que le serveur le permet
+# (MySQL 8 genere ses certificats a l'installation). Si la base est sur un
+# autre poste que l'application, exiger le chiffrement dans gestimed.properties :
+#     parametres = sslMode=REQUIRED&characterEncoding=UTF-8
+# (ou sslMode=VERIFY_CA avec le certificat du serveur, voir la doc Connector/J).
+# allowPublicKeyRetrieval ne sert qu'en l'absence de TLS (authentification
+# caching_sha2_password) : le retirer quand sslMode=REQUIRED.
+parametres = sslMode=PREFERRED&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
 driver = com.mysql.cj.jdbc.Driver
-userName = root
+# Compte dedie a l'application, aux droits limites (pas root) :
+# le creer avec sql/creer_compte_gestimed.sql.
+userName = gestimed
 # Ne jamais mettre le mot de passe ici (ce fichier est dans git et dans le jar).
 # Le fournir dans un fichier local gestimed.properties (repertoire courant,
 # repertoire utilisateur, ou chemin donne par -Dgestimed.config=...) :

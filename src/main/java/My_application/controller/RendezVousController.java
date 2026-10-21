@@ -48,15 +48,21 @@ public class RendezVousController extends ControleurBase {
      * Calcule le créneau qui serait attribué, sans rien afficher en cas de
      * refus (simple clic : aperçu) ; renvoie null si aucun créneau possible.
      */
-    public Rendez_Vous apercu(LocalDate jour, int heure) {
-        try {
-            return service.proposer(malade, utilisateur, jour, heure);
-        } catch (MetierException e) {
-            return null;
-        } catch (RuntimeException e) {
-            vue.afficherErreur("Erreur d'accès à la base de données.\n" + e.getMessage());
-            return null;
-        }
+    public Rendez_Vous apercu(final LocalDate jour, final int heure) {
+        final Rendez_Vous[] r = new Rendez_Vous[1];
+        // Une panne de base passe par tenter (journal + message clair) ;
+        // seul le refus métier reste silencieux.
+        tenter(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    r[0] = service.proposer(malade, utilisateur, jour, heure);
+                } catch (MetierException e) {
+                    r[0] = null;
+                }
+            }
+        });
+        return r[0];
     }
 
     /** Double clic : calcule le créneau ; la règle refusée est affichée. */

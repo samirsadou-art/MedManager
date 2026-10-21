@@ -57,6 +57,7 @@ public class FauxJdbc implements ConnectionProvider {
 
     private final Map<String, List<Map<String, Object>>> resultats = new LinkedHashMap<>();
     private String sqlEnEchec;
+    private int codeErreur;
     private int prochaineCle = 1000;
 
     /** Programme les lignes renvoyées par toute requête contenant {@code fragmentSql}. */
@@ -67,7 +68,13 @@ public class FauxJdbc implements ConnectionProvider {
 
     /** Toute requête contenant ce fragment lèvera une SQLException. */
     public void echouerSur(String fragmentSql) {
+        echouerSur(fragmentSql, 0);
+    }
+
+    /** Idem, avec le code d'erreur du SGBD (ex. 1062 : doublon MySQL). */
+    public void echouerSur(String fragmentSql, int codeErreur) {
         this.sqlEnEchec = fragmentSql;
+        this.codeErreur = codeErreur;
     }
 
     /** Construit une ligne : ligne("col1", v1, "col2", v2...). */
@@ -119,7 +126,7 @@ public class FauxJdbc implements ConnectionProvider {
 
     private PreparedStatement preparer(final String sql) throws SQLException {
         if (sqlEnEchec != null && sql.contains(sqlEnEchec)) {
-            throw new SQLException("Erreur simulée");
+            throw new SQLException("Erreur simulée", "23000", codeErreur);
         }
         preparees.add(sql);
         statementsOuverts++;

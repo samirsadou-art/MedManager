@@ -394,6 +394,8 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     
  
     public static void main(String args[]) {
+        // Détail technique des erreurs : dans ~/GestiMed/gestimed0.log, pas à l'écran.
+        Journal.installer();
         // Charte graphique GestiMed (FlatLaf, palette bleu-vert médical).
         Theme.installer();
 

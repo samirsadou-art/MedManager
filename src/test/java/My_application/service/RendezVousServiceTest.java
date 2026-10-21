@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import My_application.dao.DoublonException;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
 import My_application.entities.patient;
@@ -110,6 +111,22 @@ public class RendezVousServiceTest {
             assertTrue(e.getMessage().contains("autre patient"));
         }
         assertEquals(1, base.rendezVous.size());
+        assertEquals(1, base.rollbacks);
+    }
+
+    @Test
+    public void unDoublonRefuseParLaBaseDevientUnMessageMetier() {
+        // Course perdue : l'autre poste a inséré entre la vérification et
+        // l'insertion, et la clé primaire (date, heure) refuse la ligne.
+        Rendez_Vous r = service.proposer(base.patients.get(10), secretaire, DEMAIN, 11);
+        base.echouerSur("rdv.insert", new DoublonException("Duplicate entry", null));
+        try {
+            service.confirmer(r);
+            fail();
+        } catch (MetierException e) {
+            assertEquals(RendezVousService.CRENEAU_PRIS, e.getMessage());
+        }
+        assertEquals(0, base.rendezVous.size());
         assertEquals(1, base.rollbacks);
     }
 

@@ -18,6 +18,8 @@ mvn exec:java                              # run the app (main: My_application.P
 
 - Target is Java 8 (`maven.compiler.release=8`), so don't use newer language/API features (no `var`, `List.of`, records, etc.). Any recent JDK can compile it.
 - DB settings come from `src/main/resources/My_application/Files_Res/db.proprieties` (the misspelling is intentional and referenced in code). That file has no password and must never contain one. Values are overridden, in increasing order of priority, by a local `gestimed.properties` (path from `-Dgestimed.config`, otherwise the working directory, otherwise `user.home`; it is git-ignored), then by `-Dgestimed.db.url|user|password|driver=...`. `-Dgestimed.utilisateur` / `-Dgestimed.medecin` pick the logged-in user and doctor IDs (default 1).
+- The default DB account is `gestimed` (not `root`), created by `sql/creer_compte_gestimed.sql` with SELECT/INSERT/UPDATE/DELETE only. The connection uses `sslMode=PREFERRED`. `Database` logs a warning if it connects as `root`.
+- Error messages shown to the user never include SQL or stack traces: `ControleurBase` displays a generic message and the detail goes to the log file set up by `Journal.installer()` (`~/GestiMed/gestimed0.log`, folder overridable with `-Dgestimed.journal`). A duplicate key (MySQL 1062) surfaces as `DoublonException`, which services translate into a `MetierException`.
 - **MySQL integration test** (`MySqlIntegrationTest`) is skipped unless you pass `-Dgestimed.test.db.url=jdbc:mysql://localhost:3306/<name>_test -Dgestimed.test.db.user=... -Dgestimed.test.db.password=...`. The DB name must end in `_test` because it runs `sql/schema_gestimed.sql`, which DROPs and recreates every table.
 - `sql/schema_gestimed.sql` was *reconstructed* from the queries in the code, not taken from the original. Tables must be InnoDB or transactions silently do nothing.
 
@@ -47,5 +49,5 @@ JUnit 4, under `src/test/java`. Most tests don't need a database:
 ## Notes
 
 - Legacy or prototype classes (`AddPatient`, `AjouterPat*`, `Password`, `ImagerieForms/Imagerie` with NetBeans AbsoluteLayout, `ServiceReseau`, `my_model`, `SalleAtten*`) are unused but intentionally kept.
-- `Chat/`: `Tchat` starts a TCP server on port 7777 when `PrincipalForm` opens, and `Descussion` is the client. Network threads must update Swing through `SwingUtilities.invokeLater`.
+- `Chat/`: `Tchat` starts a TCP server on port 7777 when `PrincipalForm` opens, bound to the loopback interface only (no auth, no encryption), and `Descussion` is the client. Network threads must update Swing through `SwingUtilities.invokeLater`.
 - Database calls run synchronously on the Swing EDT (there is no `SwingWorker`).

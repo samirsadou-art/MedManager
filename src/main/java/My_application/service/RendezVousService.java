@@ -1,6 +1,7 @@
 package My_application.service;
 
 import My_application.dao.DAOFactory;
+import My_application.dao.DoublonException;
 import My_application.dao.RendezVousDao;
 import My_application.dao.UniteDeTravail;
 import My_application.entities.Rendez_Vous;
@@ -38,6 +39,9 @@ public class RendezVousService {
     public static final int HEURE_OUVERTURE = 8;
     public static final int NOMBRE_HEURES = 9;
     public static final int MAX_PAR_HEURE = 4;
+
+    static final String CRENEAU_PRIS = "Ce créneau vient d'être attribué à un autre patient. "
+            + "Veuillez en choisir un autre.";
 
     private final DAOFactory daos;
     private final RendezVousDao rendezVousDao;
@@ -173,14 +177,19 @@ public class RendezVousService {
                         throw new MetierException("Vous ne pouvez pas prendre plus d'un rendez-vous par heure !");
                     }
                     if (r.getHeure().toLocalTime().equals(h)) {
-                        throw new MetierException("Ce créneau vient d'être attribué à un autre patient. "
-                                + "Veuillez en choisir un autre.");
+                        throw new MetierException(CRENEAU_PRIS);
                     }
                 }
                 if (dansLHeure.size() >= maxParHeure) {
                     throw new MetierException("Ce créneau horaire est complet.");
                 }
-                rendezVousDao.insert(rdv);
+                try {
+                    rendezVousDao.insert(rdv);
+                } catch (DoublonException e) {
+                    // Un autre poste a enregistré ce créneau entre la vérification et
+                    // l'insertion : la clé primaire (date, heure) l'a refusé.
+                    throw new MetierException(CRENEAU_PRIS);
+                }
                 return null;
             }
         });

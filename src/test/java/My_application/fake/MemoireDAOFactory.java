@@ -68,18 +68,25 @@ public class MemoireDAOFactory implements DAOFactory {
     public int rollbacks;
     public int requetes;
     private String operationEnEchec;
+    private RuntimeException erreurSimulee;
     private int sequence = 100;
 
     /** La prochaine exécution de cette opération lèvera une DataAccessException. */
     public void echouerSur(String operation) {
+        echouerSur(operation, new DataAccessException("Panne simulée sur " + operation));
+    }
+
+    /** Idem, avec l'exception à lever (ex. DoublonException pour une clé déjà prise). */
+    public void echouerSur(String operation, RuntimeException erreur) {
         this.operationEnEchec = operation;
+        this.erreurSimulee = erreur;
     }
 
     private void appel(String operation) {
         requetes++;
         if (operation.equals(operationEnEchec)) {
             operationEnEchec = null;
-            throw new DataAccessException("Panne simulée sur " + operation);
+            throw erreurSimulee;
         }
     }
 
