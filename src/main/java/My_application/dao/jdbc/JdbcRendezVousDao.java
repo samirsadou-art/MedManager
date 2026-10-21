@@ -23,7 +23,7 @@ public class JdbcRendezVousDao implements RendezVousDao {
             r.setPatient(Mappers.PATIENT.map(rs));
             User u = new User(rs.getInt("idUser"), rs.getString("nom"), rs.getString("prenom"),
                     rs.getString("qualite"));
-            r.setUtilsateur(u);
+            r.setUtilisateur(u);
             r.setDate(Mappers.jour(rs, "date"));
             r.setHeure(Mappers.heure(rs, "heure"));
             r.setDateFix(Mappers.jour(rs, "dateFix"));
@@ -36,7 +36,7 @@ public class JdbcRendezVousDao implements RendezVousDao {
     @Override
     public void insert(Rendez_Vous rdv) {
         jdbc.update("INSERT INTO rondezvous (idUser, idPatient, date, heure, dateFix, heureFix) VALUES (?,?,?,?,?,?)",
-                rdv.getUtilsateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure(),
+                rdv.getUtilisateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure(),
                 rdv.getDateFix(), rdv.getHeureFix());
     }
 

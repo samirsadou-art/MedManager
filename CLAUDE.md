@@ -52,7 +52,7 @@ JUnit 4, under `src/test/java`. Most tests don't need a database:
 
 ## Notes
 
-- Legacy or prototype classes (`AddPatient`, `AjouterPat*`, `Password`, `ImagerieForms/Imagerie` with NetBeans AbsoluteLayout, `ServiceReseau`, `my_model`, `SalleAtten*`) are unused but intentionally kept.
+- Legacy or prototype classes (`AddPatient`, `AjouterPat*`, `Password`, `ImagerieForms/Imagerie`, `ServiceReseau`, `my_model`, `SalleAtten*`) were never called. They are kept in `archives/prototypes/` (see its `LISEZMOI.md`), outside the build and the jar. Don't add them back to `src/` without a reason. `Imagerie` would then need the NetBeans `AbsoluteLayout` dependency again.
 - `Chat/`: `Tchat` starts a TCP server on port 7777 when `PrincipalForm` opens, bound to the loopback interface only (no auth, no encryption), and `Descussion` is the client. Network threads must update Swing through `SwingUtilities.invokeLater`.
 - Most database calls still run synchronously on the Swing EDT. Slow reads go through `ControleurBase.enArrierePlan(Lecture, Affichage)`: the read runs in a `SwingWorker` (`Executeur.SWING`), the display and error reporting happen on the EDT. Controllers take an optional `Executeur`; tests pass `Executeur.IMMEDIAT`. So far only `AccueilController.rafraichir` uses it.
 - `vue/AutoCompletion` listens to document changes (not key codes) and debounces lookups with a 250 ms `javax.swing.Timer`.

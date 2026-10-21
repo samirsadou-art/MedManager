@@ -5,6 +5,7 @@
  */
 package My_application.TableModelPrincipale;
 
+import java.util.Locale;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import java.awt.Component;
@@ -52,9 +53,9 @@ ImageIcon imageIcon;
                    renderer.setIcon(imageIcon);
                    renderer.setText("");
                    break;
-            case 1: renderer.setText(rendez.getPatient().getNom().toUpperCase()); renderer.setIcon(null);
+            case 1: renderer.setText(rendez.getPatient().getNom().toUpperCase(Locale.FRENCH)); renderer.setIcon(null);
                     renderer.setFont(Theme.policeGras());break;
-            case 2: renderer.setText(rendez.getPatient().getPrenom().toUpperCase());break;
+            case 2: renderer.setText(rendez.getPatient().getPrenom().toUpperCase(Locale.FRENCH));break;
             case 3: renderer.setHorizontalAlignment(JLabel.CENTER);renderer.setText(rendez.getPatient().getStringAge()); break;
             case 4: renderer.setHorizontalAlignment(JLabel.CENTER); 
                     renderer.setText(rendez.getHeureString());

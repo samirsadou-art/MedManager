@@ -80,12 +80,12 @@ public class Rendez_Vous {
         return "[" + getHeureString() + "]    : " + Patient.getNom() + " " + Patient.getPrenom();
     }
 
-    public User getUtilsateur() {
+    public User getUtilisateur() {
         return utilsateur;
     }
 
-    public void setUtilsateur(User utilsateur) {
-        this.utilsateur = utilsateur;
+    public void setUtilisateur(User utilisateur) {
+        this.utilsateur = utilisateur;
     }
 
     public patient getPatient() {

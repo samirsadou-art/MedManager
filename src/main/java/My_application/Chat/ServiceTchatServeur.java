@@ -22,12 +22,11 @@ public class ServiceTchatServeur extends Thread {
 
     volatile ServerSocket serverSock;
     volatile Socket        Sock;
-    DataInputStream   input;
+    volatile DataInputStream input;
     volatile DataOutputStream output;
     final static int port=7777;
     volatile boolean connected=false;
-    boolean paused=false;
-    Tchat TchatWindow;
+    final Tchat TchatWindow;
 
     public ServiceTchatServeur(Tchat WTchat) {
         this.TchatWindow=WTchat;

@@ -162,7 +162,7 @@ public class RendezVousService {
             LocalDateTime maintenant) {
         Rendez_Vous r = new Rendez_Vous();
         r.setPatient(malade);
-        r.setUtilsateur(utilisateur);
+        r.setUtilisateur(utilisateur);
         r.setDate(debut.toLocalDate());
         r.setHeure(debut.toLocalTime());
         r.setDateFix(maintenant.toLocalDate());

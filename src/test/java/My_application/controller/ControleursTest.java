@@ -28,7 +28,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 /**
  * Tests des contrôleurs MVC avec de fausses vues : on vérifie ce que la vue
@@ -37,6 +39,9 @@ import org.junit.Test;
 public class ControleursTest {
 
     private MemoireDAOFactory base;
+
+    @Rule
+    public TemporaryFolder dossierDocuments = new TemporaryFolder();
 
     @Before
     public void preparer() {
@@ -107,7 +112,19 @@ public class ControleursTest {
     private DossierPatientController dossier(FausseVue vue) {
         DossierService ds = new DossierService(base);
         DossierPatient d = ds.ouvrirDossier(base.patients.get(1), base.medecins.get(1));
-        return new DossierPatientController(vue, d, ds, new CatalogueService(base), new RapportService());
+        // jamais le dossier réel ~/GestiMed/Documents pendant les tests
+        RapportService rapports = new RapportService(dossierDocuments.getRoot(), new RapportService.Afficheur() {
+            @Override
+            public void ouvrir(java.io.File pdf) throws java.io.IOException {
+                throw new java.io.IOException("aucune visionneuse");
+            }
+
+            @Override
+            public boolean imprimer(java.io.File pdf) throws java.io.IOException {
+                throw new java.io.IOException("aucune visionneuse");
+            }
+        });
+        return new DossierPatientController(vue, d, ds, new CatalogueService(base), rapports);
     }
 
     @Test
@@ -170,6 +187,17 @@ public class ControleursTest {
         DossierPatientController ctrl = dossier(vue);
         ctrl.ordonnance(ctrl.nouvelleConsultation(), false);
         assertTrue(vue.erreurs.get(0).contains("ordonnance"));
+    }
+
+    @Test
+    public void visionneuseAbsenteLeMessageDitOuEstLeDocument() {
+        FausseVue vue = new FausseVue();
+        DossierPatientController ctrl = dossier(vue);
+        consultation c = ctrl.nouvelleConsultation();
+        c.getOrdoPat().ajouter(Donnees.medicament(1, "DOLIPRANE 1G", 1, 3, 2, 5));
+        ctrl.ordonnance(c, false);
+        assertTrue(vue.erreurs.get(0), vue.erreurs.get(0).contains(dossierDocuments.getRoot().getAbsolutePath()));
+        assertFalse(vue.erreurs.get(0).contains("aucune visionneuse"));
     }
 
     @Test

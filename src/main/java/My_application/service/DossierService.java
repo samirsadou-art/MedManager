@@ -204,7 +204,7 @@ public class DossierService {
         if (c.hasOrdonnance()) {
             prescriptionDao.insertAll(id, c.getOrdoPat().getMedicaments());
         }
-        if (c.hasAanlyse()) {
+        if (c.hasAnalyse()) {
             demandeAnalyseDao.insertAll(id, c.getAnaPat().getListeAnaly());
         }
     }

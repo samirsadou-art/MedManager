@@ -88,7 +88,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             nextBtn.setEnabled(false);
             VoirConsultation(dossier.LastConsultation());
         } else {
-            DisactiverVueConsultation();
+            desactiverVueConsultation();
             this.MedcinLabel.setText(dossier.getMedTraitant().getNomComplet());
         }
         this.NbreVisiteLabel.setText(String.valueOf(nombreConsult));
@@ -1190,7 +1190,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }
 
     public void addAnalyse(consultation c) {
-        if (c.hasAanlyse()) {
+        if (c.hasAnalyse()) {
             Panalyse = new PaneauAnalyse(c.getAnaPat());
             jTabbedPane1.addTab(ONGLET_ANALYSES, icone("/res/icons/analyse32.png"), Panalyse);
             jTabbedPane1.setSelectedComponent(Panalyse);
@@ -1279,7 +1279,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             return; // message déjà affiché (une consultation est déjà en cours)
         }
         consult = nouvelle;
-        ActitiverVueConsultation();
+        activerVueConsultation();
         ActiverTraitement();
         initialiser();
         int index = dossier.getNombreConsultation() - 1;
@@ -1332,7 +1332,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             Pordonnance = new PaneauOrdonnance(myconsult.getOrdoPat());
             jTabbedPane1.addTab(ONGLET_ORDONNANCE, icone("/res/icons/ordo32.png"), Pordonnance);
         }
-        if (myconsult.hasAanlyse()) {
+        if (myconsult.hasAnalyse()) {
             Panalyse = new PaneauAnalyse(myconsult.getAnaPat());
             jTabbedPane1.addTab(ONGLET_ANALYSES, icone("/res/icons/analyse32.png"), Panalyse);
         }
@@ -1376,13 +1376,13 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         this.supprimerBtn.setEnabled(actif);
     }
 
-    void DisactiverVueConsultation() {
+    void desactiverVueConsultation() {
         activerVue(false);
         this.SymptomeList.setModel(new DefaultListModel<String>());
         this.PathologieList.setModel(new DefaultListModel<String>());
     }
 
-    void ActitiverVueConsultation() {
+    void activerVueConsultation() {
         activerVue(true);
     }
 

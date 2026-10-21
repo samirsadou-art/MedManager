@@ -1,5 +1,6 @@
 package My_application.vue;
 
+import java.util.Locale;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.List;
@@ -103,7 +104,7 @@ public final class AutoCompletion {
         public void actionPerformed(ActionEvent e) {
             String saisie = editeur(combo).getText();
             if (majuscules) {
-                saisie = saisie.toUpperCase();
+                saisie = saisie.toUpperCase(Locale.FRENCH);
             }
             miseAJour = true;
             try {
@@ -126,7 +127,7 @@ public final class AutoCompletion {
                     // on l'affiche et on surligne la partie proposée.
                     Object premiere = modele.getElementAt(0);
                     String texte = premiere.toString();
-                    if (texte.toUpperCase().startsWith(saisie.toUpperCase())) {
+                    if (texte.toUpperCase(Locale.FRENCH).startsWith(saisie.toUpperCase(Locale.FRENCH))) {
                         combo.getEditor().setItem(saisie + texte.substring(saisie.length()));
                         editeur(combo).select(saisie.length(), texte.length());
                     } else {

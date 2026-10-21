@@ -155,7 +155,7 @@ public class JdbcDaoTest {
                 LocalDate.parse("2026-10-10"));
         assertEquals(1, base.executions.size());
         assertEquals("B", l.get(0).getPatient().getNom());
-        assertEquals("SAHAB", l.get(0).getUtilsateur().getNom());
+        assertEquals("SAHAB", l.get(0).getUtilisateur().getNom());
     }
 
     @Test

@@ -87,6 +87,14 @@ public class patient {
         return getNom() + "  " + getPrenom();
     }
 
+    /**
+     * Égalité par identifiant en base : deux patients non encore enregistrés
+     * (identifiant 0) ne sont égaux que s'il s'agit du même objet.
+     * <p>
+     * {@link #hashCode()} change donc quand l'enregistrement attribue
+     * l'identifiant : ne placez un patient dans un {@code HashSet} ou comme clé
+     * de {@code HashMap} qu'une fois enregistré, sinon il y devient introuvable.
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) {

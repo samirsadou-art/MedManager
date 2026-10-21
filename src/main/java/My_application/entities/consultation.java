@@ -126,7 +126,7 @@ public class consultation {
         return OrdoPat != null && !OrdoPat.estVide();
     }
 
-    public boolean hasAanlyse() {
+    public boolean hasAnalyse() {
         return AnaPat != null && !AnaPat.estVide();
     }
 

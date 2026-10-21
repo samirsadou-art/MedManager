@@ -1,5 +1,6 @@
 package My_application.service;
 
+import java.util.Locale;
 import My_application.dao.DAOFactory;
 import My_application.dao.PatientDao;
 import My_application.dao.UniteDeTravail;
@@ -35,7 +36,7 @@ public class PatientService {
     /** Crée le patient après validation ; renvoie le patient avec son identifiant. */
     public patient creer(final patient p) {
         valider(p);
-        p.setNom(p.getNom().trim().toUpperCase());
+        p.setNom(p.getNom().trim().toUpperCase(Locale.FRENCH));
         p.setPrenom(capitaliser(p.getPrenom().trim()));
         if (p.getIdentPat() > 0 && patientDao.findById(p.getIdentPat()) != null) {
             throw new MetierException("Le numéro de dossier " + p.getIdentPat() + " est déjà utilisé.");
@@ -76,6 +77,6 @@ public class PatientService {
         if (s.isEmpty()) {
             return s;
         }
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase();
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase(Locale.FRENCH);
     }
 }

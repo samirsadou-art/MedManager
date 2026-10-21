@@ -84,13 +84,6 @@
             <version>${flatlaf.version}</version>
         </dependency>
 
-        <!-- AbsoluteLayout de NetBeans : utilisé uniquement par le prototype ImagerieForms/Imagerie. -->
-        <dependency>
-            <groupId>org.netbeans.external</groupId>
-            <artifactId>AbsoluteLayout</artifactId>
-            <version>RELEASE180</version>
-        </dependency>
-
         <!-- Tests -->
         <dependency>
             <groupId>junit</groupId>
@@ -122,6 +115,8 @@
                     <argLine>@{argLine}</argLine>
                     <systemPropertyVariables>
                         <java.awt.headless>true</java.awt.headless>
+                        <!-- Coupe le journal « GestiMed » : les pannes simulées par les tests ne polluent plus la console. -->
+                        <java.util.logging.config.file>${project.basedir}/src/test/resources/journal-tests.properties</java.util.logging.config.file>
                         <!-- Tests d'intégration MySQL (base dédiée *_test) : décommenter ou passer en -D.
                         <gestimed.test.db.url>jdbc:mysql://localhost:3306/medicale_test</gestimed.test.db.url>
                         <gestimed.test.db.user>root</gestimed.test.db.user>

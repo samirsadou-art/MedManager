@@ -1,6 +1,7 @@
 package My_application.controller;
 
 import My_application.dao.DataAccessException;
+import My_application.report.RapportException;
 import My_application.service.MetierException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -80,6 +81,10 @@ abstract class ControleurBase {
 
     private void signaler(RuntimeException e) {
         if (e instanceof MetierException) {
+            vue.afficherErreur(e.getMessage());
+        } else if (e instanceof RapportException) {
+            // message prévu pour l'utilisateur (où est le fichier) ; la cause va au journal
+            LOG.log(Level.WARNING, "Échec de production d'un document", e);
             vue.afficherErreur(e.getMessage());
         } else if (e instanceof DataAccessException) {
             LOG.log(Level.SEVERE, "Erreur d'accès aux données", e);
