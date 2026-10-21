@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.junit.After;
 import org.junit.Test;
 
@@ -51,6 +52,35 @@ public class JdbcDaoTest {
         assertEquals("0555", p.getTelephone());
         assertNull("colonne absente du résultat : pas d'erreur", p.getEmail());
         assertEquals("O'N%", base.derniere().param(1));
+    }
+
+    @Test
+    public void ordonnancesDuPatientChargeesEnUneRequeteEtRegroupeesParConsultation() {
+        base.quand("FROM prescrire p JOIN medicaments m",
+                ligne("idConsul", 5, "idMedicament", 10, "nomMedicament", "DOLIPRANE", "unite", 1,
+                        "posologie", 3, "duree", 5, "mode", 2),
+                ligne("idConsul", 8, "idMedicament", 11, "nomMedicament", "AUGMENTIN", "unite", 1,
+                        "posologie", 2, "duree", 7, "mode", 1),
+                ligne("idConsul", 5, "idMedicament", 12, "nomMedicament", "SPASFON", "unite", 2,
+                        "posologie", 1, "duree", 3, "mode", 1));
+        Map<Integer, List<medicament>> r = daos.getPrescriptionDao().findByPatient(3);
+        assertEquals(1, base.executions.size());
+        assertTrue(base.derniere().sql.contains("WHERE c.idPatient=?"));
+        assertEquals(3, base.derniere().param(1));
+        assertEquals(2, r.get(5).size());
+        assertEquals("SPASFON", r.get(5).get(1).getDesignmed());
+        assertEquals("AUGMENTIN", r.get(8).get(0).getDesignmed());
+    }
+
+    @Test
+    public void symptomesDuPatientRegroupesParConsultation() {
+        base.quand("FROM consultsymptome cs",
+                ligne("idconsultation", 5, "idsymptome", 1, "designation", "Toux"),
+                ligne("idconsultation", 6, "idsymptome", 2, "designation", "Fièvre"));
+        Map<Integer, List<symptome>> r = daos.getConsultationDao().findSymptomesParPatient(3);
+        assertEquals("Toux", r.get(5).get(0).getDesignation());
+        assertEquals("Fièvre", r.get(6).get(0).getDesignation());
+        assertNull(r.get(7));
     }
 
     @Test

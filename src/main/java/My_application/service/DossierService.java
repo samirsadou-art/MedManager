@@ -7,9 +7,11 @@ import My_application.dao.MedecinDao;
 import My_application.dao.PrescriptionDao;
 import My_application.dao.UniteDeTravail;
 import My_application.entities.DossierPatient;
+import My_application.entities.analyse;
 import My_application.entities.analyseBio;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
+import My_application.entities.medicament;
 import My_application.entities.ordonnance;
 import My_application.entities.pathologie;
 import My_application.entities.patient;
@@ -60,32 +62,40 @@ public class DossierService {
         if (medecinTraitant != null) {
             medecins.put(medecinTraitant.getIdmedecin(), medecinTraitant);
         }
+        // Cinq requêtes pour tout le dossier, quel que soit le nombre de
+        // consultations (au lieu de quatre requêtes par consultation).
+        int idPatient = malade.getIdentPat();
+        Map<Integer, List<symptome>> symptomes = consultationDao.findSymptomesParPatient(idPatient);
+        Map<Integer, List<pathologie>> pathologies = consultationDao.findPathologiesParPatient(idPatient);
+        Map<Integer, List<medicament>> prescriptions = prescriptionDao.findByPatient(idPatient);
+        Map<Integer, List<analyse>> analyses = demandeAnalyseDao.findByPatient(idPatient);
         List<consultation> consultations = new ArrayList<>();
-        for (consultation c : consultationDao.findByPatient(malade.getIdentPat())) {
+        for (consultation c : consultationDao.findByPatient(idPatient)) {
             c.setMalade(malade);
             c.setMedTraitant(medecin(medecins, c.getMedecin().getIdmedecin()));
-            completer(c);
+            int id = c.getIdConsul();
+            for (symptome s : lignes(symptomes, id)) {
+                c.addSymptome(s);
+            }
+            for (pathologie p : lignes(pathologies, id)) {
+                c.addPathologie(p);
+            }
+            ordonnance ordo = new ordonnance();
+            ordo.setMedicaments(lignes(prescriptions, id));
+            c.setOrdoPat(ordo);
+            analyseBio ana = new analyseBio();
+            ana.setListeAnaly(lignes(analyses, id));
+            c.setAnaPat(ana);
             consultations.add(c);
         }
         dossier.setConsultations(consultations);
-        journal.noter(JournalAcces.Action.OUVERTURE_DOSSIER, malade.getIdentPat(), null);
+        journal.noter(JournalAcces.Action.OUVERTURE_DOSSIER, idPatient, null);
         return dossier;
     }
 
-    private void completer(consultation c) {
-        int id = c.getIdConsul();
-        for (symptome s : consultationDao.findSymptomes(id)) {
-            c.addSymptome(s);
-        }
-        for (pathologie p : consultationDao.findPathologies(id)) {
-            c.addPathologie(p);
-        }
-        ordonnance ordo = new ordonnance();
-        ordo.setMedicaments(prescriptionDao.findByConsultation(id));
-        c.setOrdoPat(ordo);
-        analyseBio ana = new analyseBio();
-        ana.setListeAnaly(demandeAnalyseDao.findByConsultation(id));
-        c.setAnaPat(ana);
+    private static <T> List<T> lignes(Map<Integer, List<T>> parConsultation, int idConsultation) {
+        List<T> l = parConsultation.get(idConsultation);
+        return l != null ? l : new ArrayList<T>();
     }
 
     /** Un seul accès base par médecin, même s'il a signé 50 consultations. */

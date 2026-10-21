@@ -4,6 +4,7 @@ import My_application.dao.DataAccessException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -24,6 +25,9 @@ public final class Database implements ConnectionProvider, AutoCloseable {
 
     private final DatabaseConfig config;
     private Connection connexion;
+    private long derniereUtilisation;
+
+    static final int SECONDES_AVANT_VALIDATION = 30;
 
     public Database(DatabaseConfig config) {
         this.config = config;
@@ -41,11 +45,21 @@ public final class Database implements ConnectionProvider, AutoCloseable {
         return instance;
     }
 
+    /**
+     * Connexion partagée. Sa validité n'est vérifiée par le serveur
+     * ({@code isValid}, un aller-retour réseau) qu'après
+     * {@value #SECONDES_AVANT_VALIDATION} s d'inactivité, et non avant chaque
+     * requête : c'est après une longue pause que MySQL coupe les connexions
+     * inactives.
+     */
     @Override
     public synchronized Connection getConnection() throws SQLException {
-        if (connexion == null || connexion.isClosed() || !estValide(connexion)) {
+        long maintenant = System.nanoTime();
+        boolean inactive = maintenant - derniereUtilisation > TimeUnit.SECONDS.toNanos(SECONDES_AVANT_VALIDATION);
+        if (connexion == null || connexion.isClosed() || (inactive && !estValide(connexion))) {
             connexion = ouvrir();
         }
+        derniereUtilisation = maintenant;
         return connexion;
     }
 

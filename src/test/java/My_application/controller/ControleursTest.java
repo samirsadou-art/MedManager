@@ -25,6 +25,7 @@ import My_application.service.RendezVousService;
 import My_application.service.Session;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -257,8 +258,8 @@ public class ControleursTest {
     // ----- accueil -----
 
     static class FausseAccueil extends FausseVue implements AccueilVue {
-        List<Rendez_Vous> rdv = new ArrayList<>();
-        List<consultation> consultations = new ArrayList<>();
+        List<Rendez_Vous> rdv;
+        List<consultation> consultations;
 
         @Override
         public void afficherRendezVousDuJour(List<Rendez_Vous> rendezVous) {
@@ -278,9 +279,36 @@ public class ControleursTest {
         ds.nouvelleConsultation(d);
         ds.enregistrer(d);
         FausseAccueil vue = new FausseAccueil();
-        new AccueilController(vue, ds, new RendezVousService(base)).rafraichir();
+        new AccueilController(vue, ds, new RendezVousService(base), Executeur.IMMEDIAT).rafraichir();
         assertEquals(1, vue.consultations.size());
         assertTrue(vue.erreurs.isEmpty());
+    }
+
+    @Test
+    public void accueilLitEnArrierePlanEtNAfficheQuEnsuite() {
+        final List<Runnable> suites = new ArrayList<>();
+        Executeur differe = new Executeur() {
+            @Override
+            public void executer(Runnable travail, Runnable suite) {
+                travail.run();
+                suites.add(suite);
+            }
+        };
+        FausseAccueil vue = new FausseAccueil();
+        new AccueilController(vue, new DossierService(base), new RendezVousService(base), differe).rafraichir();
+        assertNull("rien n'est affiché depuis le fil de lecture", vue.consultations);
+        suites.get(0).run();
+        assertNotNull(vue.consultations);
+    }
+
+    @Test
+    public void accueilSignaleUnePanneDeLectureSansDetailTechnique() {
+        base.echouerSur("consultation.findByDate");
+        FausseAccueil vue = new FausseAccueil();
+        new AccueilController(vue, new DossierService(base), new RendezVousService(base), Executeur.IMMEDIAT)
+                .rafraichir();
+        assertEquals(Arrays.asList(ControleurBase.ERREUR_BASE), vue.erreurs);
+        assertNull(vue.consultations);
     }
 
     // ----- nouveau patient -----

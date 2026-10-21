@@ -5,6 +5,7 @@ import My_application.entities.pathologie;
 import My_application.entities.symptome;
 import java.sql.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Accès aux consultations et à leurs tables d'association
@@ -30,4 +31,10 @@ public interface ConsultationDao {
     List<symptome> findSymptomes(int idConsultation);
 
     List<pathologie> findPathologies(int idConsultation);
+
+    /** Symptômes de toutes les consultations du patient, par identifiant de consultation. */
+    Map<Integer, List<symptome>> findSymptomesParPatient(int idPatient);
+
+    /** Pathologies de toutes les consultations du patient, par identifiant de consultation. */
+    Map<Integer, List<pathologie>> findPathologiesParPatient(int idPatient);
 }

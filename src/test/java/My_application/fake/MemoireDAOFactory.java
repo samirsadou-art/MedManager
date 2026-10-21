@@ -100,6 +100,16 @@ public class MemoireDAOFactory implements DAOFactory {
         }
     }
 
+    private List<Integer> idsConsultations(int idPatient) {
+        List<Integer> ids = new ArrayList<>();
+        for (consultation c : consultations) {
+            if (c.getPatient().getIdentPat() == idPatient) {
+                ids.add(c.getIdConsul());
+            }
+        }
+        return ids;
+    }
+
     private int nouvelId() {
         return ++sequence;
     }
@@ -428,6 +438,26 @@ public class MemoireDAOFactory implements DAOFactory {
                 }
                 return r;
             }
+
+            @Override
+            public Map<Integer, List<symptome>> findSymptomesParPatient(int idPatient) {
+                appel("consultation.findSymptomesParPatient");
+                Map<Integer, List<symptome>> r = new HashMap<>();
+                for (int id : idsConsultations(idPatient)) {
+                    r.put(id, findSymptomes(id));
+                }
+                return r;
+            }
+
+            @Override
+            public Map<Integer, List<pathologie>> findPathologiesParPatient(int idPatient) {
+                appel("consultation.findPathologiesParPatient");
+                Map<Integer, List<pathologie>> r = new HashMap<>();
+                for (int id : idsConsultations(idPatient)) {
+                    r.put(id, findPathologies(id));
+                }
+                return r;
+            }
         };
     }
 
@@ -566,6 +596,16 @@ public class MemoireDAOFactory implements DAOFactory {
                 List<medicament> l = prescriptions.get(idConsultation);
                 return l == null ? new ArrayList<medicament>() : new ArrayList<>(l);
             }
+
+            @Override
+            public Map<Integer, List<medicament>> findByPatient(int idPatient) {
+                appel("prescription.findByPatient");
+                Map<Integer, List<medicament>> r = new HashMap<>();
+                for (int id : idsConsultations(idPatient)) {
+                    r.put(id, findByConsultation(id));
+                }
+                return r;
+            }
         };
     }
 
@@ -631,6 +671,16 @@ public class MemoireDAOFactory implements DAOFactory {
             public List<analyse> findByConsultation(int idConsultation) {
                 List<analyse> l = demandes.get(idConsultation);
                 return l == null ? new ArrayList<analyse>() : copieAnalyses(l);
+            }
+
+            @Override
+            public Map<Integer, List<analyse>> findByPatient(int idPatient) {
+                appel("demande.findByPatient");
+                Map<Integer, List<analyse>> r = new HashMap<>();
+                for (int id : idsConsultations(idPatient)) {
+                    r.put(id, findByConsultation(id));
+                }
+                return r;
             }
         };
     }

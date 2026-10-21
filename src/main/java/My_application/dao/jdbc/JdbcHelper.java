@@ -9,7 +9,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Petit utilitaire JDBC commun à tous les DAO (équivalent simplifié d'un
@@ -22,17 +26,27 @@ import java.util.List;
  * (try-with-resources) ; l'ancien code en laissait des dizaines ouverts.</li>
  * <li>Les {@link SQLException} sont converties en {@link DataAccessException}
  * ({@link DoublonException} pour une clé déjà prise).</li>
+ * <li>Chaque requête prend le verrou d'accès à la base (celui du
+ * {@link TransactionManager}) : la connexion partagée ne sert qu'à un thread
+ * à la fois.</li>
  * </ul>
  */
 public class JdbcHelper {
 
     private final ConnectionProvider provider;
+    private final Lock verrou;
 
     public JdbcHelper(ConnectionProvider provider) {
+        this(provider, new ReentrantLock());
+    }
+
+    public JdbcHelper(ConnectionProvider provider, Lock verrou) {
         this.provider = provider;
+        this.verrou = verrou;
     }
 
     public <T> List<T> query(String sql, RowMapper<T> mapper, Object... params) {
+        verrou.lock();
         try {
             Connection c = provider.getConnection();
             try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -47,7 +61,33 @@ public class JdbcHelper {
             }
         } catch (SQLException e) {
             throw erreur(sql, e);
+        } finally {
+            verrou.unlock();
         }
+    }
+
+    /**
+     * Requête dont les lignes sont regroupées selon la valeur entière de
+     * {@code colonneCle} (ordre des lignes conservé). Sert à charger en une
+     * requête les lignes de toutes les consultations d'un patient.
+     */
+    public <T> Map<Integer, List<T>> queryParCle(String sql, final String colonneCle,
+            final RowMapper<T> mapper, Object... params) {
+        final Map<Integer, List<T>> groupes = new LinkedHashMap<>();
+        query(sql, new RowMapper<Void>() {
+            @Override
+            public Void map(ResultSet rs) throws SQLException {
+                int cle = rs.getInt(colonneCle);
+                List<T> groupe = groupes.get(cle);
+                if (groupe == null) {
+                    groupe = new ArrayList<>();
+                    groupes.put(cle, groupe);
+                }
+                groupe.add(mapper.map(rs));
+                return null;
+            }
+        }, params);
+        return groupes;
     }
 
     /** Renvoie le premier résultat, ou {@code null} si la requête ne renvoie rien. */
@@ -58,6 +98,7 @@ public class JdbcHelper {
 
     /** INSERT / UPDATE / DELETE ; renvoie le nombre de lignes modifiées. */
     public int update(String sql, Object... params) {
+        verrou.lock();
         try {
             Connection c = provider.getConnection();
             try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -66,6 +107,8 @@ public class JdbcHelper {
             }
         } catch (SQLException e) {
             throw erreur(sql, e);
+        } finally {
+            verrou.unlock();
         }
     }
 
@@ -75,6 +118,7 @@ public class JdbcHelper {
      * pouvait récupérer le mauvais identifiant.
      */
     public int insertAndGetKey(String sql, Object... params) {
+        verrou.lock();
         try {
             Connection c = provider.getConnection();
             try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -89,6 +133,8 @@ public class JdbcHelper {
             }
         } catch (SQLException e) {
             throw erreur(sql, e);
+        } finally {
+            verrou.unlock();
         }
     }
 
@@ -97,6 +143,7 @@ public class JdbcHelper {
         if (lignes.isEmpty()) {
             return;
         }
+        verrou.lock();
         try {
             Connection c = provider.getConnection();
             try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -108,6 +155,8 @@ public class JdbcHelper {
             }
         } catch (SQLException e) {
             throw erreur(sql, e);
+        } finally {
+            verrou.unlock();
         }
     }
 

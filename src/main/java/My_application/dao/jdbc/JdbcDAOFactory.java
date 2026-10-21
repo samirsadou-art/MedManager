@@ -16,8 +16,8 @@ import My_application.dao.UniteDeTravail;
 import My_application.dao.UtilisateurDao;
 
 /**
- * Fabrique concrète : DAO JDBC partageant le même {@link ConnectionProvider}
- * (et donc la même transaction).
+ * Fabrique concrète : DAO JDBC partageant le même {@link ConnectionProvider},
+ * à travers le {@link TransactionManager} (et donc la même transaction).
  */
 public class JdbcDAOFactory implements DAOFactory {
 
@@ -36,8 +36,10 @@ public class JdbcDAOFactory implements DAOFactory {
     private final JournalDao journalDao;
 
     public JdbcDAOFactory(ConnectionProvider provider) {
-        JdbcHelper jdbc = new JdbcHelper(provider);
+        // Les DAO passent par le gestionnaire de transactions : pendant une
+        // transaction, ils reçoivent sa connexion et partagent son verrou.
         this.transactions = new TransactionManager(provider);
+        JdbcHelper jdbc = new JdbcHelper(transactions, transactions.verrou());
         this.patientDao = new JdbcPatientDao(jdbc);
         this.medecinDao = new JdbcMedecinDao(jdbc);
         this.utilisateurDao = new JdbcUtilisateurDao(jdbc);

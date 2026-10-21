@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class JdbcConsultationDao implements ConsultationDao {
 
@@ -105,5 +106,21 @@ public class JdbcConsultationDao implements ConsultationDao {
         return jdbc.query("SELECT p.idpathologie, p.designation FROM pathologies p "
                 + "JOIN consultpathologie cp ON cp.idpathologie = p.idpathologie WHERE cp.idconsultation=?",
                 JdbcPathologieDao.MAPPER, idConsultation);
+    }
+
+    @Override
+    public Map<Integer, List<symptome>> findSymptomesParPatient(int idPatient) {
+        return jdbc.queryParCle("SELECT cs.idconsultation, s.idsymptome, s.designation FROM consultsymptome cs "
+                + "JOIN symptomes s ON s.idsymptome = cs.idsymptome "
+                + "JOIN consultation c ON c.idConsultation = cs.idconsultation WHERE c.idPatient=?",
+                "idconsultation", JdbcSymptomeDao.MAPPER, idPatient);
+    }
+
+    @Override
+    public Map<Integer, List<pathologie>> findPathologiesParPatient(int idPatient) {
+        return jdbc.queryParCle("SELECT cp.idconsultation, p.idpathologie, p.designation FROM consultpathologie cp "
+                + "JOIN pathologies p ON p.idpathologie = cp.idpathologie "
+                + "JOIN consultation c ON c.idConsultation = cp.idconsultation WHERE c.idPatient=?",
+                "idconsultation", JdbcPathologieDao.MAPPER, idPatient);
     }
 }
