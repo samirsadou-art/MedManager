@@ -5,7 +5,6 @@ import My_application.entities.analyse;
 import My_application.entities.medecin;
 import My_application.entities.medicament;
 import My_application.entities.patient;
-import java.sql.Date;
 import java.time.LocalDate;
 
 /** Jeux de données réutilisés par les tests. */
@@ -19,7 +18,7 @@ public final class Donnees {
         p.setIdentPat(id);
         p.setNom(nom);
         p.setPrenom(prenom);
-        p.setDat_nais(Date.valueOf(naissance));
+        p.setDat_nais(naissance);
         p.setSexe(masculin);
         return p;
     }

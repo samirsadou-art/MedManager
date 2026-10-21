@@ -27,7 +27,7 @@ import My_application.entities.medicament;
 import My_application.entities.pathologie;
 import My_application.entities.patient;
 import My_application.entities.symptome;
-import java.sql.Date;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -382,11 +382,11 @@ public class MemoireDAOFactory implements DAOFactory {
             }
 
             @Override
-            public List<consultation> findByDate(Date date) {
+            public List<consultation> findByDate(LocalDate date) {
                 appel("consultation.findByDate");
                 List<consultation> r = new ArrayList<>();
                 for (consultation c : consultations) {
-                    if (c.getDate_cons().toLocalDate().equals(date.toLocalDate())) {
+                    if (c.getDate_cons().equals(date)) {
                         r.add(c);
                     }
                 }
@@ -721,12 +721,12 @@ public class MemoireDAOFactory implements DAOFactory {
             }
 
             @Override
-            public List<Rendez_Vous> findEntre(Date debut, Date fin) {
+            public List<Rendez_Vous> findEntre(LocalDate debut, LocalDate fin) {
                 appel("rdv.findEntre");
                 List<Rendez_Vous> r = new ArrayList<>();
                 for (Rendez_Vous x : rendezVous) {
-                    java.time.LocalDate d = x.getDate().toLocalDate();
-                    if (!d.isBefore(debut.toLocalDate()) && !d.isAfter(fin.toLocalDate())) {
+                    LocalDate d = x.getDate();
+                    if (!d.isBefore(debut) && !d.isAfter(fin)) {
                         r.add(x);
                     }
                 }

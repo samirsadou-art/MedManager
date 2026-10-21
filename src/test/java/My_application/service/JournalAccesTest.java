@@ -133,7 +133,7 @@ public class JournalAccesTest {
         Rendez_Vous r = rdv.proposer(base.patients.get(1), Donnees.utilisateur(1), demain, 10);
         rdv.confirmer(r);
         assertEquals("RENDEZ_VOUS_PRIS", derniere().getAction());
-        assertEquals(demain + " 10:00:00", derniere().getDetail());
+        assertEquals(demain + " 10:00", derniere().getDetail());
         rdv.annuler(r, base.patients.get(1));
         assertEquals("RENDEZ_VOUS_ANNULE", derniere().getAction());
         assertEquals(Integer.valueOf(1), derniere().getIdPatient());

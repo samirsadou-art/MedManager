@@ -5,7 +5,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import org.junit.Test;
 
@@ -15,7 +14,7 @@ public class patientTest {
 
     private static patient ne(LocalDate naissance) {
         patient p = new patient();
-        p.setDat_nais(Date.valueOf(naissance));
+        p.setDat_nais(naissance);
         return p;
     }
 

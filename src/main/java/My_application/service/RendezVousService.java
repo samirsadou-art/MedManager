@@ -7,8 +7,6 @@ import My_application.dao.UniteDeTravail;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
 import My_application.entities.patient;
-import java.sql.Date;
-import java.sql.Time;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -101,11 +99,11 @@ public class RendezVousService {
     // ----- consultation de l'agenda -----
 
     public List<Rendez_Vous> duJour(LocalDate jour) {
-        return rendezVousDao.findEntre(Date.valueOf(jour), Date.valueOf(jour));
+        return rendezVousDao.findEntre(jour, jour);
     }
 
     public List<Rendez_Vous> deLaSemaine(LocalDate dimanche) {
-        return rendezVousDao.findEntre(Date.valueOf(dimanche), Date.valueOf(dimanche.plusDays(6)));
+        return rendezVousDao.findEntre(dimanche, dimanche.plusDays(6));
     }
 
     // ----- prise de rendez-vous -----
@@ -142,7 +140,7 @@ public class RendezVousService {
         int pas = 60 / maxParHeure;
         boolean[] occupe = new boolean[maxParHeure];
         for (Rendez_Vous r : dansLHeure) {
-            int indice = r.getHeure().toLocalTime().getMinute() / pas;
+            int indice = r.getHeure().getMinute() / pas;
             if (indice < maxParHeure) {
                 occupe[indice] = true;
             }
@@ -165,10 +163,10 @@ public class RendezVousService {
         Rendez_Vous r = new Rendez_Vous();
         r.setPatient(malade);
         r.setUtilsateur(utilisateur);
-        r.setDate(Date.valueOf(debut.toLocalDate()));
-        r.setHeure(Time.valueOf(debut.toLocalTime()));
-        r.setDateFix(Date.valueOf(maintenant.toLocalDate()));
-        r.setHeureFix(Time.valueOf(maintenant.toLocalTime()));
+        r.setDate(debut.toLocalDate());
+        r.setHeure(debut.toLocalTime());
+        r.setDateFix(maintenant.toLocalDate());
+        r.setHeureFix(maintenant.toLocalTime());
         return r;
     }
 
@@ -180,14 +178,14 @@ public class RendezVousService {
         daos.enTransaction(new UniteDeTravail<Void>() {
             @Override
             public Void executer() {
-                LocalDate jour = rdv.getDate().toLocalDate();
-                LocalTime h = rdv.getHeure().toLocalTime();
+                LocalDate jour = rdv.getDate();
+                LocalTime h = rdv.getHeure();
                 List<Rendez_Vous> dansLHeure = dansLHeure(duJour(jour), jour, h.getHour());
                 for (Rendez_Vous r : dansLHeure) {
                     if (r.getPatient().getIdentPat() == rdv.getPatient().getIdentPat()) {
                         throw new MetierException("Vous ne pouvez pas prendre plus d'un rendez-vous par heure !");
                     }
-                    if (r.getHeure().toLocalTime().equals(h)) {
+                    if (r.getHeure().equals(h)) {
                         throw new MetierException(CRENEAU_PRIS);
                     }
                 }
@@ -235,7 +233,7 @@ public class RendezVousService {
     private static List<Rendez_Vous> dansLHeure(List<Rendez_Vous> rdvs, LocalDate jour, int heure) {
         List<Rendez_Vous> r = new ArrayList<>();
         for (Rendez_Vous x : rdvs) {
-            if (x.getDate().toLocalDate().equals(jour) && x.getHeure().toLocalTime().getHour() == heure) {
+            if (x.getDate().equals(jour) && x.getHeure().getHour() == heure) {
                 r.add(x);
             }
         }

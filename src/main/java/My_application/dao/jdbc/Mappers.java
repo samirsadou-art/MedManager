@@ -3,9 +3,14 @@ package My_application.dao.jdbc;
 import My_application.entities.User;
 import My_application.entities.medecin;
 import My_application.entities.patient;
+import java.lang.ref.WeakReference;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -27,7 +32,7 @@ final class Mappers {
             p.setIdentPat(rs.getInt("idPatient"));
             p.setNom(rs.getString("nomPatient"));
             p.setPrenom(rs.getString("prenomPatient"));
-            p.setDat_nais(rs.getDate("date_Nais_Patient"));
+            p.setDat_nais(jour(rs, "date_Nais_Patient"));
             p.setSexe(rs.getBoolean("sexePatient"));
             Set<String> colonnes = colonnes(rs);
             p.setNum_soc(chaine(rs, colonnes, "num_sec_soc_Patient"));
@@ -73,14 +78,44 @@ final class Mappers {
         }
     };
 
+    /** Colonnes du dernier ResultSet lu par ce fil : les métadonnées ne sont lues qu'une fois par requête. */
+    private static final class ColonnesLues {
+        final WeakReference<ResultSet> resultSet;
+        final Set<String> noms;
+
+        ColonnesLues(ResultSet rs, Set<String> noms) {
+            this.resultSet = new WeakReference<>(rs);
+            this.noms = noms;
+        }
+    }
+
+    private static final ThreadLocal<ColonnesLues> DERNIERES_COLONNES = new ThreadLocal<>();
+
     /** Noms des colonnes du ResultSet (en minuscules) pour les colonnes optionnelles. */
     static Set<String> colonnes(ResultSet rs) throws SQLException {
+        ColonnesLues dejaLues = DERNIERES_COLONNES.get();
+        if (dejaLues != null && dejaLues.resultSet.get() == rs) {
+            return dejaLues.noms;
+        }
         ResultSetMetaData md = rs.getMetaData();
         Set<String> noms = new HashSet<>();
         for (int i = 1; i <= md.getColumnCount(); i++) {
             noms.add(md.getColumnLabel(i).toLowerCase(Locale.ROOT));
         }
+        DERNIERES_COLONNES.set(new ColonnesLues(rs, noms));
         return noms;
+    }
+
+    /** Colonne DATE en {@link LocalDate} (null si NULL). Le domaine n'utilise plus java.sql.Date. */
+    static LocalDate jour(ResultSet rs, String colonne) throws SQLException {
+        Date d = rs.getDate(colonne);
+        return d == null ? null : d.toLocalDate();
+    }
+
+    /** Colonne TIME en {@link LocalTime} (null si NULL). */
+    static LocalTime heure(ResultSet rs, String colonne) throws SQLException {
+        Time t = rs.getTime(colonne);
+        return t == null ? null : t.toLocalTime();
     }
 
     static String chaine(ResultSet rs, Set<String> colonnes, String nom) throws SQLException {

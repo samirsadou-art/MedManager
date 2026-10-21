@@ -60,7 +60,7 @@ public class PatientService {
         if (p.getDat_nais() == null) {
             throw new MetierException("La date de naissance est obligatoire.");
         }
-        LocalDate naissance = p.getDat_nais().toLocalDate();
+        LocalDate naissance = p.getDat_nais();
         if (naissance.isAfter(LocalDate.now())) {
             throw new MetierException("La date de naissance ne peut pas être dans le futur.");
         }

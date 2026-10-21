@@ -3,7 +3,7 @@ package My_application.dao;
 import My_application.entities.consultation;
 import My_application.entities.pathologie;
 import My_application.entities.symptome;
-import java.sql.Date;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +22,7 @@ public interface ConsultationDao {
 
     List<consultation> findByPatient(int idPatient);
 
-    List<consultation> findByDate(Date date);
+    List<consultation> findByDate(LocalDate date);
 
     void ajouterSymptomes(int idConsultation, List<symptome> symptomes);
 

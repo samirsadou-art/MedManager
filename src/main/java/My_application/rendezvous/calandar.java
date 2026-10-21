@@ -70,7 +70,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
     }
 
     private void afficherApercu(Rendez_Vous rendez) {
-        long reste = ChronoUnit.DAYS.between(controleur.getService().aujourdhui(), rendez.getDate().toLocalDate());
+        long reste = ChronoUnit.DAYS.between(controleur.getService().aujourdhui(), rendez.getDate());
         restTxt.setText(String.valueOf(reste));
         timeTxt.setText(rendez.getHeureString());
         dateText.setText(rendez.getDateString());

@@ -6,7 +6,6 @@ import static org.junit.Assert.assertTrue;
 import My_application.entities.patient;
 import My_application.fake.Donnees;
 import My_application.fake.MemoireDAOFactory;
-import java.sql.Date;
 import java.time.LocalDate;
 import org.junit.Test;
 
@@ -56,7 +55,7 @@ public class PatientServiceTest {
     @Test
     public void dateMinimale() {
         patient p = Donnees.patient(0, "ANCIEN");
-        p.setDat_nais(Date.valueOf(LocalDate.now().minusYears(131)));
+        p.setDat_nais(LocalDate.now().minusYears(131));
         try {
             service.creer(p);
             org.junit.Assert.fail("date refusée attendue");

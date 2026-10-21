@@ -48,10 +48,10 @@ public class RendezVousServiceTest {
 
     @Test
     public void premierCreneauLibreDeLHeureParQuartDHeure() {
-        assertEquals(LocalTime.of(9, 0), prendre(10, DEMAIN, 9).getHeure().toLocalTime());
-        assertEquals(LocalTime.of(9, 15), prendre(11, DEMAIN, 9).getHeure().toLocalTime());
-        assertEquals(LocalTime.of(9, 30), prendre(12, DEMAIN, 9).getHeure().toLocalTime());
-        assertEquals(LocalTime.of(9, 45), prendre(13, DEMAIN, 9).getHeure().toLocalTime());
+        assertEquals(LocalTime.of(9, 0), prendre(10, DEMAIN, 9).getHeure());
+        assertEquals(LocalTime.of(9, 15), prendre(11, DEMAIN, 9).getHeure());
+        assertEquals(LocalTime.of(9, 30), prendre(12, DEMAIN, 9).getHeure());
+        assertEquals(LocalTime.of(9, 45), prendre(13, DEMAIN, 9).getHeure());
     }
 
     @Test
@@ -73,7 +73,7 @@ public class RendezVousServiceTest {
         Rendez_Vous quart = prendre(11, DEMAIN, 9);
         prendre(12, DEMAIN, 9);
         service.annuler(quart, base.patients.get(11));
-        assertEquals(LocalTime.of(9, 15), prendre(13, DEMAIN, 9).getHeure().toLocalTime());
+        assertEquals(LocalTime.of(9, 15), prendre(13, DEMAIN, 9).getHeure());
     }
 
     @Test(expected = MetierException.class)
@@ -85,7 +85,7 @@ public class RendezVousServiceTest {
     @Test
     public void lesCreneauxDejaPassesSontIgnores() {
         // Il est 10 h 20 : dans l'heure de 10 h, seul 10 h 30 ou 10 h 45 sont possibles.
-        assertEquals(LocalTime.of(10, 30), prendre(10, MAINTENANT.toLocalDate(), 10).getHeure().toLocalTime());
+        assertEquals(LocalTime.of(10, 30), prendre(10, MAINTENANT.toLocalDate(), 10).getHeure());
     }
 
     @Test(expected = MetierException.class)

@@ -3,8 +3,8 @@ package My_application.entities;
 /** Entité Pathologie (référentiel) — POJO ; persistance dans {@code PathologieDao}. */
 public class pathologie {
 
-    int id;
-    String designation;
+    private int id;
+    private String designation;
 
     public pathologie() {
     }

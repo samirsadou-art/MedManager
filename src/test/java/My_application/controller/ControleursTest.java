@@ -325,7 +325,7 @@ public class ControleursTest {
         patient p = ctrl.enregistrer(s);
         assertNotNull(p);
         assertEquals("ZIANI", p.getNom());
-        assertEquals(LocalDate.of(1992, 2, 29), p.getDat_nais().toLocalDate());
+        assertEquals(LocalDate.of(1992, 2, 29), p.getDat_nais());
         assertTrue(vue.informations.get(0).contains("enregistré"));
     }
 

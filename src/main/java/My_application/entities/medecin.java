@@ -6,17 +6,17 @@ package My_application.entities;
  */
 public class medecin {
 
-    int idmedecin;
-    String ordmedcin;
-    String nom;
-    String prenom;
-    String titre;
-    String specialite;
-    String adresse;
-    String telephone1;
-    String telephone2;
-    String email;
-    String nom_cabinet;
+    private int idmedecin;
+    private String ordmedcin;
+    private String nom;
+    private String prenom;
+    private String titre;
+    private String specialite;
+    private String adresse;
+    private String telephone1;
+    private String telephone2;
+    private String email;
+    private String nom_cabinet;
 
     public medecin() {
     }

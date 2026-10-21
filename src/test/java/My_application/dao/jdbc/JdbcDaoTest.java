@@ -15,8 +15,7 @@ import My_application.entities.patient;
 import My_application.entities.symptome;
 import My_application.fake.Donnees;
 import My_application.fake.FauxJdbc;
-import java.sql.Date;
-import java.sql.Time;
+import java.time.LocalTime;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,7 +40,7 @@ public class JdbcDaoTest {
     @Test
     public void rechercheDePatientsParPrefixeParametre() {
         base.quand("FROM patient WHERE nomPatient LIKE", ligne("idPatient", 7, "nomPatient", "O'NEIL",
-                "prenomPatient", "Sean", "date_Nais_Patient", Date.valueOf("1990-01-02"), "sexePatient", 1,
+                "prenomPatient", "Sean", "date_Nais_Patient", java.sql.Date.valueOf("1990-01-02"), "sexePatient", 1,
                 "telPatient", "0555"));
         List<patient> r = daos.getPatientDao().findByNomCommencantPar("O'N");
         assertEquals(1, r.size());
@@ -103,12 +102,15 @@ public class JdbcDaoTest {
     @Test
     public void insertionConsultationRecupereSonIdentifiantSansRequeteSupplementaire() {
         consultation c = new consultation(Donnees.patient(3, "X"), Donnees.medecin(1));
-        c.setDate_cons(Date.valueOf("2026-10-08"));
-        c.setHeure_cons(Time.valueOf("10:30:00"));
+        c.setDate_cons(LocalDate.parse("2026-10-08"));
+        c.setHeure_cons(LocalTime.parse("10:30:00"));
         daos.getConsultationDao().insert(c);
         assertTrue(c.getIdConsul() > 0);
         assertEquals(1, base.executions.size()); // plus de « select idConsultation where date=... »
         assertEquals(3, base.derniere().param(4));
+        // Le domaine est en java.time ; JdbcHelper lie des types JDBC classiques.
+        assertEquals(java.sql.Date.valueOf("2026-10-08"), base.derniere().param(1));
+        assertEquals(java.sql.Time.valueOf("10:30:00"), base.derniere().param(2));
     }
 
     @Test
@@ -134,8 +136,8 @@ public class JdbcDaoTest {
     public void annulerUnRendezVousCibleLePatient() {
         Rendez_Vous r = new Rendez_Vous();
         r.setPatient(Donnees.patient(4, "Y"));
-        r.setDate(Date.valueOf(LocalDate.of(2026, 10, 9)));
-        r.setHeure(Time.valueOf("09:15:00"));
+        r.setDate(LocalDate.of(2026, 10, 9));
+        r.setHeure(LocalTime.parse("09:15:00"));
         daos.getRendezVousDao().delete(r);
         FauxJdbc.Execution e = base.derniere();
         assertTrue(e.sql.contains("idPatient=?"));
@@ -144,12 +146,13 @@ public class JdbcDaoTest {
 
     @Test
     public void rendezVousLusAvecPatientEtUtilisateurEnUneRequete() {
-        base.quand("FROM rondezvous", ligne("idUser", 1, "idPatient", 2, "date", Date.valueOf("2026-10-09"),
-                "heure", Time.valueOf("09:15:00"), "dateFix", Date.valueOf("2026-10-01"),
-                "heureFix", Time.valueOf("08:00:00"), "etat", 0, "nomPatient", "B", "prenomPatient", "b",
-                "date_Nais_Patient", Date.valueOf("2000-01-01"), "sexePatient", 0, "nom", "SAHAB",
+        base.quand("FROM rondezvous", ligne("idUser", 1, "idPatient", 2, "date", java.sql.Date.valueOf("2026-10-09"),
+                "heure", java.sql.Time.valueOf("09:15:00"), "dateFix", java.sql.Date.valueOf("2026-10-01"),
+                "heureFix", java.sql.Time.valueOf("08:00:00"), "etat", 0, "nomPatient", "B", "prenomPatient", "b",
+                "date_Nais_Patient", java.sql.Date.valueOf("2000-01-01"), "sexePatient", 0, "nom", "SAHAB",
                 "prenom", "Said", "qualite", "Médecin"));
-        List<Rendez_Vous> l = daos.getRendezVousDao().findEntre(Date.valueOf("2026-10-04"), Date.valueOf("2026-10-10"));
+        List<Rendez_Vous> l = daos.getRendezVousDao().findEntre(LocalDate.parse("2026-10-04"),
+                LocalDate.parse("2026-10-10"));
         assertEquals(1, base.executions.size());
         assertEquals("B", l.get(0).getPatient().getNom());
         assertEquals("SAHAB", l.get(0).getUtilsateur().getNom());

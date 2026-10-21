@@ -3,11 +3,17 @@ package My_application.dao.jdbc;
 import My_application.dao.DataAccessException;
 import My_application.dao.DoublonException;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -174,6 +180,13 @@ public class JdbcHelper {
                 ps.setNull(i + 1, Types.NULL);
             } else if (v instanceof Boolean) {
                 ps.setBoolean(i + 1, (Boolean) v);
+            } else if (v instanceof LocalDate) {
+                // Types java.time du domaine : convertis ici, pilote JDBC 4.2 non requis.
+                ps.setDate(i + 1, Date.valueOf((LocalDate) v));
+            } else if (v instanceof LocalTime) {
+                ps.setTime(i + 1, Time.valueOf((LocalTime) v));
+            } else if (v instanceof LocalDateTime) {
+                ps.setTimestamp(i + 1, Timestamp.valueOf((LocalDateTime) v));
             } else {
                 ps.setObject(i + 1, v);
             }

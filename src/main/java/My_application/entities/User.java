@@ -8,14 +8,14 @@ package My_application.entities;
  */
 public class User {
 
-    int ident;
-    String nom;
-    String prenom;
-    String quailite;
-    String login;
-    boolean actif = true;
+    private int ident;
+    private String nom;
+    private String prenom;
+    private String quailite;
+    private String login;
+    private boolean actif = true;
     /** Médecin traitant de la session quand cet utilisateur se connecte (null : celui par défaut). */
-    Integer idMedecin;
+    private Integer idMedecin;
 
     public User() {
     }

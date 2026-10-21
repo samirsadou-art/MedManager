@@ -2,8 +2,10 @@ package My_application.modelTableau;
 
 import My_application.entities.DossierPatient;
 import My_application.entities.consultation;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Enumeration;
+import java.util.Locale;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeNode;
@@ -59,12 +61,12 @@ public class HistoriqueVisites {
     }
 
     public void addConsulToHistorique(consultation myconsult, int index) {
-        java.util.Date date = new java.util.Date(myconsult.getDate_cons().getTime());
+        LocalDate date = myconsult.getDate_cons();
         // "yyyy" (année calendaire) et non "YYYY" (année de semaine ISO), qui
         // classait les consultations de fin décembre dans l'année suivante.
-        DefaultMutableTreeNode annee = enfant(consult, new SimpleDateFormat("yyyy").format(date), index);
-        DefaultMutableTreeNode mois = enfant(annee, new SimpleDateFormat("MMMM").format(date), index);
-        String jour = new SimpleDateFormat("EEEE,d ").format(date) + "[" + myconsult.getHeureString() + "]";
+        DefaultMutableTreeNode annee = enfant(consult, date.format(DateTimeFormatter.ofPattern("yyyy")), index);
+        DefaultMutableTreeNode mois = enfant(annee, date.format(DateTimeFormatter.ofPattern("MMMM", Locale.FRENCH)), index);
+        String jour = date.format(DateTimeFormatter.ofPattern("EEEE,d ", Locale.FRENCH)) + "[" + myconsult.getHeureString() + "]";
         mois.add(new DefaultMutableTreeNode(new NoeudHistorique(index, jour, 0)));
         racine.nodeStructureChanged(consult);
     }

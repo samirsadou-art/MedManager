@@ -3,7 +3,6 @@ package My_application.controller;
 import My_application.entities.patient;
 import My_application.service.MetierException;
 import My_application.service.PatientService;
-import java.sql.Date;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -65,7 +64,7 @@ public class NouveauPatientController extends ControleurBase {
         String d = s.dateNaissance == null ? "" : s.dateNaissance.trim();
         if (!d.isEmpty()) {
             try {
-                p.setDat_nais(Date.valueOf(LocalDate.parse(d, FORMAT_DATE)));
+                p.setDat_nais(LocalDate.parse(d, FORMAT_DATE));
             } catch (DateTimeParseException e) {
                 throw new MetierException("Date de naissance invalide : utilisez le format jj/mm/aaaa.");
             }

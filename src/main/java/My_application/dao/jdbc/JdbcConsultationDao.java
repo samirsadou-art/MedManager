@@ -6,9 +6,9 @@ import My_application.entities.medecin;
 import My_application.entities.pathologie;
 import My_application.entities.patient;
 import My_application.entities.symptome;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,8 +27,8 @@ public class JdbcConsultationDao implements ConsultationDao {
         public consultation map(ResultSet rs) throws SQLException {
             consultation c = new consultation(null, null);
             c.setIdConsul(rs.getInt("idConsultation"));
-            c.setDate_cons(rs.getDate("dateConsultation"));
-            c.setHeure_cons(rs.getTime("heureConsultation"));
+            c.setDate_cons(Mappers.jour(rs, "dateConsultation"));
+            c.setHeure_cons(Mappers.heure(rs, "heureConsultation"));
             c.setTemperature(rs.getDouble("temperature"));
             c.setPul_Cardiaque(rs.getInt("pulsation"));
             c.setPressionA(rs.getString("pression"));
@@ -61,7 +61,7 @@ public class JdbcConsultationDao implements ConsultationDao {
     }
 
     @Override
-    public List<consultation> findByDate(Date date) {
+    public List<consultation> findByDate(LocalDate date) {
         // Une seule requête avec jointure au lieu d'une requête patient par ligne.
         return jdbc.query("SELECT c.*, p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient "
                 + "FROM consultation c JOIN patient p ON p.idPatient = c.idPatient "

@@ -16,8 +16,8 @@ import My_application.entities.ordonnance;
 import My_application.entities.pathologie;
 import My_application.entities.patient;
 import My_application.entities.symptome;
-import java.sql.Date;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -119,9 +119,9 @@ public class DossierService {
             throw new MetierException("Une nouvelle consultation est déjà en cours de saisie.");
         }
         consultation c = new consultation(dossier.getMalade(), dossier.getMedTraitant());
-        long maintenant = System.currentTimeMillis();
-        c.setDate_cons(new Date(maintenant));
-        c.setHeure_cons(new java.sql.Time(maintenant));
+        LocalDateTime maintenant = LocalDateTime.now().withNano(0);
+        c.setDate_cons(maintenant.toLocalDate());
+        c.setHeure_cons(maintenant.toLocalTime());
         dossier.ajouterConsultation(c);
         return c;
     }
@@ -222,6 +222,6 @@ public class DossierService {
     }
 
     public List<consultation> consultationsDuJour(LocalDate jour) {
-        return consultationDao.findByDate(Date.valueOf(jour));
+        return consultationDao.findByDate(jour);
     }
 }

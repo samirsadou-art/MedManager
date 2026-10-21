@@ -1,7 +1,7 @@
 package My_application.dao;
 
 import My_application.entities.Rendez_Vous;
-import java.sql.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface RendezVousDao {
@@ -18,5 +18,5 @@ public interface RendezVousDao {
     boolean delete(Rendez_Vous rdv);
 
     /** Rendez-vous entre deux dates incluses, triés par date puis heure. */
-    List<Rendez_Vous> findEntre(Date debut, Date fin);
+    List<Rendez_Vous> findEntre(LocalDate debut, LocalDate fin);
 }

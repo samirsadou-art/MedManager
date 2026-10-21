@@ -141,7 +141,7 @@ public class RapportService {
     /** Ex. « Ordonnance_AMRANI_Karim_2026-10-08_0930.pdf » (sans accents ni espaces). */
     static String nomFichier(String type, consultation c) {
         patient p = c.getPatient();
-        String date = c.getDate_cons() == null ? LocalDate.now().toString() : c.getDate_cons().toLocalDate().toString();
+        String date = c.getDate_cons() == null ? LocalDate.now().toString() : c.getDate_cons().toString();
         String heure = c.getHeureString().replace(":", "");
         return nettoyer(type + "_" + p.getNom() + "_" + p.getPrenom() + "_" + date + (heure.isEmpty() ? "" : "_" + heure))
                 + ".pdf";
@@ -314,7 +314,7 @@ public class RapportService {
     }
 
     static String dateConsultation(consultation c) {
-        LocalDate d = c.getDate_cons() == null ? LocalDate.now() : c.getDate_cons().toLocalDate();
+        LocalDate d = c.getDate_cons() == null ? LocalDate.now() : c.getDate_cons();
         return FORMAT_DATE.format(d);
     }
 

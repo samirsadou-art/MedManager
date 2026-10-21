@@ -1,13 +1,12 @@
 
 package My_application;
 
-import My_application.vue.Theme;
 import My_application.Analyse.AnalyseForm;
 import My_application.Analyse.PaneauAnalyse;
 import My_application.Ordonnance.OrdonnanceForm;
 import My_application.Ordonnance.PaneauOrdonnance;
-import My_application.controller.DossierPatientController;
 import My_application.controller.DossierPatientController.Constante;
+import My_application.controller.DossierPatientController;
 import My_application.controller.Vue;
 import My_application.entities.DossierPatient;
 import My_application.entities.User;
@@ -21,20 +20,21 @@ import My_application.rendezvous.calandar;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
 import My_application.vue.Icones;
+import My_application.vue.Theme;
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
-import javax.swing.JButton;
-import javax.swing.UIManager;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
+import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeNode;
@@ -1321,8 +1321,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         poidsTxt.setText(valeur(myconsult.getPoids()));
         afficherSymptomes(myconsult);
         afficherPathologies(myconsult);
-        TimeTxt.setText(myconsult.getHeure_cons().toString());
-        dateText.setText(" " + new SimpleDateFormat("EEEE, d MMM yyyy").format(new Date(myconsult.getDate_cons().getTime())));
+        TimeTxt.setText(myconsult.getHeureString());
+        dateText.setText(" " + myconsult.getDate_cons().format(DateTimeFormatter.ofPattern("EEEE, d MMM yyyy", Locale.FRENCH)));
         MedcinLabel.setText(myconsult.getMedecin().getNomComplet());
         if (myconsult.hasOrdonnance()) {
             Pordonnance = new PaneauOrdonnance(myconsult.getOrdoPat());
