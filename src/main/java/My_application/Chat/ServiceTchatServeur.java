@@ -6,6 +6,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.BindException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.logging.Level;
@@ -21,12 +22,11 @@ public class ServiceTchatServeur extends Thread {
 
     volatile ServerSocket serverSock;
     volatile Socket        Sock;
-    DataInputStream   input;
+    volatile DataInputStream input;
     volatile DataOutputStream output;
     final static int port=7777;
     volatile boolean connected=false;
-    boolean paused=false;
-    Tchat TchatWindow;
+    final Tchat TchatWindow;
 
     public ServiceTchatServeur(Tchat WTchat) {
         this.TchatWindow=WTchat;
@@ -38,7 +38,10 @@ public class ServiceTchatServeur extends Thread {
     public void run() {
         LOG.fine("Serveur de discussion en attente sur le port " + port);
         try {
-            serverSock= new ServerSocket(port);
+            // Boucle locale uniquement : le client se connecte à 127.0.0.1, et le
+            // serveur (sans authentification ni chiffrement) ne doit pas être
+            // joignable depuis le réseau du cabinet.
+            serverSock= new ServerSocket(port, 50, InetAddress.getLoopbackAddress());
             Sock=serverSock.accept();
             LOG.fine("Connexion établie par : " + Sock.getInetAddress().getHostName());
             input= new DataInputStream(Sock.getInputStream());

@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class JdbcDemandeAnalyseDao implements DemandeAnalyseDao {
 
@@ -34,21 +35,31 @@ public class JdbcDemandeAnalyseDao implements DemandeAnalyseDao {
         jdbc.batch("UPDATE demandanalyse SET resultat=?, note=? WHERE idAnalyse=? AND idconsultation=?", lignes);
     }
 
+    private static final RowMapper<analyse> LIGNE = new RowMapper<analyse>() {
+        @Override
+        public analyse map(ResultSet rs) throws SQLException {
+            analyse a = new analyse();
+            a.setIdAnal(rs.getInt("idanalyse"));
+            a.setDesign(rs.getString("designation"));
+            a.setObserv(rs.getString("observation"));
+            a.setResultat(rs.getString("resultat"));
+            a.setNote(rs.getInt("note"));
+            return a;
+        }
+    };
+
     @Override
     public List<analyse> findByConsultation(int idConsultation) {
         return jdbc.query("SELECT a.idanalyse, a.designation, d.observation, d.resultat, d.note "
                 + "FROM demandanalyse d JOIN analyse a ON a.idanalyse = d.idAnalyse WHERE d.idconsultation=?",
-                new RowMapper<analyse>() {
-                    @Override
-                    public analyse map(ResultSet rs) throws SQLException {
-                        analyse a = new analyse();
-                        a.setIdAnal(rs.getInt("idanalyse"));
-                        a.setDesign(rs.getString("designation"));
-                        a.setObserv(rs.getString("observation"));
-                        a.setResultat(rs.getString("resultat"));
-                        a.setNote(rs.getInt("note"));
-                        return a;
-                    }
-                }, idConsultation);
+                LIGNE, idConsultation);
+    }
+
+    @Override
+    public Map<Integer, List<analyse>> findByPatient(int idPatient) {
+        return jdbc.queryParCle("SELECT d.idconsultation, a.idanalyse, a.designation, d.observation, d.resultat, d.note "
+                + "FROM demandanalyse d JOIN analyse a ON a.idanalyse = d.idAnalyse "
+                + "JOIN consultation c ON c.idConsultation = d.idconsultation WHERE c.idPatient=?",
+                "idconsultation", LIGNE, idPatient);
     }
 }

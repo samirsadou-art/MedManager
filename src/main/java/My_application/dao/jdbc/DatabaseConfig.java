@@ -117,6 +117,11 @@ public final class DatabaseConfig {
         return v == null ? defaut : v.trim();
     }
 
+    /** Vrai si l'application se connecte avec le compte administrateur de MySQL. */
+    public boolean estCompteAdministrateur() {
+        return "root".equalsIgnoreCase(user == null ? "" : user.trim());
+    }
+
     public String getUrl() {
         return url;
     }

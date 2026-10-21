@@ -12,6 +12,8 @@ import My_application.TableModelPrincipale.RendezJourTableRondu;
 import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
 import My_application.entities.Rendez_Vous;
+import My_application.dao.jdbc.DatabaseConfig;
+import My_application.dao.jdbc.Migrations;
 import My_application.entities.consultation;
 import My_application.rendezvous.calandar;
 import My_application.vue.Bandeau;
@@ -28,6 +30,8 @@ import java.util.Locale;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Fenêtre principale (Vue) : rendez-vous et consultations du jour.
@@ -38,12 +42,14 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     private final RendezJourTableModel RJModel = new RendezJourTableModel();
     private final ConsultJourTableModel CJModel = new ConsultJourTableModel();
+    private final AppContext ctx;
     private final AccueilController controleur;
     private Tchat disc;
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
 
-    public PrincipalForm() {
+    public PrincipalForm(AppContext ctx) {
+        this.ctx = ctx;
         initComponents();
         Theme.harmoniser(this);
         presenterNavigation();
@@ -54,7 +60,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         TableRendezvous.setDefaultRenderer(Object.class, new RendezJourTableRondu());
         TableConsult.setModel(CJModel);
         TableConsult.setDefaultRenderer(Object.class, new ConsultJourTableRondu());
-        AppContext ctx = AppContext.get();
         controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService());
         refresh();
     }
@@ -116,7 +121,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         MenuLateral menu = new MenuLateral();
         menu.ajouter("home", "Accueil", true, this::refresh);
         menu.ajouter("users", "Patients", false, () -> userMenuBtn.doClick());
-        menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null).setVisible(true));
+        menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null, ctx.getRendezVousService()).setVisible(true));
         menu.ajouter("message-circle", "Messagerie", false, () -> ChatBtn.doClick());
         menu.selectionner("Accueil");
         menu.setPied("GestiMed<br>Gestion du cabinet médical");
@@ -419,7 +424,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     private void userMenuBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_userMenuBtnActionPerformed
      
-        new ListePatient().setVisible(true);
+        new ListePatient(ctx).setVisible(true);
      
         
     }//GEN-LAST:event_userMenuBtnActionPerformed
@@ -436,7 +441,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         disc.Close();
-        AppContext.fermer();
+        ctx.close();
     }//GEN-LAST:event_formWindowClosing
 
     
@@ -445,15 +450,52 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     
  
+    static final String BASE_EN_RETARD = "La base de données est plus ancienne que cette version de GestiMed.\n"
+            + "Faites une sauvegarde, puis mettez-la à jour avec la commande :\n"
+            + "  java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.MigrationBase migrer\n\n";
+
+    /**
+     * Compare la version de la base aux migrations livrées. Si la vérification
+     * est impossible (serveur arrêté...), on laisse l'écran de connexion
+     * signaler l'erreur habituelle.
+     */
+    private static boolean baseAJour() {
+        Logger log = Logger.getLogger("GestiMed");
+        try {
+            Migrations.Etat etat = new Migrations(DatabaseConfig.charger()).etat();
+            if (etat.estEnRetard()) {
+                log.severe("Schéma en retard : " + etat);
+                Dialogues.erreur(null, BASE_EN_RETARD + etat);
+                return false;
+            }
+            if (!etat.estSuivie()) {
+                log.warning("Schéma non suivi par les migrations (" + etat + ") : lancer une fois "
+                        + "My_application.outils.MigrationBase migrer pour l'adopter.");
+            }
+        } catch (RuntimeException e) {
+            log.log(Level.WARNING, "Vérification de la version du schéma impossible", e);
+        }
+        return true;
+    }
+
     public static void main(String args[]) {
+        // Détail technique des erreurs : dans ~/GestiMed/gestimed0.log, pas à l'écran.
+        Journal.installer();
         // Charte graphique GestiMed (FlatLaf, palette bleu-vert médical).
         Theme.installer();
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-             
-                new PrincipalForm().setVisible(true);
+                // Une base en retard sur le code ferait échouer les saisies : on s'arrête avant.
+                // Personne n'accède aux dossiers sans s'être identifié.
+                // Seul endroit qui assemble l'application : tout le reste reçoit ses dépendances.
+                AppContext ctx = AppContext.mysql();
+                if (!baseAJour() || ConnexionForm.demander(ctx.getAuthentificationService()) == null) {
+                    ctx.close();
+                    System.exit(0);
+                }
+                new PrincipalForm(ctx).setVisible(true);
             }
         });
     }

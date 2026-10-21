@@ -11,12 +11,12 @@ public class medicament {
     public static final int MODE_MATIN = 1;
     public static final int MODE_INDIFFERENT = 2;
 
-    int idmed;
-    String designmed;
-    int unite;
-    int posologie;
-    int mode;
-    int duree;
+    private int idmed;
+    private String designmed;
+    private int unite;
+    private int posologie;
+    private int mode;
+    private int duree;
 
     public medicament() {
     }

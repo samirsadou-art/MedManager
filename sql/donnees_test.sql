@@ -1,7 +1,8 @@
 -- =====================================================================
 -- GestiMed : DONNÉES DE TEST TEMPORAIRES pour la base « medicale ».
 --
--- À exécuter après sql/medicale.sql et sql/donnees_initiales.sql :
+-- À exécuter après la création du schéma (MigrationBase migrer) et
+-- sql/donnees_initiales.sql :
 --   D:/xampp/mysql/bin/mysql.exe -u root --default-character-set=utf8mb4 < sql/donnees_test.sql
 --
 -- Toutes les personnes sont FICTIVES.

@@ -4,8 +4,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import My_application.fake.Donnees;
-import java.sql.Date;
-import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -16,8 +14,8 @@ public class Rendez_VousTest {
     private static Rendez_Vous rdv(int idPatient, LocalDate jour, LocalTime heure) {
         Rendez_Vous r = new Rendez_Vous();
         r.setPatient(Donnees.patient(idPatient, "P" + idPatient));
-        r.setDate(Date.valueOf(jour));
-        r.setHeure(Time.valueOf(heure));
+        r.setDate(jour);
+        r.setHeure(heure);
         return r;
     }
 

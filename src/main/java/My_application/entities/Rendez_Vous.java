@@ -1,11 +1,11 @@
 package My_application.entities;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Locale;
 
 /**
  * Rendez-vous d'un patient (couche Modèle).
@@ -16,20 +16,23 @@ import java.time.temporal.ChronoUnit;
  */
 public class Rendez_Vous {
 
-    User utilsateur;
-    patient Patient;
-    Date dateFix;
-    Time heureFix;
-    Date date;
-    Time heure;
-    int etat;
+    private User utilsateur;
+    private patient Patient;
+    private static final DateTimeFormatter FORMAT_JOUR = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.FRENCH);
+    private static final DateTimeFormatter FORMAT_HEURE = DateTimeFormatter.ofPattern("HH:mm");
+
+    private LocalDate dateFix;
+    private LocalTime heureFix;
+    private LocalDate date;
+    private LocalTime heure;
+    private int etat;
 
     public Rendez_Vous() {
     }
 
     /** Date et heure du rendez-vous réunies. */
     public LocalDateTime getDebut() {
-        return date.toLocalDate().atTime(heure.toLocalTime());
+        return date.atTime(heure);
     }
 
     /** Vrai si le rendez-vous est passé (ou a lieu à la minute même). */
@@ -44,7 +47,7 @@ public class Rendez_Vous {
 
     /** Nombre de jours calendaires entre aujourd'hui et le rendez-vous. */
     public int getNombreJoursRestant() {
-        return (int) ChronoUnit.DAYS.between(LocalDate.now(), date.toLocalDate());
+        return (int) ChronoUnit.DAYS.between(LocalDate.now(), date);
     }
 
     /** Vrai si les deux rendez-vous désignent le même patient au même créneau. */
@@ -52,24 +55,24 @@ public class Rendez_Vous {
         return autre != null
                 && Patient != null && autre.Patient != null
                 && Patient.getIdentPat() == autre.Patient.getIdentPat()
-                && date.toLocalDate().equals(autre.date.toLocalDate())
-                && heure.toLocalTime().equals(autre.heure.toLocalTime());
+                && date.equals(autre.date)
+                && heure.equals(autre.heure);
     }
 
     public String getDateString() {
-        return new SimpleDateFormat("EEEE, d MMMM yyyy").format(date);
+        return FORMAT_JOUR.format(date);
     }
 
     public String getHeureString() {
-        return new SimpleDateFormat("HH:mm").format(heure);
+        return FORMAT_HEURE.format(heure);
     }
 
     public String getDateFixString() {
-        return new SimpleDateFormat("EEEE, d MMMM yyyy").format(dateFix);
+        return FORMAT_JOUR.format(dateFix);
     }
 
     public String getHeureFixString() {
-        return new SimpleDateFormat("HH:mm").format(heureFix);
+        return FORMAT_HEURE.format(heureFix);
     }
 
     @Override
@@ -77,12 +80,12 @@ public class Rendez_Vous {
         return "[" + getHeureString() + "]    : " + Patient.getNom() + " " + Patient.getPrenom();
     }
 
-    public User getUtilsateur() {
+    public User getUtilisateur() {
         return utilsateur;
     }
 
-    public void setUtilsateur(User utilsateur) {
-        this.utilsateur = utilsateur;
+    public void setUtilisateur(User utilisateur) {
+        this.utilsateur = utilisateur;
     }
 
     public patient getPatient() {
@@ -93,35 +96,35 @@ public class Rendez_Vous {
         this.Patient = Patient;
     }
 
-    public Date getDate() {
+    public LocalDate getDate() {
         return date;
     }
 
-    public void setDate(Date date) {
+    public void setDate(LocalDate date) {
         this.date = date;
     }
 
-    public Time getHeure() {
+    public LocalTime getHeure() {
         return heure;
     }
 
-    public void setHeure(Time heure) {
+    public void setHeure(LocalTime heure) {
         this.heure = heure;
     }
 
-    public Date getDateFix() {
+    public LocalDate getDateFix() {
         return dateFix;
     }
 
-    public void setDateFix(Date dateFix) {
+    public void setDateFix(LocalDate dateFix) {
         this.dateFix = dateFix;
     }
 
-    public Time getHeureFix() {
+    public LocalTime getHeureFix() {
         return heureFix;
     }
 
-    public void setHeureFix(Time heureFix) {
+    public void setHeureFix(LocalTime heureFix) {
         this.heureFix = heureFix;
     }
 

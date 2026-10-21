@@ -7,15 +7,17 @@ import My_application.dao.MedecinDao;
 import My_application.dao.PrescriptionDao;
 import My_application.dao.UniteDeTravail;
 import My_application.entities.DossierPatient;
+import My_application.entities.analyse;
 import My_application.entities.analyseBio;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
+import My_application.entities.medicament;
 import My_application.entities.ordonnance;
 import My_application.entities.pathologie;
 import My_application.entities.patient;
 import My_application.entities.symptome;
-import java.sql.Date;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,9 +37,15 @@ public class DossierService {
     private final MedecinDao medecinDao;
     private final PrescriptionDao prescriptionDao;
     private final DemandeAnalyseDao demandeAnalyseDao;
+    private final JournalAcces journal;
 
     public DossierService(DAOFactory daos) {
+        this(daos, JournalAcces.AUCUN);
+    }
+
+    public DossierService(DAOFactory daos, JournalAcces journal) {
         this.daos = daos;
+        this.journal = journal;
         this.consultationDao = daos.getConsultationDao();
         this.medecinDao = daos.getMedecinDao();
         this.prescriptionDao = daos.getPrescriptionDao();
@@ -54,31 +62,40 @@ public class DossierService {
         if (medecinTraitant != null) {
             medecins.put(medecinTraitant.getIdmedecin(), medecinTraitant);
         }
+        // Cinq requêtes pour tout le dossier, quel que soit le nombre de
+        // consultations (au lieu de quatre requêtes par consultation).
+        int idPatient = malade.getIdentPat();
+        Map<Integer, List<symptome>> symptomes = consultationDao.findSymptomesParPatient(idPatient);
+        Map<Integer, List<pathologie>> pathologies = consultationDao.findPathologiesParPatient(idPatient);
+        Map<Integer, List<medicament>> prescriptions = prescriptionDao.findByPatient(idPatient);
+        Map<Integer, List<analyse>> analyses = demandeAnalyseDao.findByPatient(idPatient);
         List<consultation> consultations = new ArrayList<>();
-        for (consultation c : consultationDao.findByPatient(malade.getIdentPat())) {
+        for (consultation c : consultationDao.findByPatient(idPatient)) {
             c.setMalade(malade);
             c.setMedTraitant(medecin(medecins, c.getMedecin().getIdmedecin()));
-            completer(c);
+            int id = c.getIdConsul();
+            for (symptome s : lignes(symptomes, id)) {
+                c.addSymptome(s);
+            }
+            for (pathologie p : lignes(pathologies, id)) {
+                c.addPathologie(p);
+            }
+            ordonnance ordo = new ordonnance();
+            ordo.setMedicaments(lignes(prescriptions, id));
+            c.setOrdoPat(ordo);
+            analyseBio ana = new analyseBio();
+            ana.setListeAnaly(lignes(analyses, id));
+            c.setAnaPat(ana);
             consultations.add(c);
         }
         dossier.setConsultations(consultations);
+        journal.noter(JournalAcces.Action.OUVERTURE_DOSSIER, idPatient, null);
         return dossier;
     }
 
-    private void completer(consultation c) {
-        int id = c.getIdConsul();
-        for (symptome s : consultationDao.findSymptomes(id)) {
-            c.addSymptome(s);
-        }
-        for (pathologie p : consultationDao.findPathologies(id)) {
-            c.addPathologie(p);
-        }
-        ordonnance ordo = new ordonnance();
-        ordo.setMedicaments(prescriptionDao.findByConsultation(id));
-        c.setOrdoPat(ordo);
-        analyseBio ana = new analyseBio();
-        ana.setListeAnaly(demandeAnalyseDao.findByConsultation(id));
-        c.setAnaPat(ana);
+    private static <T> List<T> lignes(Map<Integer, List<T>> parConsultation, int idConsultation) {
+        List<T> l = parConsultation.get(idConsultation);
+        return l != null ? l : new ArrayList<T>();
     }
 
     /** Un seul accès base par médecin, même s'il a signé 50 consultations. */
@@ -102,9 +119,9 @@ public class DossierService {
             throw new MetierException("Une nouvelle consultation est déjà en cours de saisie.");
         }
         consultation c = new consultation(dossier.getMalade(), dossier.getMedTraitant());
-        long maintenant = System.currentTimeMillis();
-        c.setDate_cons(new Date(maintenant));
-        c.setHeure_cons(new java.sql.Time(maintenant));
+        LocalDateTime maintenant = LocalDateTime.now().withNano(0);
+        c.setDate_cons(maintenant.toLocalDate());
+        c.setHeure_cons(maintenant.toLocalTime());
         dossier.ajouterConsultation(c);
         return c;
     }
@@ -152,8 +169,12 @@ public class DossierService {
                     for (consultation c : aEcrire) {
                         if (nouvelles.contains(c)) {
                             inserer(c);
+                            journal.noter(JournalAcces.Action.ENREGISTREMENT_CONSULTATION,
+                                    c.getPatient().getIdentPat(), "consultation n° " + c.getIdConsul());
                         } else {
                             demandeAnalyseDao.updateResultats(c.getIdConsul(), c.getAnaPat().getListeAnaly());
+                            journal.noter(JournalAcces.Action.SAISIE_RESULTATS,
+                                    c.getPatient().getIdentPat(), "consultation n° " + c.getIdConsul());
                         }
                     }
                     return null;
@@ -183,7 +204,7 @@ public class DossierService {
         if (c.hasOrdonnance()) {
             prescriptionDao.insertAll(id, c.getOrdoPat().getMedicaments());
         }
-        if (c.hasAanlyse()) {
+        if (c.hasAnalyse()) {
             demandeAnalyseDao.insertAll(id, c.getAnaPat().getListeAnaly());
         }
     }
@@ -201,6 +222,6 @@ public class DossierService {
     }
 
     public List<consultation> consultationsDuJour(LocalDate jour) {
-        return consultationDao.findByDate(Date.valueOf(jour));
+        return consultationDao.findByDate(jour);
     }
 }

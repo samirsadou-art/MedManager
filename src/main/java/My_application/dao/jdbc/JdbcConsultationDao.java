@@ -6,11 +6,12 @@ import My_application.entities.medecin;
 import My_application.entities.pathologie;
 import My_application.entities.patient;
 import My_application.entities.symptome;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class JdbcConsultationDao implements ConsultationDao {
 
@@ -26,8 +27,8 @@ public class JdbcConsultationDao implements ConsultationDao {
         public consultation map(ResultSet rs) throws SQLException {
             consultation c = new consultation(null, null);
             c.setIdConsul(rs.getInt("idConsultation"));
-            c.setDate_cons(rs.getDate("dateConsultation"));
-            c.setHeure_cons(rs.getTime("heureConsultation"));
+            c.setDate_cons(Mappers.jour(rs, "dateConsultation"));
+            c.setHeure_cons(Mappers.heure(rs, "heureConsultation"));
             c.setTemperature(rs.getDouble("temperature"));
             c.setPul_Cardiaque(rs.getInt("pulsation"));
             c.setPressionA(rs.getString("pression"));
@@ -60,7 +61,7 @@ public class JdbcConsultationDao implements ConsultationDao {
     }
 
     @Override
-    public List<consultation> findByDate(Date date) {
+    public List<consultation> findByDate(LocalDate date) {
         // Une seule requête avec jointure au lieu d'une requête patient par ligne.
         return jdbc.query("SELECT c.*, p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient "
                 + "FROM consultation c JOIN patient p ON p.idPatient = c.idPatient "
@@ -105,5 +106,21 @@ public class JdbcConsultationDao implements ConsultationDao {
         return jdbc.query("SELECT p.idpathologie, p.designation FROM pathologies p "
                 + "JOIN consultpathologie cp ON cp.idpathologie = p.idpathologie WHERE cp.idconsultation=?",
                 JdbcPathologieDao.MAPPER, idConsultation);
+    }
+
+    @Override
+    public Map<Integer, List<symptome>> findSymptomesParPatient(int idPatient) {
+        return jdbc.queryParCle("SELECT cs.idconsultation, s.idsymptome, s.designation FROM consultsymptome cs "
+                + "JOIN symptomes s ON s.idsymptome = cs.idsymptome "
+                + "JOIN consultation c ON c.idConsultation = cs.idconsultation WHERE c.idPatient=?",
+                "idconsultation", JdbcSymptomeDao.MAPPER, idPatient);
+    }
+
+    @Override
+    public Map<Integer, List<pathologie>> findPathologiesParPatient(int idPatient) {
+        return jdbc.queryParCle("SELECT cp.idconsultation, p.idpathologie, p.designation FROM consultpathologie cp "
+                + "JOIN pathologies p ON p.idpathologie = cp.idpathologie "
+                + "JOIN consultation c ON c.idConsultation = cp.idconsultation WHERE c.idPatient=?",
+                "idconsultation", JdbcPathologieDao.MAPPER, idPatient);
     }
 }

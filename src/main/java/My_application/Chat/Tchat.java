@@ -8,9 +8,6 @@ import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
 
 
 public class Tchat extends javax.swing.JFrame {
@@ -24,15 +21,15 @@ public class Tchat extends javax.swing.JFrame {
 
     public Tchat(Component princ) {
         this.princ=princ;
-        this.serviceTchat=new ServiceTchatServeur(this);
-        this.serviceTchat.startService();
         initComponents();
         Theme.harmoniser(this);
         EnTetePage.installer(this, "message-circle", "Messagerie", "Discussion entre les postes du cabinet");
         ActivBtn.setEnabled(false);
         messageTxt.requestFocus();
-        
-       setIconImage(Toolkit.getDefaultToolkit().getImage("chat32.png"));
+        setIconImage(Toolkit.getDefaultToolkit().getImage(Tchat.class.getResource("/res/icons/chat32.png")));
+        // Démarré une fois la fenêtre construite, à laquelle il remet les messages reçus.
+        this.serviceTchat=new ServiceTchatServeur(this);
+        this.serviceTchat.startService();
 
  
  
@@ -120,7 +117,7 @@ public class Tchat extends javax.swing.JFrame {
         jPanel2.add(ActivBtn);
 
         DisactivBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/res/icons/stop.png"))); // NOI18N
-        DisactivBtn.setToolTipText("Disactiver le Tchat");
+        DisactivBtn.setToolTipText("Désactiver le tchat");
         DisactivBtn.setPreferredSize(new java.awt.Dimension(40, 40));
         DisactivBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -156,7 +153,7 @@ public class Tchat extends javax.swing.JFrame {
     }//GEN-LAST:event_messageTxtActionPerformed
 
     private void SonnerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SonnerBtnActionPerformed
-       playSound("call.wav");
+       Sons.jouer("call.wav");
     }//GEN-LAST:event_SonnerBtnActionPerformed
 
     private void DisactivBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DisactivBtnActionPerformed
@@ -218,23 +215,6 @@ public class Tchat extends javax.swing.JFrame {
     }
     
     
-     public static synchronized void playSound(final String url) {
-  new Thread(new Runnable() {
-  // The wrapper thread is unnecessary, unless it blocks on the
-  // Clip finishing; see comments.
-    public void run() {
-      try {
-        Clip clip = AudioSystem.getClip();
-        AudioInputStream inputStream = AudioSystem.getAudioInputStream(
-          new java.io.BufferedInputStream(Tchat.class.getResourceAsStream("/res/sound/" + url)));
-        clip.open(inputStream);
-        clip.start(); 
-      } catch (Exception e) {
-        System.err.println(e.getMessage());
-      }
-    }
-  }).start();
-}
 
     public void montrer(){
      if(princ!=null){

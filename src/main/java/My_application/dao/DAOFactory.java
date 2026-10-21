@@ -31,6 +31,8 @@ public interface DAOFactory {
 
     RendezVousDao getRendezVousDao();
 
+    JournalDao getJournalDao();
+
     /**
      * Exécute un traitement de façon atomique (tout ou rien) sur les DAO de
      * cette fabrique.

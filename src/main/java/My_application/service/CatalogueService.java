@@ -1,5 +1,6 @@
 package My_application.service;
 
+import java.util.Locale;
 import My_application.dao.AnalyseDao;
 import My_application.dao.DAOFactory;
 import My_application.dao.MedicamentDao;
@@ -82,7 +83,7 @@ public class CatalogueService {
      */
     public medicament creerMedicament(String nom, String forme, String dosage) {
         String n = normaliser(nom, "médicament");
-        StringBuilder designation = new StringBuilder(n.toUpperCase());
+        StringBuilder designation = new StringBuilder(n.toUpperCase(Locale.FRENCH));
         if (!estVide(forme)) {
             designation.append(' ').append(forme.trim());
         }
@@ -117,7 +118,7 @@ public class CatalogueService {
     }
 
     public analyse creerAnalyse(String designation, CategAnalyse categorie) {
-        String d = normaliser(designation, "analyse").toUpperCase();
+        String d = normaliser(designation, "analyse").toUpperCase(Locale.FRENCH);
         if (categorie == null) {
             throw new MetierException("Choisissez la catégorie de l'analyse.");
         }

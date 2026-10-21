@@ -9,9 +9,6 @@ import My_application.vue.Theme;
 import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.util.Date;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 
@@ -101,7 +98,7 @@ ServiceClientTchat ClientTchat;
         jPanel3.add(SonnerBtn);
 
         DisactivBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/res/icons/StopChat32.png"))); // NOI18N
-        DisactivBtn.setToolTipText("Disactiver le tchat");
+        DisactivBtn.setToolTipText("Désactiver le tchat");
         DisactivBtn.setPreferredSize(new java.awt.Dimension(40, 40));
         DisactivBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -219,7 +216,7 @@ ServiceClientTchat ClientTchat;
     }//GEN-LAST:event_ActivBtnActionPerformed
 
     private void SonnerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SonnerBtnActionPerformed
-        playSound("call.wav");
+        Sons.jouer("call.wav");
     }//GEN-LAST:event_SonnerBtnActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
@@ -249,23 +246,6 @@ ServiceClientTchat ClientTchat;
    }
    
    
- public static synchronized void playSound(final String url) {
-  new Thread(new Runnable() {
-  // The wrapper thread is unnecessary, unless it blocks on the
-  // Clip finishing; see comments.
-    public void run() {
-      try {
-        Clip clip = AudioSystem.getClip();
-        AudioInputStream inputStream = AudioSystem.getAudioInputStream(
-          new java.io.BufferedInputStream(Descussion.class.getResourceAsStream("/res/sound/" + url)));
-        clip.open(inputStream);
-        clip.start(); 
-      } catch (Exception e) {
-        System.err.println(e.getMessage());
-      }
-    }
-  }).start();
-}
 
  public static void main(String[] args) {
      

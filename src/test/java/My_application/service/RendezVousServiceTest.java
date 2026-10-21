@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import My_application.dao.DoublonException;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
 import My_application.entities.patient;
@@ -47,10 +48,10 @@ public class RendezVousServiceTest {
 
     @Test
     public void premierCreneauLibreDeLHeureParQuartDHeure() {
-        assertEquals(LocalTime.of(9, 0), prendre(10, DEMAIN, 9).getHeure().toLocalTime());
-        assertEquals(LocalTime.of(9, 15), prendre(11, DEMAIN, 9).getHeure().toLocalTime());
-        assertEquals(LocalTime.of(9, 30), prendre(12, DEMAIN, 9).getHeure().toLocalTime());
-        assertEquals(LocalTime.of(9, 45), prendre(13, DEMAIN, 9).getHeure().toLocalTime());
+        assertEquals(LocalTime.of(9, 0), prendre(10, DEMAIN, 9).getHeure());
+        assertEquals(LocalTime.of(9, 15), prendre(11, DEMAIN, 9).getHeure());
+        assertEquals(LocalTime.of(9, 30), prendre(12, DEMAIN, 9).getHeure());
+        assertEquals(LocalTime.of(9, 45), prendre(13, DEMAIN, 9).getHeure());
     }
 
     @Test
@@ -72,7 +73,7 @@ public class RendezVousServiceTest {
         Rendez_Vous quart = prendre(11, DEMAIN, 9);
         prendre(12, DEMAIN, 9);
         service.annuler(quart, base.patients.get(11));
-        assertEquals(LocalTime.of(9, 15), prendre(13, DEMAIN, 9).getHeure().toLocalTime());
+        assertEquals(LocalTime.of(9, 15), prendre(13, DEMAIN, 9).getHeure());
     }
 
     @Test(expected = MetierException.class)
@@ -84,7 +85,7 @@ public class RendezVousServiceTest {
     @Test
     public void lesCreneauxDejaPassesSontIgnores() {
         // Il est 10 h 20 : dans l'heure de 10 h, seul 10 h 30 ou 10 h 45 sont possibles.
-        assertEquals(LocalTime.of(10, 30), prendre(10, MAINTENANT.toLocalDate(), 10).getHeure().toLocalTime());
+        assertEquals(LocalTime.of(10, 30), prendre(10, MAINTENANT.toLocalDate(), 10).getHeure());
     }
 
     @Test(expected = MetierException.class)
@@ -110,6 +111,22 @@ public class RendezVousServiceTest {
             assertTrue(e.getMessage().contains("autre patient"));
         }
         assertEquals(1, base.rendezVous.size());
+        assertEquals(1, base.rollbacks);
+    }
+
+    @Test
+    public void unDoublonRefuseParLaBaseDevientUnMessageMetier() {
+        // Course perdue : l'autre poste a inséré entre la vérification et
+        // l'insertion, et la clé primaire (date, heure) refuse la ligne.
+        Rendez_Vous r = service.proposer(base.patients.get(10), secretaire, DEMAIN, 11);
+        base.echouerSur("rdv.insert", new DoublonException("Duplicate entry", null));
+        try {
+            service.confirmer(r);
+            fail();
+        } catch (MetierException e) {
+            assertEquals(RendezVousService.CRENEAU_PRIS, e.getMessage());
+        }
+        assertEquals(0, base.rendezVous.size());
         assertEquals(1, base.rollbacks);
     }
 

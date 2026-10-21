@@ -2,13 +2,12 @@
 package My_application;
 
 import My_application.vue.EnTetePage;
-import My_application.vue.Theme;
 import My_application.Analyse.AnalyseForm;
 import My_application.Analyse.PaneauAnalyse;
 import My_application.Ordonnance.OrdonnanceForm;
 import My_application.Ordonnance.PaneauOrdonnance;
-import My_application.controller.DossierPatientController;
 import My_application.controller.DossierPatientController.Constante;
+import My_application.controller.DossierPatientController;
 import My_application.controller.Vue;
 import My_application.entities.DossierPatient;
 import My_application.entities.User;
@@ -21,21 +20,23 @@ import My_application.modelTableau.NoeudHistorique;
 import My_application.rendezvous.calandar;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
+import My_application.vue.FiltreSaisie;
 import My_application.vue.Icones;
+import My_application.vue.Theme;
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
-import javax.swing.JButton;
-import javax.swing.UIManager;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
+import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeNode;
@@ -62,21 +63,26 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     consultation consult = null;
     PaneauAnalyse Panalyse = null;
     PaneauOrdonnance Pordonnance = null;
-    String tab = ONGLET_ORDONNANCE;
+    /** Vrai si l'utilisateur a choisi l'onglet Analyses (conservé d'une consultation à l'autre). */
+    private boolean analysesChoisies = false;
 
     DefaultComboBoxModel BoxSympmodel = new DefaultComboBoxModel();
     DefaultComboBoxModel BoxPathomodel = new DefaultComboBoxModel();
 
-    public DossierPatientForm(DossierPatient doss) {
+    private final AppContext ctx;
+
+    public DossierPatientForm(DossierPatient doss, AppContext ctx) {
+        this.ctx = ctx;
         initComponents();
         Theme.harmoniser(this);
         EnTetePage.installer(this, "folder-open", "Dossier patient", doss.getMalade().getNom().toUpperCase()
                 + " " + doss.getMalade().getPrenom() + "  ·  " + doss.getMalade().getStringAge());
         presenterActionsDossier();
+        installerFiltres();
+        masquerFonctionsAbsentes();
         this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         this.photo.setIcon(Icones.patient(doss.getMalade(), 128));
         dossier = doss;
-        AppContext ctx = AppContext.get();
         controleur = new DossierPatientController(this, doss, ctx.getDossierService(),
                 ctx.getCatalogueService(), ctx.getRapportService());
 
@@ -85,7 +91,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             nextBtn.setEnabled(false);
             VoirConsultation(dossier.LastConsultation());
         } else {
-            DisactiverVueConsultation();
+            desactiverVueConsultation();
             this.MedcinLabel.setText(dossier.getMedTraitant().getNomComplet());
         }
         this.NbreVisiteLabel.setText(String.valueOf(nombreConsult));
@@ -97,6 +103,30 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         historique.setModel(historiqueModele.getTreemodel());
         historique.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         historique.setCellRenderer(new HistoriqueRondu());
+    }
+
+    /**
+     * Caractères permis dans les constantes vitales. Le filtre s'applique aussi
+     * au collage, que les anciens contrôles {@code keyTyped} laissaient passer ;
+     * les bornes sont vérifiées par le service ({@code ConstantesVitales}).
+     */
+    private void installerFiltres() {
+        FiltreSaisie.installer(TempTxt, FiltreSaisie.decimal(6));
+        FiltreSaisie.installer(pulsationTxt, FiltreSaisie.entier(3));
+        FiltreSaisie.installer(pressionTxt, new FiltreSaisie("0-9/", 7)); // 120/80, 100/60...
+        FiltreSaisie.installer(respirationTxt, FiltreSaisie.entier(3));
+        FiltreSaisie.installer(poidsTxt, FiltreSaisie.decimal(6));
+    }
+
+    /**
+     * Imagerie et actes médicaux ne sont pas encore développés, et la barre de
+     * menus ne contenait que des menus vides : on ne propose pas à l'utilisateur
+     * des commandes qui ne font rien.
+     */
+    private void masquerFonctionsAbsentes() {
+        addRadio.setVisible(false);
+        addAct.setVisible(false);
+        setJMenuBar(null);
     }
 
     /**
@@ -952,8 +982,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         if (consult == null) {
             return;
         }
-        if (jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE) < 0) {
-            new OrdonnanceForm(consult).setVisible(true);
+        if (jTabbedPane1.indexOfComponent(Pordonnance) < 0) {
+            new OrdonnanceForm(consult, ctx.getCatalogueService()).setVisible(true);
             addOrdonnance(consult);
         } else {
             afficherInformation("Ordonnance déjà établie !");
@@ -963,9 +993,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     private void supprimerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_supprimerBtnActionPerformed
         int onglet = jTabbedPane1.getSelectedIndex();
         if (onglet >= 0 && consult != null) {
-            if (onglet == jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE)) {
+            if (onglet == jTabbedPane1.indexOfComponent(Pordonnance)) {
                 consult.addOrdonnance(); // ordonnance vide (et non null : évite une NullPointerException plus tard)
-            } else if (onglet == jTabbedPane1.indexOfTab(ONGLET_ANALYSES)) {
+            } else if (onglet == jTabbedPane1.indexOfComponent(Panalyse)) {
                 consult.addAnalyse();
             }
             jTabbedPane1.remove(onglet);
@@ -976,8 +1006,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         if (consult == null) {
             return;
         }
-        if (jTabbedPane1.indexOfTab(ONGLET_ANALYSES) < 0) {
-            new AnalyseForm(consult).setVisible(true);
+        if (jTabbedPane1.indexOfComponent(Panalyse) < 0) {
+            new AnalyseForm(consult, ctx.getCatalogueService()).setVisible(true);
             addAnalyse(consult);
         } else {
             afficherInformation("Analyses déjà établies !");
@@ -989,10 +1019,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_addActActionPerformed
 
     private void jTabbedPane1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jTabbedPane1MouseClicked
-   
-        if(jTabbedPane1.getSelectedIndex()>=0)
-        tab=jTabbedPane1.getTitleAt(jTabbedPane1.getSelectedIndex());
-        
+        if (jTabbedPane1.getSelectedIndex() >= 0) {
+            analysesChoisies = Panalyse != null && jTabbedPane1.getSelectedComponent() == Panalyse;
+        }
     }//GEN-LAST:event_jTabbedPane1MouseClicked
 
     private void dateTextActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_dateTextActionPerformed
@@ -1016,46 +1045,23 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_jMenuItem1ActionPerformed
 
     private void TempTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_TempTxtKeyTyped
-               char enter = evt.getKeyChar();
-               int leng=TempTxt.getText().length();
-               if(leng>5) evt.consume();
-        if(!(Character.isDigit(enter))&&  enter!='.' ){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_TempTxtKeyTyped
 
     private void pulsationTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_pulsationTxtKeyTyped
-               char enter = evt.getKeyChar();
-               int len=pulsationTxt.getText().length();
-               if(len>2) evt.consume();
-        if(!(Character.isDigit(enter))){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_pulsationTxtKeyTyped
 
     private void pressionTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_pressionTxtKeyTyped
-                char enter = evt.getKeyChar();
-               if(pressionTxt.getText().length()>4) evt.consume();
-        if(!(Character.isDigit(enter)) && enter!='/'){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_pressionTxtKeyTyped
 
     private void respirationTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_respirationTxtKeyTyped
-               char enter = evt.getKeyChar();
-                           
-         if(respirationTxt.getText().length()>2) evt.consume();
-        if(!(Character.isDigit(enter))){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_respirationTxtKeyTyped
 
     private void poidsTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_poidsTxtKeyTyped
-                char enter = evt.getKeyChar();
-         if(poidsTxt.getText().length()>5) evt.consume();        
-        if(!(Character.isDigit(enter))&& enter!='.'){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_poidsTxtKeyTyped
 
     private void addSympBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addSympBtnActionPerformed
@@ -1173,8 +1179,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_respirationTxtFocusLost
 
     private void NewRendezVousBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NewRendezVousBtnActionPerformed
-        User util = AppContext.get().getSession().getUtilisateur();
-        new calandar(this.dossier.getMalade(), util).setVisible(true);
+        User util = ctx.getSession().getUtilisateur();
+        new calandar(this.dossier.getMalade(), util, ctx.getRendezVousService()).setVisible(true);
     }//GEN-LAST:event_NewRendezVousBtnActionPerformed
     // ----- onglets ordonnance / analyses -----
 
@@ -1182,15 +1188,15 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         if (c.hasOrdonnance()) {
             Pordonnance = new PaneauOrdonnance(c.getOrdoPat());
             jTabbedPane1.addTab(ONGLET_ORDONNANCE, icone("/res/icons/ordo32.png"), Pordonnance);
-            jTabbedPane1.setSelectedIndex(jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE));
+            jTabbedPane1.setSelectedComponent(Pordonnance);
         }
     }
 
     public void addAnalyse(consultation c) {
-        if (c.hasAanlyse()) {
+        if (c.hasAnalyse()) {
             Panalyse = new PaneauAnalyse(c.getAnaPat());
             jTabbedPane1.addTab(ONGLET_ANALYSES, icone("/res/icons/analyse32.png"), Panalyse);
-            jTabbedPane1.setSelectedIndex(jTabbedPane1.indexOfTab(ONGLET_ANALYSES));
+            jTabbedPane1.setSelectedComponent(Panalyse);
         }
     }
 
@@ -1205,9 +1211,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         }
         consultation c = dossier.getCurrentConsultation();
         int onglet = jTabbedPane1.getSelectedIndex();
-        if (onglet >= 0 && onglet == jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE)) {
+        if (onglet >= 0 && onglet == jTabbedPane1.indexOfComponent(Pordonnance)) {
             controleur.ordonnance(c, imprimer);
-        } else if (onglet >= 0 && onglet == jTabbedPane1.indexOfTab(ONGLET_ANALYSES)) {
+        } else if (onglet >= 0 && onglet == jTabbedPane1.indexOfComponent(Panalyse)) {
             controleur.analyses(c, imprimer);
         }
     }
@@ -1276,7 +1282,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             return; // message déjà affiché (une consultation est déjà en cours)
         }
         consult = nouvelle;
-        ActitiverVueConsultation();
+        activerVueConsultation();
         ActiverTraitement();
         initialiser();
         int index = dossier.getNombreConsultation() - 1;
@@ -1315,25 +1321,25 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             ActiverTraitement();
         }
         initialiser();
-        TempTxt.setText(valeur(myconsult.getTemperature()));
-        pulsationTxt.setText(valeur(myconsult.getPul_Cardiaque()));
-        pressionTxt.setText(myconsult.getPressionA());
-        respirationTxt.setText(valeur(myconsult.getTauxRespir()));
-        poidsTxt.setText(valeur(myconsult.getPoids()));
+        FiltreSaisie.afficher(TempTxt, valeur(myconsult.getTemperature()));
+        FiltreSaisie.afficher(pulsationTxt, valeur(myconsult.getPul_Cardiaque()));
+        FiltreSaisie.afficher(pressionTxt, myconsult.getPressionA());
+        FiltreSaisie.afficher(respirationTxt, valeur(myconsult.getTauxRespir()));
+        FiltreSaisie.afficher(poidsTxt, valeur(myconsult.getPoids()));
         afficherSymptomes(myconsult);
         afficherPathologies(myconsult);
-        TimeTxt.setText(myconsult.getHeure_cons().toString());
-        dateText.setText(" " + new SimpleDateFormat("EEEE, d MMM yyyy").format(new Date(myconsult.getDate_cons().getTime())));
+        TimeTxt.setText(myconsult.getHeureString());
+        dateText.setText(" " + myconsult.getDate_cons().format(DateTimeFormatter.ofPattern("EEEE, d MMM yyyy", Locale.FRENCH)));
         MedcinLabel.setText(myconsult.getMedecin().getNomComplet());
         if (myconsult.hasOrdonnance()) {
             Pordonnance = new PaneauOrdonnance(myconsult.getOrdoPat());
             jTabbedPane1.addTab(ONGLET_ORDONNANCE, icone("/res/icons/ordo32.png"), Pordonnance);
         }
-        if (myconsult.hasAanlyse()) {
+        if (myconsult.hasAnalyse()) {
             Panalyse = new PaneauAnalyse(myconsult.getAnaPat());
             jTabbedPane1.addTab(ONGLET_ANALYSES, icone("/res/icons/analyse32.png"), Panalyse);
         }
-        int onglet = jTabbedPane1.indexOfTab(tab);
+        int onglet = jTabbedPane1.indexOfComponent(analysesChoisies ? Panalyse : Pordonnance);
         if (onglet >= 0) {
             jTabbedPane1.setSelectedIndex(onglet);
         }
@@ -1373,13 +1379,13 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         this.supprimerBtn.setEnabled(actif);
     }
 
-    void DisactiverVueConsultation() {
+    void desactiverVueConsultation() {
         activerVue(false);
         this.SymptomeList.setModel(new DefaultListModel<String>());
         this.PathologieList.setModel(new DefaultListModel<String>());
     }
 
-    void ActitiverVueConsultation() {
+    void activerVueConsultation() {
         activerVue(true);
     }
 

@@ -11,8 +11,7 @@ import My_application.entities.patient;
 import My_application.fake.Donnees;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.sql.Date;
-import java.sql.Time;
+import java.time.LocalTime;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,8 +41,8 @@ public class AgendaSemaineTest {
     private static Rendez_Vous rdv(patient p, LocalDate jour, String heure) {
         Rendez_Vous r = new Rendez_Vous();
         r.setPatient(p);
-        r.setDate(Date.valueOf(jour));
-        r.setHeure(Time.valueOf(heure));
+        r.setDate(jour);
+        r.setHeure(LocalTime.parse(heure));
         return r;
     }
 

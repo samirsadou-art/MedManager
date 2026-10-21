@@ -13,9 +13,8 @@ import My_application.modelTableau.HistoriqueVisites;
 import My_application.modelTableau.ListeTableModel;
 import My_application.modelTableau.my_modelAnalyse;
 import My_application.modelTableau.my_modelOrdonnance;
-import java.sql.Date;
-import java.sql.Time;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -76,8 +75,8 @@ public class VueModelesTest {
     public void historiqueRangeParAnneeCalendaire() {
         // Avec le motif « YYYY » d'origine, le 29/12/2025 était classé en 2026.
         consultation c = new consultation(Donnees.patient(1, "A"), Donnees.medecin(1));
-        c.setDate_cons(Date.valueOf(LocalDate.of(2025, 12, 29)));
-        c.setHeure_cons(Time.valueOf("09:30:00"));
+        c.setDate_cons(LocalDate.of(2025, 12, 29));
+        c.setHeure_cons(LocalTime.parse("09:30:00"));
         DossierPatient d = new DossierPatient(c.getPatient(), c.getMedecin());
         d.setConsultations(Arrays.asList(c));
         HistoriqueVisites h = new HistoriqueVisites(d);

@@ -43,7 +43,7 @@ public enum StatutRendezVous {
                 && r.getPatient().getIdentPat() == courant.getIdentPat()) {
             return PATIENT_COURANT;
         }
-        if (r.getDate().toLocalDate().equals(maintenant.toLocalDate())) {
+        if (r.getDate().equals(maintenant.toLocalDate())) {
             return AUJOURDHUI;
         }
         return A_VENIR;

@@ -7,11 +7,11 @@ package My_application.entities;
  */
 public class analyse {
 
-    int idAnal;
-    String design;
-    String observ;
-    String resultat;
-    int note;
+    private int idAnal;
+    private String design;
+    private String observ;
+    private String resultat;
+    private int note;
 
     public analyse() {
         resultat = "";

@@ -5,6 +5,7 @@
  */
 package My_application.Patient;
 
+import java.util.Locale;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import java.awt.Component;
@@ -52,9 +53,9 @@ ImageIcon imageIcon;
                    renderer.setIcon(imageIcon);
                    renderer.setText("");
                    break;
-            case 1: renderer.setText(malade.getNom().toUpperCase());renderer.setIcon(null);
+            case 1: renderer.setText(malade.getNom().toUpperCase(Locale.FRENCH));renderer.setIcon(null);
                     renderer.setFont(Theme.policeGras());break;
-            case 2: renderer.setText(malade.getPrenom().toUpperCase());break;
+            case 2: renderer.setText(malade.getPrenom().toUpperCase(Locale.FRENCH));break;
             case 3: renderer.setText(malade.getStringAge()); 
                     
             

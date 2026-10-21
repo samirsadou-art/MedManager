@@ -3,9 +3,9 @@ package My_application.dao.jdbc;
 import My_application.dao.RendezVousDao;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.List;
 
 public class JdbcRendezVousDao implements RendezVousDao {
@@ -23,11 +23,11 @@ public class JdbcRendezVousDao implements RendezVousDao {
             r.setPatient(Mappers.PATIENT.map(rs));
             User u = new User(rs.getInt("idUser"), rs.getString("nom"), rs.getString("prenom"),
                     rs.getString("qualite"));
-            r.setUtilsateur(u);
-            r.setDate(rs.getDate("date"));
-            r.setHeure(rs.getTime("heure"));
-            r.setDateFix(rs.getDate("dateFix"));
-            r.setHeureFix(rs.getTime("heureFix"));
+            r.setUtilisateur(u);
+            r.setDate(Mappers.jour(rs, "date"));
+            r.setHeure(Mappers.heure(rs, "heure"));
+            r.setDateFix(Mappers.jour(rs, "dateFix"));
+            r.setHeureFix(Mappers.heure(rs, "heureFix"));
             r.setEtat(rs.getByte("etat"));
             return r;
         }
@@ -36,7 +36,7 @@ public class JdbcRendezVousDao implements RendezVousDao {
     @Override
     public void insert(Rendez_Vous rdv) {
         jdbc.update("INSERT INTO rondezvous (idUser, idPatient, date, heure, dateFix, heureFix) VALUES (?,?,?,?,?,?)",
-                rdv.getUtilsateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure(),
+                rdv.getUtilisateur().getIdent(), rdv.getPatient().getIdentPat(), rdv.getDate(), rdv.getHeure(),
                 rdv.getDateFix(), rdv.getHeureFix());
     }
 
@@ -47,7 +47,7 @@ public class JdbcRendezVousDao implements RendezVousDao {
     }
 
     @Override
-    public List<Rendez_Vous> findEntre(Date debut, Date fin) {
+    public List<Rendez_Vous> findEntre(LocalDate debut, LocalDate fin) {
         // Une requête avec jointures au lieu de 1 + 2×N requêtes auparavant.
         return jdbc.query("SELECT r.idUser, r.idPatient, r.date, r.heure, r.dateFix, r.heureFix, r.etat, "
                 + "p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient, "

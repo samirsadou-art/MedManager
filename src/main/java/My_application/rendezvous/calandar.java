@@ -1,6 +1,5 @@
 package My_application.rendezvous;
 
-import My_application.AppContext;
 import My_application.controller.RendezVousController;
 import My_application.controller.Vue;
 import My_application.entities.Rendez_Vous;
@@ -81,11 +80,10 @@ public class calandar extends javax.swing.JFrame implements Vue {
     private LocalDate dimanche;
     private boolean premierAffichage = true;
 
-    public calandar(patient Patient, User utilisateur) {
+    public calandar(patient Patient, User utilisateur, RendezVousService service) {
         super("Rendez-vous");
         Theme.harmoniser(this);
         this.malade = Patient;
-        RendezVousService service = AppContext.get().getRendezVousService();
         controleur = new RendezVousController(this, service, Patient, utilisateur);
         dureeCreneau = 60 / service.getMaxParHeure();
         agenda = new AgendaSemaine(service.getHeureOuverture(), service.getNombreHeures(),
@@ -412,7 +410,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         libelleSemaine.setText(AgendaSemaine.libelleSemaine(dimanche));
         miniCalendrier.setSemaine(dimanche);
         Rendez_Vous propose = agenda.getPropose();
-        if (propose != null && !dansLaSemaine(propose.getDate().toLocalDate())) {
+        if (propose != null && !dansLaSemaine(propose.getDate())) {
             agenda.setPropose(null);
         }
         if (agenda.getSelection() == null && agenda.getPropose() == null) {
@@ -520,7 +518,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
 
     /** « Dans 3 jour(s) », « Aujourd'hui », « Passé ». */
     private String delai(Rendez_Vous r) {
-        long jours = ChronoUnit.DAYS.between(controleur.getService().aujourdhui(), r.getDate().toLocalDate());
+        long jours = ChronoUnit.DAYS.between(controleur.getService().aujourdhui(), r.getDate());
         if (jours < 0 || r.isPassed()) {
             return "Rendez-vous passé";
         }
@@ -531,7 +529,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
     }
 
     private String horaire(Rendez_Vous r) {
-        LocalTime debut = r.getHeure().toLocalTime();
+        LocalTime debut = r.getHeure();
         return HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(dureeCreneau))
                 + "  (" + dureeCreneau + " min)";
     }
@@ -567,11 +565,11 @@ public class calandar extends javax.swing.JFrame implements Vue {
         details.add(Box.createVerticalStrut(8));
         details.add(ligneDetail("user", "<html><b>" + nomComplet(r.getPatient()) + "</b>  ·  "
                 + r.getPatient().getStringAge() + "</html>"));
-        details.add(ligneDetail("calendar", AgendaSemaine.capitaliser(DATE_LONGUE.format(r.getDate().toLocalDate()))));
+        details.add(ligneDetail("calendar", AgendaSemaine.capitaliser(DATE_LONGUE.format(r.getDate()))));
         details.add(ligneDetail("clock", horaire(r)));
         details.add(ligneDetail("history", delai(r)));
         if (r.getDateFix() != null && r.getHeureFix() != null) {
-            details.add(ligneDetail("calendar-event", "Pris le " + r.getDateFix().toLocalDate()
+            details.add(ligneDetail("calendar-event", "Pris le " + r.getDateFix()
                     .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " à " + r.getHeureFixString()));
         }
         String tel = r.getPatient().getTelephone();
@@ -597,7 +595,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         details.add(badge("Créneau proposé", Theme.PRIMAIRE, Theme.PRIMAIRE_CLAIR));
         details.add(Box.createVerticalStrut(8));
         details.add(ligneDetail("user", "<html><b>" + nomComplet(r.getPatient()) + "</b></html>"));
-        details.add(ligneDetail("calendar", AgendaSemaine.capitaliser(DATE_LONGUE.format(r.getDate().toLocalDate()))));
+        details.add(ligneDetail("calendar", AgendaSemaine.capitaliser(DATE_LONGUE.format(r.getDate()))));
         details.add(ligneDetail("clock", horaire(r)));
         details.add(ligneDetail("history", delai(r)));
         details.add(Box.createVerticalStrut(12));

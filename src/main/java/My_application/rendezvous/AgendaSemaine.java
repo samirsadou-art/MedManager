@@ -271,8 +271,8 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         if (dimanche == null) {
             return null;
         }
-        int j = (int) ChronoUnit.DAYS.between(dimanche, r.getDate().toLocalDate());
-        LocalTime t = r.getHeure().toLocalTime();
+        int j = (int) ChronoUnit.DAYS.between(dimanche, r.getDate());
+        LocalTime t = r.getHeure();
         int i = (t.getHour() - heureOuverture) * maxParHeure + t.getMinute() / pas;
         if (j < 0 || j > 6 || t.getHour() < heureOuverture || i >= nombreCreneaux()) {
             return null;
@@ -321,7 +321,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     private int nombreDansLHeure(LocalDate jour, int heure) {
         int n = 0;
         for (Rendez_Vous r : rendezVous) {
-            if (r.getDate().toLocalDate().equals(jour) && r.getHeure().toLocalTime().getHour() == heure) {
+            if (r.getDate().equals(jour) && r.getHeure().getHour() == heure) {
                 n++;
             }
         }
@@ -331,7 +331,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     private int nombreDuJour(LocalDate jour) {
         int n = 0;
         for (Rendez_Vous r : rendezVous) {
-            if (r.getDate().toLocalDate().equals(jour)) {
+            if (r.getDate().equals(jour)) {
                 n++;
             }
         }
@@ -359,9 +359,9 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     public String getToolTipText(MouseEvent e) {
         Rendez_Vous r = rendezVousA(e.getPoint());
         if (r != null) {
-            LocalTime debut = r.getHeure().toLocalTime();
+            LocalTime debut = r.getHeure();
             return "<html><b>" + r.getPatient().getNom() + " " + r.getPatient().getPrenom() + "</b><br>"
-                    + DATE_LONGUE.format(r.getDate().toLocalDate()) + "<br>"
+                    + DATE_LONGUE.format(r.getDate()) + "<br>"
                     + HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(pas))
                     + "<br>" + statut(r).getLibelle() + "</html>";
         }
@@ -393,7 +393,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
 
     @Override
     public int getScrollableUnitIncrement(Rectangle visible, int orientation, int direction) {
-        return orientation == SwingConstants.VERTICAL ? HAUTEUR_CRENEAU / 2 : 20;
+        return HAUTEUR_CRENEAU / 2;
     }
 
     @Override
@@ -544,7 +544,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
 
         g2.setColor(s.getCouleur());
         g2.fillOval(x + 8, y + 7, 7, 7);
-        LocalTime debut = r.getHeure().toLocalTime();
+        LocalTime debut = r.getHeure();
         g2.setFont(Theme.police(Font.BOLD, 10.5f));
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(couper(HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(pas)), fm, l - 26),
@@ -568,7 +568,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         g2.setColor(Theme.PRIMAIRE);
         g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 1f, new float[]{4f, 3f}, 0f));
         g2.drawRoundRect(x, y, l - 1, h - 1, 10, 10);
-        LocalTime debut = r.getHeure().toLocalTime();
+        LocalTime debut = r.getHeure();
         g2.setFont(Theme.police(Font.BOLD, 10.5f));
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(couper(HEURE.format(debut) + " · proposé", fm, l - 16), x + 8, y + 14);
