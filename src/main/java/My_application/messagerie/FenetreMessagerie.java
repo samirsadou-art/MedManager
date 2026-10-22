@@ -423,7 +423,7 @@ public class FenetreMessagerie extends JFrame implements MessagerieVue {
 
         private String html(MessageInterne m, boolean mien) {
             StringBuilder h = new StringBuilder("<html><div style='width:360px'>");
-            String auteur = m.isSysteme() ? "GestiMed" : mien ? "Moi" : echapper(m.getNomExpediteur());
+            String auteur = m.isSysteme() ? Theme.NOM_LOGICIEL : mien ? "Moi" : echapper(m.getNomExpediteur());
             String quand = m.getEnvoyeLe() == null ? ""
                     : (m.getEnvoyeLe().toLocalDate().equals(LocalDate.now()) ? HEURE : JOUR).format(m.getEnvoyeLe());
             h.append("<b>").append(auteur).append("</b> <font color='#6B7C8F'>").append(quand).append("</font><br>");

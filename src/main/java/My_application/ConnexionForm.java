@@ -46,7 +46,7 @@ public class ConnexionForm extends JDialog implements Vue {
     private User connecte;
 
     private ConnexionForm(AuthentificationService service, boolean creation, User initial) {
-        super((Dialog) null, "GestiMed : connexion", Dialog.ModalityType.APPLICATION_MODAL);
+        super((Dialog) null, Theme.NOM_LOGICIEL + " : connexion", Dialog.ModalityType.APPLICATION_MODAL);
         this.controleur = new ConnexionController(this, service);
         this.creation = creation;
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -95,7 +95,7 @@ public class ConnexionForm extends JDialog implements Vue {
         contenu.setBorder(BorderFactory.createEmptyBorder(24, 28, 20, 28));
         contenu.setBackground(Theme.SURFACE);
 
-        JLabel titre = new JLabel(creation ? "Première utilisation" : "Connexion à GestiMed",
+        JLabel titre = new JLabel(creation ? "Première utilisation" : "Connexion à " + Theme.NOM_LOGICIEL,
                 Icones.svg(creation ? "user-plus" : "user", 28, Theme.PRIMAIRE), JLabel.LEFT);
         titre.setFont(Theme.police(Font.BOLD, Theme.TAILLE_BASE + 5));
         titre.setForeground(Theme.TEXTE);
