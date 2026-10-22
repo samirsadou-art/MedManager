@@ -61,7 +61,7 @@ public final class AppContext implements AutoCloseable {
         this.dossierService = new DossierService(daos, journal, session);
         this.membresService = new MembresService(daos, journal, session);
         this.catalogueService = new CatalogueService(daos);
-        this.rendezVousService = new RendezVousService(daos, journal, session::getIdMedecin);
+        this.rendezVousService = new RendezVousService(daos, journal, session::getIdMedecinDuPoste);
         this.rapportService = new RapportService();
     }
 

@@ -4,6 +4,7 @@ import My_application.dao.AnalyseDao;
 import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
 import My_application.dao.DataAccessException;
+import My_application.dao.DoublonException;
 import My_application.dao.DemandeAnalyseDao;
 import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
@@ -28,7 +29,9 @@ import My_application.entities.pathologie;
 import My_application.entities.patient;
 import My_application.entities.symptome;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -775,19 +778,34 @@ public class MemoireDAOFactory implements DAOFactory {
             @Override
             public void insert(Rendez_Vous rdv) {
                 appel("rdv.insert");
+                verifierCreneauLibre(rdv.getIdMedecin(), rdv.getDate(), rdv.getHeure(), null);
+                rdv.setIdRendezVous(nouvelId());
                 rendezVous.add(rdv);
             }
 
             @Override
-            public boolean delete(Rendez_Vous rdv) {
-                appel("rdv.delete");
-                for (Rendez_Vous r : new ArrayList<>(rendezVous)) {
-                    if (r.memeCreneauEtPatient(rdv)) {
-                        rendezVous.remove(r);
-                        return true;
-                    }
+            public boolean changerEtat(int idRendezVous, int etatAttendu, int nouvelEtat) {
+                appel("rdv.changerEtat");
+                Rendez_Vous r = rendezVousNumero(idRendezVous);
+                if (r == null || r.getEtat() != etatAttendu) {
+                    return false;
                 }
-                return false;
+                r.setEtat(nouvelEtat);
+                return true;
+            }
+
+            @Override
+            public boolean deplacer(int idRendezVous, LocalDate jour, LocalTime heure, int idMedecin) {
+                appel("rdv.deplacer");
+                Rendez_Vous r = rendezVousNumero(idRendezVous);
+                if (r == null || r.getEtat() != Rendez_Vous.ETAT_PREVU) {
+                    return false;
+                }
+                verifierCreneauLibre(idMedecin, jour, heure, idRendezVous);
+                r.setDate(jour);
+                r.setHeure(heure);
+                r.setIdMedecin(idMedecin);
+                return true;
             }
 
             @Override
@@ -800,8 +818,42 @@ public class MemoireDAOFactory implements DAOFactory {
                         r.add(x);
                     }
                 }
+                r.sort(Comparator.comparing(Rendez_Vous::getDebut));
+                return r;
+            }
+
+            @Override
+            public List<Rendez_Vous> findDesPatients(Collection<Integer> idPatients) {
+                appel("rdv.findDesPatients");
+                List<Rendez_Vous> r = new ArrayList<>();
+                for (Rendez_Vous x : rendezVous) {
+                    if (idPatients.contains(x.getPatient().getIdentPat())) {
+                        r.add(x);
+                    }
+                }
+                r.sort(Comparator.comparing(Rendez_Vous::getDebut).reversed());
                 return r;
             }
         };
+    }
+
+    private Rendez_Vous rendezVousNumero(int id) {
+        for (Rendez_Vous r : rendezVous) {
+            if (r.getIdRendezVous() != null && r.getIdRendezVous() == id) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    /** Comme la clé unique (idMedecin, date, heure, occupe) de V12. */
+    private void verifierCreneauLibre(Integer idMedecin, LocalDate jour, LocalTime heure, Integer sauf) {
+        for (Rendez_Vous r : rendezVous) {
+            if (r.isOccupant() && r.getDate().equals(jour) && r.getHeure().equals(heure)
+                    && java.util.Objects.equals(r.getIdMedecin(), idMedecin)
+                    && (sauf == null || !sauf.equals(r.getIdRendezVous()))) {
+                throw new DoublonException("Duplicate entry (uk_rendezvous_creneau)", null);
+            }
+        }
     }
 }

@@ -78,6 +78,12 @@ public final class Theme {
     public static final Color SUCCES_CLAIR = new Color(0xE8F5E9);
     public static final Color AVERTISSEMENT = new Color(0xB26A00);
     public static final Color AVERTISSEMENT_CLAIR = new Color(0xFFF4E0);
+    /** Patient arrivé, en salle d'attente. */
+    public static final Color INFO = new Color(0x6A3FB5);
+    public static final Color INFO_CLAIR = new Color(0xF1EBFA);
+    /** Patient en consultation. */
+    public static final Color ACCENT = new Color(0x1565C0);
+    public static final Color ACCENT_CLAIR = new Color(0xE6EFFB);
 
     /** Taille de base du texte (points). */
     public static final int TAILLE_BASE = 13;

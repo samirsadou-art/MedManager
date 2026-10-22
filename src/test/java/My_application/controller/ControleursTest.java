@@ -27,6 +27,7 @@ import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.Session;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -280,7 +281,7 @@ public class ControleursTest {
         RendezVousController ctrl = new RendezVousController(new FausseVue(), new RendezVousService(base),
                 base.patients.get(1), Donnees.utilisateur(1));
         LocalDate jour = LocalDate.now().plusDays(1);
-        assertEquals(RendezVousService.MEDECIN_PAR_DEFAUT, ctrl.getIdMedecinReservation());
+        assertEquals(Integer.valueOf(RendezVousService.MEDECIN_PAR_DEFAUT), ctrl.getIdMedecinReservation());
         ctrl.setMedecin(2);
         assertEquals(Integer.valueOf(2), ctrl.apercu(jour, 9).getIdMedecin());
         assertEquals(Integer.valueOf(2), ctrl.proposer(jour, 10).getIdMedecin());
@@ -305,8 +306,66 @@ public class ControleursTest {
         assertNull(ctrl.apercu(jour, 9));
         assertEquals(1, vue.erreurs.size());
         assertTrue(ctrl.peutAnnuler(r));
+        assertFalse(ctrl.peutMarquerAbsent(r));
         assertTrue(ctrl.annuler(r));
-        assertEquals(0, base.rendezVous.size());
+        assertEquals(Rendez_Vous.ETAT_ANNULE, base.rendezVous.get(0).getEtat());
+        assertFalse(ctrl.peutAnnuler(r));
+        // Une seconde annulation (affichage périmé) est refusée avec un message.
+        assertFalse(ctrl.annuler(r));
+        assertEquals(2, vue.erreurs.size());
+    }
+
+    @Test
+    public void deplacementEtRechercheDepuisLAgendaSansPatient() {
+        FausseVue vue = new FausseVue();
+        RendezVousController pourPatient = new RendezVousController(vue, new RendezVousService(base),
+                base.patients.get(1), Donnees.utilisateur(1));
+        LocalDate jour = LocalDate.now().plusDays(1);
+        Rendez_Vous r = pourPatient.proposer(jour, 9);
+        assertTrue(pourPatient.confirmer(r));
+        // La secrétaire ouvre l'agenda sans patient : elle peut déplacer.
+        RendezVousController agenda = new RendezVousController(vue, new RendezVousService(base), null, null);
+        assertTrue(agenda.peutDeplacer(r));
+        Rendez_Vous n = agenda.proposerDeplacement(r, jour, 11);
+        assertEquals(LocalTime.of(11, 0), n.getHeure());
+        assertTrue(agenda.deplacer(r, n));
+        assertTrue(vue.informations.get(vue.informations.size() - 1).startsWith("Rendez-vous déplacé au "));
+        assertEquals(LocalTime.of(11, 0), base.rendezVous.get(0).getHeure());
+        // Une heure fermée : refus affiché, pas d'exception.
+        assertNull(agenda.proposerDeplacement(r, jour, 20));
+        assertTrue(vue.erreurs.get(vue.erreurs.size() - 1).contains("fermé"));
+        assertEquals(1, agenda.rechercher(base.patients.get(1).getNom()).size());
+        // Sans service de rapports, la liste du jour ne fait rien.
+        agenda.listeDuJour(jour, false);
+    }
+
+    @Test
+    public void listeDuJourOuverteOuImprimee() throws Exception {
+        java.io.File dossier = dossierDocuments.newFolder("rdv");
+        final List<java.io.File> ouverts = new ArrayList<>();
+        RapportService rapports = new RapportService(dossier, new RapportService.Afficheur() {
+            @Override
+            public void ouvrir(java.io.File pdf) {
+                ouverts.add(pdf);
+            }
+
+            @Override
+            public boolean imprimer(java.io.File pdf) {
+                return false;
+            }
+        }, 0);
+        FausseVue vue = new FausseVue();
+        RendezVousController ctrl = new RendezVousController(vue, new RendezVousService(base), rapports,
+                base.patients.get(1), Donnees.utilisateur(1));
+        LocalDate jour = LocalDate.now().plusDays(1);
+        ctrl.listeDuJour(jour, false);
+        assertTrue(vue.erreurs.get(0).startsWith("Aucun rendez-vous le "));
+        assertTrue(ctrl.confirmer(ctrl.proposer(jour, 9)));
+        ctrl.listeDuJour(jour, false);
+        assertEquals(1, ouverts.size());
+        assertTrue(ouverts.get(0).getName().startsWith("RendezVous_"));
+        ctrl.listeDuJour(jour, true);
+        assertEquals(RendezVousController.IMPRESSION_INDISPONIBLE, vue.informations.get(vue.informations.size() - 1));
     }
 
     // ----- accueil -----

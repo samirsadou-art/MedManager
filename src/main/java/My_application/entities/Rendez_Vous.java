@@ -34,6 +34,12 @@ public class Rendez_Vous {
     public static final int ETAT_ABSENT = 5;
 
     private int etat = ETAT_PREVU;
+
+    /** Identifiant (rendezvous.idRendezVous) ; null tant que le rendez-vous n'est pas enregistré. */
+    private Integer idRendezVous;
+
+    /** Motif court facultatif (contrôle, première visite…), migration V12. */
+    private String motif;
     /** Médecin qui reçoit le patient (rendezvous.idMedecin) ; null pour un rendez-vous d'avant V5 non rattaché. */
     private Integer idMedecin;
 
@@ -152,5 +158,29 @@ public class Rendez_Vous {
 
     public void setEtat(int etat) {
         this.etat = etat;
+    }
+
+    public Integer getIdRendezVous() {
+        return idRendezVous;
+    }
+
+    public void setIdRendezVous(Integer idRendezVous) {
+        this.idRendezVous = idRendezVous;
+    }
+
+    public String getMotif() {
+        return motif;
+    }
+
+    public void setMotif(String motif) {
+        this.motif = motif;
+    }
+
+    /**
+     * Vrai si le rendez-vous occupe son créneau : un rendez-vous annulé ou
+     * manqué (absent) le libère (colonne occupe, migration V12).
+     */
+    public boolean isOccupant() {
+        return etat != ETAT_ANNULE && etat != ETAT_ABSENT;
     }
 }

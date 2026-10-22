@@ -104,7 +104,7 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
 
     private void prendreRendezVous(patient p) {
         if (p != null) {
-            new calandar(p, ctx.getSession().getUtilisateur(), ctx.getRendezVousService()).setVisible(true);
+            new calandar(p, ctx.getSession().getUtilisateur(), ctx.getRendezVousService(), ctx.getRapportService()).setVisible(true);
         }
     }
 

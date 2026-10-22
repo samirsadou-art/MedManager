@@ -2,6 +2,7 @@ package My_application.dao.jdbc;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNoException;
@@ -330,10 +331,55 @@ public class MySqlIntegrationTest {
         Rendez_Vous ra = rdv.proposer(a, Donnees.utilisateur(1), jour, 9);
         rdv.confirmer(ra);
         rdv.confirmer(rdv.proposer(b, Donnees.utilisateur(1), jour, 9));
-        rdv.annuler(ra, a);
+        rdv.annuler(ra);
         List<Rendez_Vous> restants = rdv.duJour(jour);
         assertEquals(1, restants.size());
         assertEquals("B", restants.get(0).getPatient().getNom());
+    }
+
+    @Test
+    public void unCreneauAnnuleEstRepriseEtUnRendezVousSeDeplace() throws Exception {
+        patient a = creerPatient("A");
+        patient b = creerPatient("B");
+        RendezVousService rdv = new RendezVousService(daos);
+        LocalDate jour = LocalDate.now().plusDays(2);
+        Rendez_Vous ra = rdv.proposer(a, Donnees.utilisateur(1), jour, 9);
+        ra.setMotif("Contrôle");
+        rdv.confirmer(ra);
+        assertNotNull(ra.getIdRendezVous());
+        rdv.annuler(ra);
+        // La clé unique (V12) ne compte plus le rendez-vous annulé : 9 h 00 est repris.
+        Rendez_Vous rb = rdv.proposer(b, Donnees.utilisateur(1), jour, 9);
+        assertEquals(ra.getHeure(), rb.getHeure());
+        rdv.confirmer(rb);
+        // Déplacement de B à 10 h, puis A reprend 9 h.
+        rdv.deplacer(rb, rdv.proposerDeplacement(rb, jour, 10, null));
+        Rendez_Vous ra2 = rdv.proposer(a, Donnees.utilisateur(1), jour, 9);
+        rdv.confirmer(ra2);
+        List<Rendez_Vous> lus = rdv.duJour(jour);
+        assertEquals(2, lus.size());
+        assertEquals("A", lus.get(0).getPatient().getNom());
+        assertEquals("B", lus.get(1).getPatient().getNom());
+        assertEquals(10, lus.get(1).getHeure().getHour());
+        // L'historique garde l'annulé, avec son motif.
+        List<Rendez_Vous> deA = rdv.rechercher("A");
+        assertEquals(2, deA.size());
+        boolean annuleTrouve = false;
+        for (Rendez_Vous r : deA) {
+            if (r.getEtat() == Rendez_Vous.ETAT_ANNULE) {
+                annuleTrouve = true;
+                assertEquals("Contrôle", r.getMotif());
+            }
+        }
+        assertTrue(annuleTrouve);
+        // Un rendez-vous passé non pointé peut être marqué absent.
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO rendezvous (idUser, idPatient, idMedecin, date, heure) VALUES (1, "
+                    + b.getIdentPat() + ", 1, '" + LocalDate.now().minusDays(1) + "', '09:00:00')");
+        }
+        Rendez_Vous hier = rdv.duJour(LocalDate.now().minusDays(1)).get(0);
+        rdv.marquerAbsent(hier);
+        assertEquals(Rendez_Vous.ETAT_ABSENT, rdv.duJour(LocalDate.now().minusDays(1)).get(0).getEtat());
     }
 
     @Test

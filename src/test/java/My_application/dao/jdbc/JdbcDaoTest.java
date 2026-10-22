@@ -22,6 +22,7 @@ import java.time.LocalTime;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -165,15 +166,53 @@ public class JdbcDaoTest {
     }
 
     @Test
-    public void annulerUnRendezVousCibleLePatient() {
+    public void unRendezVousNEstPlusSupprimeMaisChangeDEtat() {
+        assertTrue(daos.getRendezVousDao().changerEtat(12, Rendez_Vous.ETAT_PREVU, Rendez_Vous.ETAT_ANNULE));
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("UPDATE rendezvous SET etat=?"));
+        assertTrue("l'état attendu protège d'une modification concurrente", e.sql.endsWith("AND etat=?"));
+        assertEquals(Rendez_Vous.ETAT_ANNULE, e.param(1));
+        assertEquals(12, e.param(2));
+        assertEquals(Rendez_Vous.ETAT_PREVU, e.param(3));
+    }
+
+    @Test
+    public void deplacerEtInsererUnRendezVous() {
+        assertTrue(daos.getRendezVousDao().deplacer(12, LocalDate.of(2026, 10, 9), LocalTime.of(11, 15), 2));
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.contains("SET date=?, heure=?, idMedecin=?"));
+        assertEquals(2, e.param(3));
+        assertEquals(12, e.param(4));
+        assertEquals(Rendez_Vous.ETAT_PREVU, e.param(5));
+
         Rendez_Vous r = new Rendez_Vous();
         r.setPatient(Donnees.patient(4, "Y"));
+        r.setUtilisateur(Donnees.utilisateur(1));
+        r.setIdMedecin(1);
         r.setDate(LocalDate.of(2026, 10, 9));
-        r.setHeure(LocalTime.parse("09:15:00"));
-        daos.getRendezVousDao().delete(r);
-        FauxJdbc.Execution e = base.derniere();
-        assertTrue(e.sql.contains("idPatient=?"));
-        assertEquals(4, e.param(1));
+        r.setHeure(LocalTime.of(9, 15));
+        r.setMotif("Contrôle");
+        daos.getRendezVousDao().insert(r);
+        assertEquals("clé générée par le faux pilote (après la mise à jour)", Integer.valueOf(1002),
+                r.getIdRendezVous());
+        assertEquals("Contrôle", base.derniere().param(6));
+    }
+
+    @Test
+    public void rendezVousDePlusieursPatients() {
+        base.quand("IN (?,?)", ligne("idRendezVous", 7, "idUser", 1, "idPatient", 2, "idMedecin", 1,
+                "date", java.sql.Date.valueOf("2026-10-09"), "heure", java.sql.Time.valueOf("09:15:00"),
+                "motif", "Résultats", "prisLe", null, "etat", 4, "nomPatient", "B", "prenomPatient", "b",
+                "date_Nais_Patient", java.sql.Date.valueOf("2000-01-01"), "sexePatient", 0, "telPatient", "0555123456",
+                "nom", "SAHAB", "prenom", "Said", "qualite", "Médecin"));
+        List<Rendez_Vous> l = daos.getRendezVousDao().findDesPatients(Arrays.asList(2, 3));
+        assertEquals(1, l.size());
+        assertEquals(Integer.valueOf(7), l.get(0).getIdRendezVous());
+        assertEquals("Résultats", l.get(0).getMotif());
+        assertEquals(Rendez_Vous.ETAT_ANNULE, l.get(0).getEtat());
+        assertEquals("0555123456", l.get(0).getPatient().getTelephone());
+        assertTrue(base.derniere().sql.contains("ORDER BY r.date DESC"));
+        assertTrue(daos.getRendezVousDao().findDesPatients(new ArrayList<Integer>()).isEmpty());
     }
 
     @Test
