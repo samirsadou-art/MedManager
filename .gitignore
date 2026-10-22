@@ -13,3 +13,6 @@ nbproject/private/
 
 # Réglages personnels de Claude Code
 .claude/settings.local.json
+
+# Identifiants de la sauvegarde planifiée (sql/creer_compte_sauvegarde.sql)
+sauvegarde.cnf
