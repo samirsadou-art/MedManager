@@ -36,17 +36,18 @@ netsh advfirewall firewall add rule name="GestiMed MariaDB" dir=in action=allow 
 4. Donnez un mot de passe à `root` s'il n'en a pas (XAMPP le laisse vide) : avec la base ouverte au réseau, c'est indispensable.
 
 ### 1.5 Comptes GestiMed
+Seul le **premier administrateur** se crée en ligne de commande (la commande demande son mot de passe au clavier) :
+
 ```
-java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.GestionComptes ajouter secretaire secretaire NOM Prenom
 java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.GestionComptes ajouter admin admin NOM Prenom
-java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.GestionComptes liste
 ```
-Chaque commande demande le mot de passe au clavier. Un compte médecin indique sa fiche médecin :
-`ajouter medecin dr.nom NOM Prenom <idMedecin>`. Pour changer le rôle d'un compte existant :
-`GestionComptes role <idUtilisateur> secretaire|medecin|admin [idMedecin]`.
+
+Connectez-vous ensuite avec `admin` : la page **Membres** crée les autres comptes (secrétaire, médecins) avec un
+mot de passe provisoire que chacun remplace à sa première connexion (voir `docs/notice-administrateur.md`).
+`GestionComptes liste` affiche les comptes existants.
 
 La secrétaire ne voit ni les consultations ni les dossiers médicaux ; l'administrateur voit les membres du cabinet
-et ne voit pas les dossiers non plus.
+et les statistiques, et ne voit pas les dossiers non plus.
 
 ## 2. Chaque poste médecin
 
@@ -69,6 +70,7 @@ puis « poste prêt » ou la liste des points à corriger. Lancez-le aussi sur l
 
 ## 3. Mises à jour
 
+Avant une mise à jour, déroulez le scénario de `docs/recette.md` sur une copie de la base si vous le pouvez.
 Après une nouvelle version : sauvegarde, `MigrationBase migrer` sur le PC de la secrétaire, puis **le nouveau jar
 sur tous les postes le même jour**. Un poste resté sur l'ancien jar refuse de démarrer tant que sa version ne
 correspond pas à la base.
@@ -79,4 +81,27 @@ correspond pas à la base.
   sur un Wi-Fi invités séparé du réseau des postes.
 - Verrouillez la session Windows du PC de la secrétaire en cas d'absence (Windows + L).
 - Le mot de passe du compte `admin` n'est connu que de l'administrateur.
-- Sauvegarde quotidienne : planifiez `sql/sauvegarder_base.bat` (Planificateur de tâches) vers un disque externe.
+- Sauvegarde quotidienne : voir ci-dessous.
+
+## 5. Sauvegarde quotidienne
+
+1. Créez le compte de sauvegarde (lecture seule) : modifiez le mot de passe dans `sql/creer_compte_sauvegarde.sql`,
+   puis `D:\xampp\mysql\bin\mysql.exe -u root -p < sql\creer_compte_sauvegarde.sql`.
+2. À côté de `sauvegarder_base.bat`, créez `sauvegarde.cnf` :
+
+   ```
+   [client]
+   user=sauvegarde
+   password=<le mot de passe choisi>
+   ```
+
+3. Essayez : `sql\sauvegarder_base.bat E:\Sauvegardes`. Le fichier `sauvegarde_medicale_<date>.sql` doit apparaître,
+   sans qu'aucun mot de passe soit demandé. Les sauvegardes de plus de 30 jours sont supprimées.
+4. Planifiez-la chaque jour à 13 h (invite de commandes, adaptez les chemins) :
+
+   ```
+   schtasks /create /tn "GestiMed sauvegarde" /sc daily /st 13:00 /tr "D:\GestiMed\sql\sauvegarder_base.bat E:\Sauvegardes"
+   ```
+
+5. Une fois par mois, vérifiez qu'une sauvegarde se restaure : sur un autre PC ou dans une base `medicale_essai`,
+   `mysql -u root -p medicale_essai < sauvegarde_medicale_<date>.sql`.
