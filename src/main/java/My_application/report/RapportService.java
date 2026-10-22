@@ -1,12 +1,14 @@
 package My_application.report;
 
 import My_application.entities.Rendez_Vous;
+import My_application.entities.Statistiques;
 import My_application.entities.analyse;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
 import My_application.entities.medicament;
 import My_application.entities.patient;
 import My_application.service.MetierException;
+import My_application.service.StatistiquesService;
 import com.lowagie.text.Chunk;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
@@ -81,7 +83,7 @@ public class RapportService {
     static final int CONSERVATION_PAR_DEFAUT = 30;
 
     /** Noms des fichiers produits par {@link #nomFichier} : seuls ceux-là sont purgés. */
-    private static final Pattern NOM_DOCUMENT = Pattern.compile("(Ordonnance|Analyses|RendezVous)_[A-Za-z0-9_\\-]*\\.pdf");
+    private static final Pattern NOM_DOCUMENT = Pattern.compile("(Ordonnance|Analyses|RendezVous|Statistiques)_[A-Za-z0-9_\\-]*\\.pdf");
 
     static final DateTimeFormatter FORMAT_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter FORMAT_JOUR = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
@@ -151,6 +153,11 @@ public class RapportService {
             throw new MetierException("Aucun rendez-vous le " + FORMAT_DATE.format(jour) + ".");
         }
         return publier("RendezVous_" + jour + ".pdf", pdfListeRendezVous(jour, rdvs, medecins), imprimer);
+    }
+
+    /** Activité du cabinet sur une période (compte administrateur) : nombres seulement. */
+    public boolean statistiques(Statistiques s, Map<Integer, medecin> medecins) {
+        return publier("Statistiques_" + s.getDebut() + "_" + s.getFin() + ".pdf", pdfStatistiques(s, medecins), false);
     }
 
     private boolean publier(String nom, byte[] pdf, boolean imprimer) {
@@ -290,6 +297,69 @@ public class RapportService {
             throw new RapportException("Impossible de générer le document.", e);
         }
         return out.toByteArray();
+    }
+
+    public byte[] pdfStatistiques(Statistiques s, Map<Integer, medecin> medecins) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document doc = new Document(PageSize.A4, 40, 40, 40, 70);
+        try {
+            PdfWriter writer = PdfWriter.getInstance(doc, out);
+            medecin cabinet = medecins.isEmpty() ? new medecin() : medecins.values().iterator().next();
+            writer.setPageEvent(new PiedDePage(cabinet));
+            doc.addTitle("Activité du cabinet " + StatistiquesService.libellePeriode(s));
+            doc.addCreator("GestiMed");
+            doc.open();
+            doc.add(new Paragraph(texte(cabinet.getNom_cabinet()), CABINET));
+            medecin choisi = s.getIdMedecin() == null ? null : medecins.get(s.getIdMedecin());
+            doc.add(new Paragraph(choisi == null ? "Tous les médecins" : coordonneesMedecin(choisi).get(0), NORMAL));
+            doc.add(new Chunk(new LineSeparator(1f, 100f, BLEU, Element.ALIGN_CENTER, -4)));
+            Paragraph t = new Paragraph("ACTIVITÉ DU CABINET", TITRE);
+            t.setAlignment(Element.ALIGN_CENTER);
+            t.setSpacingBefore(18);
+            doc.add(t);
+            Paragraph periode = new Paragraph(StatistiquesService.libellePeriode(s), GRAS);
+            periode.setAlignment(Element.ALIGN_CENTER);
+            periode.setSpacingAfter(14);
+            doc.add(periode);
+
+            List<String[]> lignes = new ArrayList<>();
+            for (Map.Entry<String, String> e : StatistiquesService.indicateurs(s).entrySet()) {
+                lignes.add(new String[] {e.getKey(), e.getValue()});
+            }
+            doc.add(tableau(new String[] {"Indicateur", "Valeur"}, new float[] {4, 1.5f}, lignes));
+
+            if (!s.getConsultationsParMedecin().isEmpty()) {
+                lignes = new ArrayList<>();
+                for (Map.Entry<Integer, Integer> e : s.getConsultationsParMedecin().entrySet()) {
+                    medecin m = medecins.get(e.getKey());
+                    lignes.add(new String[] {m == null ? "Médecin n° " + e.getKey() : coordonneesMedecin(m).get(0),
+                        String.valueOf(e.getValue())});
+                }
+                doc.add(sousTitre("Consultations par médecin"));
+                doc.add(tableau(new String[] {"Médecin", "Consultations"}, new float[] {4, 1.5f}, lignes));
+            }
+
+            lignes = new ArrayList<>();
+            for (StatistiquesService.Barre b : StatistiquesService.serie(s)) {
+                lignes.add(new String[] {b.getDetail(), String.valueOf(b.getValeur())});
+            }
+            doc.add(sousTitre("Consultations dans le temps"));
+            doc.add(tableau(new String[] {"Période", "Consultations"}, new float[] {4, 1.5f}, lignes));
+            Paragraph note = new Paragraph("Nombres agrégés, sans aucune donnée nominative.", PETIT);
+            note.setSpacingBefore(12);
+            doc.add(note);
+            doc.close();
+        } catch (DocumentException e) {
+            throw new RapportException("Impossible de générer le document.", e);
+        }
+        return out.toByteArray();
+    }
+
+    private static Paragraph sousTitre(String texte) {
+        Paragraph p = new Paragraph(texte, CABINET);
+        p.setSpacingBefore(16);
+        p.setSpacingAfter(8);
+        return p;
     }
 
     private byte[] document(consultation c, String titre, String[] colonnes, float[] largeurs, List<String[]> lignes) {

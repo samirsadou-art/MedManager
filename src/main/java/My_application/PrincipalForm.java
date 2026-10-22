@@ -8,6 +8,7 @@ import My_application.TableModelPrincipale.ConsultJourTableRondu;
 import My_application.TableModelPrincipale.RendezJourTableModel;
 import My_application.TableModelPrincipale.RendezJourTableRondu;
 import My_application.admin.PageMembres;
+import My_application.admin.PageStatistiques;
 import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
 import My_application.controller.ConnexionController;
@@ -31,6 +32,7 @@ import My_application.vue.Icones;
 import My_application.vue.MenuLateral;
 import My_application.vue.Theme;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Container;
 import java.awt.FlowLayout;
 import java.awt.Frame;
@@ -64,8 +66,13 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     private final AccueilController controleur;
     /** Rôle du compte connecté : il choisit la page d'accueil et le menu. */
     private final Role role;
-    /** Page du compte administrateur (null pour les autres rôles). */
+    private static final String TITRE_MEMBRES = "Membres du cabinet";
+    private static final String SOUS_TITRE_MEMBRES =
+            "Comptes de connexion des médecins, de la secrétaire et des administrateurs";
+    /** Pages du compte administrateur (null pour les autres rôles). */
     private PageMembres pageMembres;
+    private PageStatistiques pageStatistiques;
+    private JPanel pagesAdmin;
     /** Messagerie interne (null pour l'administrateur) : créée au démarrage, montrée par le menu. */
     private FenetreMessagerie messagerie;
     private MenuLateral menu;
@@ -102,6 +109,20 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             installerSalleAttente();
         }
         refresh();
+    }
+
+    /** Compte administrateur : montre la page « Membres » ou « Statistiques » et met l'en-tête à jour. */
+    private void pageAdmin(EnTetePage entete, String page) {
+        ((CardLayout) pagesAdmin.getLayout()).show(pagesAdmin, page);
+        if ("Statistiques".equals(page)) {
+            entete.setTitre("Statistiques");
+            entete.setSousTitre("Activité du cabinet par période et par médecin, sans aucun nom de patient");
+            pageStatistiques.rafraichir();
+        } else {
+            entete.setTitre(TITRE_MEMBRES);
+            entete.setSousTitre(SOUS_TITRE_MEMBRES);
+            pageMembres.rafraichir();
+        }
     }
 
     /** Menu Fichier : « Changer mon mot de passe… », pour chaque membre connecté. */
@@ -283,6 +304,10 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     }
 
     public void refresh() {
+        if (pageStatistiques != null && pageStatistiques.isShowing()) {
+            pageStatistiques.rafraichir();
+            return;
+        }
         if (pageMembres != null) {
             pageMembres.rafraichir();
             return;
@@ -306,10 +331,14 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         EnTetePage entete;
         Container contenu = getContentPane();
         if (role == Role.ADMIN) {
-            entete = new EnTetePage("users", "Membres du cabinet",
-                    "Comptes de connexion des médecins, de la secrétaire et des administrateurs");
+            entete = new EnTetePage("users", TITRE_MEMBRES, SOUS_TITRE_MEMBRES);
             pageMembres = new PageMembres(ctx.getMembresService());
-            contenu = pageMembres;
+            pageStatistiques = new PageStatistiques(ctx.getStatistiquesService(), ctx.getRapportService());
+            pagesAdmin = new JPanel(new CardLayout());
+            pagesAdmin.setOpaque(false);
+            pagesAdmin.add(pageMembres, "Membres");
+            pagesAdmin.add(pageStatistiques, "Statistiques");
+            contenu = pagesAdmin;
             jMenu2.setVisible(false);
         } else {
             entete = new EnTetePage("home", "Accueil", role == Role.SECRETAIRE
@@ -331,7 +360,8 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
         menu = new MenuLateral();
         if (role == Role.ADMIN) {
-            menu.ajouter("users", "Membres", true, this::refresh);
+            menu.ajouter("users", "Membres", true, () -> pageAdmin(entete, "Membres"));
+            menu.ajouter("chart-bar", "Statistiques", true, () -> pageAdmin(entete, "Statistiques"));
             menu.selectionner("Membres");
         } else {
             menu.ajouter("home", "Accueil", true, this::refresh);

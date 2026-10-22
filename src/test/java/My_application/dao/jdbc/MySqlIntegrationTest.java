@@ -3,6 +3,7 @@ package My_application.dao.jdbc;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNoException;
@@ -16,6 +17,7 @@ import My_application.entities.MessageInterne;
 import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.Role;
+import My_application.entities.Statistiques;
 import My_application.entities.User;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
@@ -35,6 +37,7 @@ import My_application.service.CatalogueService;
 import My_application.service.DossierService;
 import My_application.service.RendezVousService;
 import My_application.service.SalleAttenteService;
+import My_application.service.StatistiquesService;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -608,5 +611,51 @@ public class MySqlIntegrationTest {
         assertTrue(!daos.getMedecinDao().findById(lu.getIdmedecin()).isActif());
         assertEquals(1, rdv.medecins().size());
         assertEquals(2, rdv.tousLesMedecins().size());
+    }
+
+    @Test
+    public void statistiquesCalculeesEnSql() throws Exception {
+        patient a = creerPatient("A");
+        patient b = creerPatient("B");
+        LocalDate jour = LocalDate.of(2026, 10, 5);
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO medecin (nomMedecin, prenomMedecin, titre) VALUES ('AMRANI', 'Lina', 'Dr')");
+            String c = "INSERT INTO consultation (dateConsultation, heureConsultation, idMedecin, idPatient) VALUES ";
+            st.execute(c + "('2026-09-20', '09:00', 1, " + a.getIdentPat() + ")");
+            st.execute(c + "('2026-10-05', '09:00', 1, " + a.getIdentPat() + ")");
+            st.execute(c + "('2026-10-05', '10:00', 2, " + b.getIdentPat() + ")");
+            st.execute(c + "('2026-10-07', '10:00', 1, " + b.getIdentPat() + ")");
+            String r = "INSERT INTO rendezvous (idUser, idPatient, idMedecin, date, heure, etat) VALUES (1, ";
+            st.execute(r + a.getIdentPat() + ", 1, '2026-10-05', '09:00', 3)");
+            st.execute(r + b.getIdentPat() + ", 1, '2026-10-06', '09:00', 5)");
+            st.execute(r + b.getIdentPat() + ", 2, '2026-10-06', '09:00', 4)");
+            String p = "INSERT INTO salle_attente (idPatient, idMedecin, idRendezVous, jour, arriveeLe, appeleLe, "
+                    + "priorite, etat) VALUES (";
+            st.execute(p + a.getIdentPat() + ", 1, 1, '2026-10-05', '2026-10-05 08:50', '2026-10-05 09:10', 0, 2)");
+            st.execute(p + b.getIdentPat() + ", 2, NULL, '2026-10-05', '2026-10-05 09:00', '2026-10-05 09:40', 1, 2)");
+            st.execute(p + b.getIdentPat() + ", 1, NULL, '2026-10-07', '2026-10-07 09:00', NULL, 0, 3)");
+        }
+        StatistiquesService stats = new StatistiquesService(daos, My_application.service.ControleAcces.AUCUN);
+        Statistiques s = stats.calculer(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), null);
+        assertEquals(3, s.getConsultations());
+        assertEquals(Integer.valueOf(2), s.getConsultationsParJour().get(jour));
+        assertEquals(Integer.valueOf(2), s.getConsultationsParMedecin().get(1));
+        assertEquals(2, s.getPatientsDistincts());
+        assertEquals("A a déjà consulté en septembre", 1, s.getNouveauxPatients());
+        assertEquals(1, s.rendezVous(Rendez_Vous.ETAT_ABSENT));
+        assertEquals(50.0, s.getTauxAbsence(), 0.001);
+        assertEquals(3, s.getSalle().getPassages());
+        assertEquals(2, s.getSalle().getSansRendezVous());
+        assertEquals(1, s.getSalle().getUrgences());
+        assertEquals(1, s.getSalle().getPartis());
+        assertEquals(30.0, s.getSalle().getAttenteMoyenne(), 0.001);
+
+        Statistiques amrani = stats.calculer(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), 2);
+        assertEquals(1, amrani.getConsultations());
+        assertEquals(1, amrani.getNouveauxPatients());
+        assertEquals(1, amrani.getRendezVous());
+        assertEquals(40.0, amrani.getSalle().getAttenteMoyenne(), 0.001);
+        assertNull(stats.calculer(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 2), null).getSalle()
+                .getAttenteMoyenne());
     }
 }

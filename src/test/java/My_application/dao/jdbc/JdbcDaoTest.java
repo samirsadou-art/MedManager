@@ -492,6 +492,46 @@ public class JdbcDaoTest {
     }
 
     @Test
+    public void statistiquesAgregeesAvecOuSansMedecin() {
+        LocalDate debut = LocalDate.of(2026, 10, 1);
+        LocalDate fin = LocalDate.of(2026, 10, 31);
+        base.quand("GROUP BY dateConsultation", ligne("cle", java.sql.Date.valueOf(debut), "n", 4),
+                ligne("cle", java.sql.Date.valueOf(debut.plusDays(2)), "n", 7));
+        Map<LocalDate, Integer> parJour = daos.getStatistiquesDao().consultationsParJour(debut, fin, null);
+        assertEquals(Integer.valueOf(7), parJour.get(debut.plusDays(2)));
+        FauxJdbc.Execution e = base.derniere();
+        assertFalse(e.sql.contains("idMedecin=?"));
+        assertEquals(java.sql.Date.valueOf(debut), e.param(1));
+
+        daos.getStatistiquesDao().consultationsParJour(debut, fin, 2);
+        e = base.derniere();
+        assertTrue(e.sql.contains("BETWEEN ? AND ? AND idMedecin=?"));
+        assertEquals(2, e.param(3));
+
+        base.quand("GROUP BY idMedecin", ligne("cle", 1, "n", 9));
+        assertEquals(Integer.valueOf(9), daos.getStatistiquesDao().consultationsParMedecin(debut, fin).get(1));
+        base.quand("GROUP BY etat", ligne("cle", Rendez_Vous.ETAT_ABSENT, "n", 3));
+        assertEquals(Integer.valueOf(3), daos.getStatistiquesDao().rendezVousParEtat(debut, fin, 1).get(5));
+        base.quand("COUNT(DISTINCT idPatient)", ligne("n", 12L));
+        assertEquals(12, daos.getStatistiquesDao().patientsDistincts(debut, fin, null));
+        base.quand("MIN(dateConsultation)", ligne("n", 4L));
+        assertEquals(4, daos.getStatistiquesDao().nouveauxPatients(debut, fin, 1));
+        assertTrue(base.derniere().sql.endsWith("AND c.idMedecin=?"));
+
+        base.quand("FROM salle_attente WHERE jour", ligne("passages", 6, "sansRdv", 2, "urgences", 1, "partis", 1,
+                "attente", 17.5));
+        My_application.entities.Statistiques.SalleAttente salle = daos.getStatistiquesDao().salleAttente(debut, fin, 1);
+        assertEquals(6, salle.getPassages());
+        assertEquals(17.5, salle.getAttenteMoyenne(), 0.001);
+        e = base.derniere();
+        assertEquals(Passage.PARTI, e.param(1));
+        assertEquals(1, e.param(4));
+        base.quand("FROM salle_attente WHERE jour", ligne("passages", 0, "sansRdv", 0, "urgences", 0, "partis", 0,
+                "attente", null));
+        assertNull(daos.getStatistiquesDao().salleAttente(debut, fin, null).getAttenteMoyenne());
+    }
+
+    @Test
     public void fichesMedecinCreeesModifieesEtDesactivees() {
         medecin m = Donnees.medecin(0);
         m.setOrdmedcin("16/123");

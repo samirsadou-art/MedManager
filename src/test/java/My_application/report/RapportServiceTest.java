@@ -242,4 +242,24 @@ public class RapportServiceTest {
     public void observationAbsenteAfficheeVide() {
         assertEquals("", RapportService.lignesAnalyses(Arrays.asList(Donnees.analyse(1, "TSH", null))).get(0)[2]);
     }
+
+    @Test
+    public void statistiquesEnPdfSansNomDePatient() throws Exception {
+        My_application.entities.Statistiques s = new My_application.entities.Statistiques(
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), null);
+        java.util.Map<LocalDate, Integer> parJour = new java.util.HashMap<>();
+        parJour.put(LocalDate.of(2026, 10, 5), 12);
+        s.setConsultationsParJour(parJour);
+        s.setConsultationsParMedecin(java.util.Collections.singletonMap(1, 12));
+        java.util.Map<Integer, My_application.entities.medecin> medecins = new java.util.HashMap<>();
+        medecins.put(1, Donnees.medecin(1));
+        String t = texte(service.pdfStatistiques(s, medecins), 1);
+        assertTrue(t, t.contains("ACTIVITÉ DU CABINET"));
+        assertTrue(t, t.contains("du 01/10/2026 au 31/10/2026"));
+        assertTrue(t, t.contains("Tous les médecins"));
+        assertTrue(t, t.contains("Consultations par médecin"));
+        assertTrue(t, t.contains("Dr SAHAB Said"));
+        assertTrue(service.statistiques(s, medecins));
+        assertTrue(afficheur.ouverts.get(0).getName().startsWith("Statistiques_2026-10-01_2026-10-31"));
+    }
 }

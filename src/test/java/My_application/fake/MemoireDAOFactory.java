@@ -17,6 +17,7 @@ import My_application.dao.PrescriptionDao;
 import My_application.dao.PresenceDao;
 import My_application.dao.RendezVousDao;
 import My_application.dao.SalleAttenteDao;
+import My_application.dao.StatistiquesDao;
 import My_application.dao.SymptomeDao;
 import My_application.dao.UniteDeTravail;
 import My_application.dao.UtilisateurDao;
@@ -26,6 +27,7 @@ import My_application.entities.EntreeJournal;
 import My_application.entities.MessageInterne;
 import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
+import My_application.entities.Statistiques;
 import My_application.entities.User;
 import My_application.entities.analyse;
 import My_application.entities.consultation;
@@ -1134,6 +1136,107 @@ public class MemoireDAOFactory implements DAOFactory {
                 int avant = messages.size();
                 messages.removeIf(m -> m.getEnvoyeLe().isBefore(limite));
                 return avant - messages.size();
+            }
+        };
+    }
+
+    @Override
+    public StatistiquesDao getStatistiquesDao() {
+        return new StatistiquesDao() {
+            private boolean dans(LocalDate d, LocalDate debut, LocalDate fin) {
+                return !d.isBefore(debut) && !d.isAfter(fin);
+            }
+
+            private boolean chez(int idMedecin, Integer filtre) {
+                return filtre == null || filtre == idMedecin;
+            }
+
+            @Override
+            public Map<LocalDate, Integer> consultationsParJour(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.consultationsParJour");
+                Map<LocalDate, Integer> r = new java.util.TreeMap<>();
+                for (consultation c : consultations) {
+                    if (dans(c.getDate_cons(), debut, fin) && chez(c.getMedecin().getIdmedecin(), idMedecin)) {
+                        r.merge(c.getDate_cons(), 1, Integer::sum);
+                    }
+                }
+                return r;
+            }
+
+            @Override
+            public Map<Integer, Integer> consultationsParMedecin(LocalDate debut, LocalDate fin) {
+                appel("stats.consultationsParMedecin");
+                Map<Integer, Integer> r = new java.util.TreeMap<>();
+                for (consultation c : consultations) {
+                    if (dans(c.getDate_cons(), debut, fin)) {
+                        r.merge(c.getMedecin().getIdmedecin(), 1, Integer::sum);
+                    }
+                }
+                return r;
+            }
+
+            @Override
+            public int patientsDistincts(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.patientsDistincts");
+                Set<Integer> r = new HashSet<>();
+                for (consultation c : consultations) {
+                    if (dans(c.getDate_cons(), debut, fin) && chez(c.getMedecin().getIdmedecin(), idMedecin)) {
+                        r.add(c.getPatient().getIdentPat());
+                    }
+                }
+                return r.size();
+            }
+
+            @Override
+            public int nouveauxPatients(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.nouveauxPatients");
+                Map<Integer, LocalDate> premiere = new HashMap<>();
+                for (consultation c : consultations) {
+                    premiere.merge(c.getPatient().getIdentPat(), c.getDate_cons(),
+                            (a, b) -> a.isBefore(b) ? a : b);
+                }
+                Set<Integer> r = new HashSet<>();
+                for (consultation c : consultations) {
+                    if (dans(c.getDate_cons(), debut, fin) && chez(c.getMedecin().getIdmedecin(), idMedecin)
+                            && c.getDate_cons().equals(premiere.get(c.getPatient().getIdentPat()))) {
+                        r.add(c.getPatient().getIdentPat());
+                    }
+                }
+                return r.size();
+            }
+
+            @Override
+            public Map<Integer, Integer> rendezVousParEtat(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.rendezVousParEtat");
+                Map<Integer, Integer> r = new java.util.TreeMap<>();
+                for (Rendez_Vous x : rendezVous) {
+                    if (dans(x.getDate(), debut, fin) && (idMedecin == null || idMedecin.equals(x.getIdMedecin()))) {
+                        r.merge(x.getEtat(), 1, Integer::sum);
+                    }
+                }
+                return r;
+            }
+
+            @Override
+            public Statistiques.SalleAttente salleAttente(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.salleAttente");
+                Statistiques.SalleAttente s = new Statistiques.SalleAttente();
+                long minutes = 0;
+                int appeles = 0;
+                for (Passage p : passages) {
+                    if (dans(p.getJour(), debut, fin) && chez(p.getIdMedecin(), idMedecin)) {
+                        s.setPassages(s.getPassages() + 1);
+                        s.setSansRendezVous(s.getSansRendezVous() + (p.getIdRendezVous() == null ? 1 : 0));
+                        s.setUrgences(s.getUrgences() + (p.isUrgence() ? 1 : 0));
+                        s.setPartis(s.getPartis() + (p.getEtat() == Passage.PARTI ? 1 : 0));
+                        if (p.getAppeleLe() != null) {
+                            minutes += java.time.Duration.between(p.getArriveeLe(), p.getAppeleLe()).toMinutes();
+                            appeles++;
+                        }
+                    }
+                }
+                s.setAttenteMoyenne(appeles == 0 ? null : (double) minutes / appeles);
+                return s;
             }
         };
     }
