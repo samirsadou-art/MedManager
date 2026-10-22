@@ -30,6 +30,8 @@ public class MenuLateral extends JPanel {
     private static final int LARGEUR = 220;
 
     private final JPanel entrees = new JPanel();
+    /** Bas du menu : entrée « Se déconnecter » au-dessus du pied. */
+    private final JPanel bas = new JPanel(new BorderLayout(0, 12));
     private final List<Entree> liste = new ArrayList<>();
 
     public MenuLateral() {
@@ -41,6 +43,8 @@ public class MenuLateral extends JPanel {
         entrees.setOpaque(false);
         entrees.setLayout(new BoxLayout(entrees, BoxLayout.Y_AXIS));
         add(entrees, BorderLayout.NORTH);
+        bas.setOpaque(false);
+        add(bas, BorderLayout.SOUTH);
     }
 
     @Override
@@ -57,6 +61,16 @@ public class MenuLateral extends JPanel {
         liste.add(e);
         entrees.add(e);
         entrees.add(Box.createVerticalStrut(4));
+    }
+
+    /**
+     * Entrée posée en bas du menu, à l'écart des pages (« Se déconnecter ») :
+     * même présentation que les autres, sans jamais rester sélectionnée.
+     */
+    public void ajouterEnBas(String icone, String texte, Runnable action) {
+        Entree e = new Entree(icone, texte, false, action);
+        liste.add(e);
+        bas.add(e, BorderLayout.NORTH);
     }
 
     /** Sélectionne l'entrée portant ce libellé. */
@@ -86,7 +100,7 @@ public class MenuLateral extends JPanel {
         pied.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDURE),
                 BorderFactory.createEmptyBorder(12, 6, 0, 0)));
-        add(pied, BorderLayout.SOUTH);
+        bas.add(pied, BorderLayout.SOUTH);
     }
 
     private final class Entree extends JLabel {

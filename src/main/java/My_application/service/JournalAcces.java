@@ -12,6 +12,7 @@ public interface JournalAcces {
     /** Ce qui est enregistré dans {@code journal_acces.action}. */
     enum Action {
         CONNEXION,
+        DECONNEXION,
         ECHEC_CONNEXION,
         CREATION_COMPTE,
         MODIFICATION_COMPTE,

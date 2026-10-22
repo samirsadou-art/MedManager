@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Connexion des utilisateurs (écran de connexion) et gestion de leurs identifiants.
@@ -197,6 +199,26 @@ public class AuthentificationService {
     /** Le membre renonce à changer son mot de passe provisoire : il n'est pas connecté. */
     public synchronized void abandonnerConnexion() {
         enAttente = null;
+    }
+
+    /**
+     * Menu « Se déconnecter » : note la déconnexion puis ferme la session.
+     * La session est fermée même si la trace n'a pas pu être écrite (le
+     * détail va dans le fichier journal) : la déconnexion ne doit jamais
+     * laisser le poste ouvert au nom du membre.
+     */
+    public synchronized void deconnecter() {
+        enAttente = null;
+        if (!session.estOuverte()) {
+            return;
+        }
+        try {
+            journal.noter(JournalAcces.Action.DECONNEXION, null, null);
+        } catch (RuntimeException e) {
+            Logger.getLogger("GestiMed").log(Level.WARNING, "Déconnexion non notée dans journal_acces", e);
+        } finally {
+            session.fermer();
+        }
     }
 
     /** Le membre connecté change son mot de passe (menu « Changer mon mot de passe »). */

@@ -139,6 +139,56 @@ public class AuthentificationServiceTest {
         assertEquals(java.time.LocalDateTime.ofInstant(horloge.maintenant, ZoneOffset.UTC), base.connexions.get(1));
     }
 
+    // ----- déconnexion -----
+
+    @Test
+    public void deconnexionFermeLaSessionEtRendLeMedecinDuLancement() {
+        creerCompte(2, "dr.amrani", "Cabinet2026");
+        base.utilisateurs.get(2).setIdMedecin(2);
+        service.connecter("dr.amrani", mdp("Cabinet2026"));
+        assertEquals(2, session.getIdMedecin());
+
+        service.deconnecter();
+
+        assertFalse(session.estOuverte());
+        assertNull(session.getIdUtilisateurConnecte());
+        assertNull(session.getRole());
+        assertEquals(1, session.getIdMedecin());
+        EntreeJournal trace = base.journal.get(base.journal.size() - 1);
+        assertEquals("DECONNEXION", trace.getAction());
+        assertEquals(Integer.valueOf(2), trace.getIdUtilisateur());
+    }
+
+    @Test
+    public void unAutreMembrePeutSeConnecterApresLaDeconnexion() {
+        creerCompte(1, "secretaire", "Secret2026");
+        creerCompte(2, "medecin", "Cabinet2026");
+        service.connecter("secretaire", mdp("Secret2026"));
+        service.deconnecter();
+        service.connecter("medecin", mdp("Cabinet2026"));
+        assertEquals(Integer.valueOf(2), session.getIdUtilisateurConnecte());
+    }
+
+    @Test
+    public void deconnexionSansSessionNeNoteRien() {
+        service.deconnecter();
+        assertTrue(base.journal.isEmpty());
+        assertFalse(session.estOuverte());
+    }
+
+    @Test
+    public void laSessionEstFermeeMemeSiLaTraceEchoue() {
+        creerCompte(1, "medecin", "Cabinet2026");
+        AuthentificationService s = new AuthentificationService(base, session, (action, idPatient, detail) -> {
+            if (action == JournalAcces.Action.DECONNEXION) {
+                throw new DataAccessException("base injoignable", new SQLException());
+            }
+        }, horloge);
+        s.connecter("medecin", mdp("Cabinet2026"));
+        s.deconnecter();
+        assertFalse(session.estOuverte());
+    }
+
     @Test
     public void nouveauxIdentifiantsVerifiesSansRienEcrire() {
         creerCompte(1, "medecin", "Cabinet2026");
