@@ -4,9 +4,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import My_application.dao.PatientDao;
 import My_application.entities.patient;
 import My_application.fake.Donnees;
 import My_application.fake.MemoireDAOFactory;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.time.LocalDate;
 import org.junit.Test;
 
@@ -117,14 +122,116 @@ public class PatientServiceTest {
 
     @Test
     public void numeroDeDossierDejaUtilise() {
-        patient p = Donnees.patient(1, "DOUBLON");
+        patient p = Donnees.patient(0, "DOUBLON");
         p.setTelephone("0555123456");
+        p.setNumeroDossier(" 1 ");
         try {
             service.creer(p);
             org.junit.Assert.fail();
         } catch (MetierException e) {
             assertTrue(e.getMessage().contains("déjà utilisé"));
         }
+    }
+
+    @Test
+    public void numeroDeDossierAttribueAutomatiquement() {
+        patient ancien = inscrire("ANCIEN", "0555000001", "2019/37");
+        patient auto = inscrire("AUTO", "0555000002", null);
+        int plusGrand = 0;
+        for (patient p : base.patients.values()) {
+            if (p.getNumeroDossier() != null && p.getNumeroDossier().matches("[0-9]+")
+                    && p != auto) {
+                plusGrand = Math.max(plusGrand, Integer.parseInt(p.getNumeroDossier()));
+            }
+        }
+        assertEquals("2019/37", ancien.getNumeroDossier());
+        assertEquals(String.valueOf(plusGrand + 1), auto.getNumeroDossier());
+    }
+
+    @Test
+    public void numeroDeDossierSaisiNormaliseEtVerifie() {
+        assertEquals("A-12", PatientService.normaliserNumeroDossier("  a-12 "));
+        assertEquals("2019/37", PatientService.normaliserNumeroDossier("2019/37"));
+        assertNull(PatientService.normaliserNumeroDossier("  "));
+        for (String faux : new String[]{"12 34", "12#", "é1", "123456789012345678901"}) {
+            try {
+                PatientService.normaliserNumeroDossier(faux);
+                org.junit.Assert.fail(faux);
+            } catch (MetierException attendu) {
+                assertTrue(attendu.getMessage().contains("numéro de dossier"));
+            }
+        }
+    }
+
+    @Test
+    public void unAutrePosteAPrisLeNumeroAttribueOnEnPrendUnAutre() {
+        final int[] appels = {0};
+        PatientService concurrent = new PatientService(new MemoireDAOFactory() {
+            {
+                patients.putAll(base.patients);
+            }
+
+            @Override
+            public PatientDao getPatientDao() {
+                final PatientDao reel = super.getPatientDao();
+                return (PatientDao) Proxy.newProxyInstance(PatientDao.class.getClassLoader(),
+                        new Class<?>[]{PatientDao.class}, new InvocationHandler() {
+                            @Override
+                            public Object invoke(Object proxy, Method m, Object[] a) throws Throwable {
+                                if (m.getName().equals("prochainNumeroDossier") && appels[0]++ == 0) {
+                                    return "1"; // déjà pris entre la lecture et l'insertion
+                                }
+                                try {
+                                    return m.invoke(reel, a);
+                                } catch (InvocationTargetException e) {
+                                    throw e.getCause();
+                                }
+                            }
+                        });
+            }
+        });
+        patient p = Donnees.patient(0, "CONCURRENT");
+        p.setTelephone("0555000009");
+        concurrent.creer(p);
+        assertEquals(2, appels[0]);
+        assertTrue(!"1".equals(p.getNumeroDossier()));
+    }
+
+    @Test
+    public void numeroDeDossierModifiable() {
+        patient p = base.patients.get(2);
+        p.setNumeroDossier("2019/40");
+        service.modifier(p);
+        assertEquals("2019/40", base.patients.get(2).getNumeroDossier());
+        p.setNumeroDossier("1");
+        try {
+            service.modifier(p);
+            org.junit.Assert.fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("déjà utilisé"));
+        }
+        p.setNumeroDossier(" ");
+        try {
+            service.modifier(p);
+            org.junit.Assert.fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("obligatoire"));
+        }
+    }
+
+    @Test
+    public void rechercheParNumeroDeDossierEnTete() {
+        patient p = inscrire("ZERHOUNI", "0555000005", "2019/37");
+        assertEquals(p, service.rechercher("2019/37").get(0));
+        assertEquals(p, service.rechercher(" 2019/37 ").get(0));
+        assertEquals(base.patients.get(2), service.rechercher("2").get(0));
+    }
+
+    private patient inscrire(String nom, String telephone, String numero) {
+        patient p = Donnees.patient(0, nom);
+        p.setTelephone(telephone);
+        p.setNumeroDossier(numero);
+        return service.creer(p);
     }
 
     @Test(expected = MetierException.class)

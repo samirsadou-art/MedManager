@@ -83,7 +83,8 @@ public class JdbcConsultationDao implements ConsultationDao {
     @Override
     public List<consultation> findByDate(LocalDate date) {
         // Une seule requête avec jointure au lieu d'une requête patient par ligne.
-        return jdbc.query("SELECT c.*, p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient "
+        return jdbc.query("SELECT c.*, p.numeroDossier, p.nomPatient, p.prenomPatient, p.date_Nais_Patient, "
+                + "p.sexePatient "
                 + "FROM consultation c JOIN patient p ON p.idPatient = c.idPatient "
                 + "WHERE c.dateConsultation=? ORDER BY c.heureConsultation",
                 new RowMapper<consultation>() {

@@ -19,7 +19,7 @@ public class JdbcRendezVousDao implements RendezVousDao {
     /** Colonnes lues avec le patient et l'utilisateur qui a pris le rendez-vous. */
     private static final String SELECT = "SELECT r.idRendezVous, r.idUser, r.idPatient, r.idMedecin, r.date, "
             + "r.heure, r.motif, r.prisLe, r.etat, "
-            + "p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient, p.telPatient, "
+            + "p.numeroDossier, p.nomPatient, p.prenomPatient, p.date_Nais_Patient, p.sexePatient, p.telPatient, "
             + "u.nom, u.prenom, u.qualite "
             + "FROM rendezvous r JOIN patient p ON p.idPatient = r.idPatient "
             + "LEFT JOIN utilisateur u ON u.idUtilisateur = r.idUser ";

@@ -103,7 +103,7 @@ public class FichePatient extends JDialog implements FichePatientVue {
                         : "État civil et coordonnées ; le dossier médical n'est pas modifié ici");
         if (p != null) {
             remplir(FichePatientController.Saisie.depuis(p));
-            numero.setEditable(false);
+            numero.setToolTipText("Numéro du dossier au cabinet (chiffres, lettres, / - .)");
         }
         pack();
         setLocationRelativeTo(parent);
@@ -113,7 +113,7 @@ public class FichePatient extends JDialog implements FichePatientVue {
         wilaya.setEditable(true);
         naissance.setToolTipText("jj/mm/aaaa");
         telephone.setToolTipText("Mobile 05, 06 ou 07 (10 chiffres) ou fixe (9 chiffres)");
-        numero.setToolTipText("Laisser vide : numéro attribué automatiquement");
+        numero.setToolTipText("Laisser vide : numéro attribué automatiquement (ou ex. 1254, 2019/37)");
 
         JPanel etatCivil = grille();
         ligne(etatCivil, 0, "Nom *", nom, "Prénom *", prenom);
@@ -248,7 +248,7 @@ public class FichePatient extends JDialog implements FichePatientVue {
     private Suite demanderSuite(patient p) {
         Object[] choix = {"Prendre un rendez-vous", "Mettre en salle d'attente", "Terminer"};
         int reponse = JOptionPane.showOptionDialog(this,
-                "Patient " + p + " inscrit (dossier n° " + p.getIdentPat() + ").\nQue voulez-vous faire ?",
+                "Patient " + p + " inscrit (dossier n° " + p.getNumeroDossier() + ").\nQue voulez-vous faire ?",
                 "Patient inscrit", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, choix, choix[0]);
         return reponse == 0 ? Suite.RENDEZ_VOUS : reponse == 1 ? Suite.SALLE_ATTENTE : Suite.AUCUNE;
     }
@@ -273,7 +273,7 @@ public class FichePatient extends JDialog implements FichePatientVue {
     public int proposerDoublons(List<patient> doublons) {
         DefaultListModel<String> lignes = new DefaultListModel<>();
         for (patient p : doublons) {
-            lignes.addElement("N° " + p.getIdentPat() + "   " + p + "   né(e) le "
+            lignes.addElement("N° " + p.getNumeroDossier() + "   " + p + "   né(e) le "
                     + (p.getDat_nais() == null ? "?" : NAISSANCE.format(p.getDat_nais()))
                     + (p.getTelephone() == null ? "" : "   tél. " + p.getTelephone()));
         }

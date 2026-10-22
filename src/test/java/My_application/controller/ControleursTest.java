@@ -672,10 +672,10 @@ public class ControleursTest {
     public void numeroDeDossierNonNumeriqueEtTelephoneManquant() {
         FausseFiche vue = new FausseFiche();
         FichePatientController.Saisie s = saisie("X", "Y", "01/01/1990", "0555123456");
-        s.numero = "A12";
+        s.numero = "12#";
         FichePatientController ctrl = new FichePatientController(vue, new PatientService(base));
         assertNull(ctrl.inscrire(s));
-        assertTrue(vue.erreurs.get(0).contains("nombre"));
+        assertTrue(vue.erreurs.get(0).contains("numéro de dossier"));
         assertNull(ctrl.inscrire(saisie("X", "Y", "01/01/1990", " ")));
         assertTrue(vue.erreurs.get(1).contains("téléphone"));
     }

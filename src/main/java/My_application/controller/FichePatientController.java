@@ -40,7 +40,7 @@ public class FichePatientController extends ControleurBase {
         /** Saisie pré-remplie avec la fiche d'un patient (modification). */
         public static Saisie depuis(patient p) {
             Saisie s = new Saisie();
-            s.numero = String.valueOf(p.getIdentPat());
+            s.numero = texte(p.getNumeroDossier());
             s.numeroSecuriteSociale = texte(p.getNum_soc());
             s.nom = texte(p.getNom());
             s.prenom = texte(p.getPrenom());
@@ -121,14 +121,7 @@ public class FichePatientController extends ControleurBase {
 
     static patient versPatient(Saisie s) {
         patient p = new patient();
-        String num = s.numero == null ? "" : s.numero.trim();
-        if (!num.isEmpty()) {
-            try {
-                p.setIdentPat(Integer.parseInt(num));
-            } catch (NumberFormatException e) {
-                throw new MetierException("Le numéro de dossier doit être un nombre.");
-            }
-        }
+        p.setNumeroDossier(PatientService.normaliserNumeroDossier(s.numero));
         p.setNum_soc(s.numeroSecuriteSociale);
         p.setNom(s.nom);
         p.setPrenom(s.prenom);

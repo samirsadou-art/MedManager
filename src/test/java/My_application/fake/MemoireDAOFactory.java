@@ -3,9 +3,9 @@ package My_application.fake;
 import My_application.dao.AnalyseDao;
 import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
+import My_application.dao.DoublonException;
 import My_application.dao.DataAccessException;
 import My_application.dao.DemandeAnalyseDao;
-import My_application.dao.DoublonException;
 import My_application.dao.EvenementDao;
 import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
@@ -220,6 +220,7 @@ public class MemoireDAOFactory implements DAOFactory {
             @Override
             public patient insert(patient p) {
                 appel("patient.insert");
+                verifierNumero(p);
                 if (p.getIdentPat() <= 0) {
                     p.setIdentPat(nouvelId());
                 }
@@ -230,7 +231,38 @@ public class MemoireDAOFactory implements DAOFactory {
             @Override
             public void update(patient p) {
                 appel("patient.update");
+                verifierNumero(p);
                 patients.put(p.getIdentPat(), p);
+            }
+
+            /** Clé unique uk_patient_numero_dossier (V15). */
+            private void verifierNumero(patient p) {
+                patient porteur = findByNumeroDossier(p.getNumeroDossier());
+                if (p.getNumeroDossier() != null && porteur != null && porteur.getIdentPat() != p.getIdentPat()) {
+                    throw new DoublonException("numéro de dossier " + p.getNumeroDossier(), null);
+                }
+            }
+
+            @Override
+            public patient findByNumeroDossier(String numero) {
+                for (patient p : patients.values()) {
+                    if (p.getNumeroDossier() != null && p.getNumeroDossier().equalsIgnoreCase(numero)) {
+                        return p;
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            public String prochainNumeroDossier() {
+                appel("patient.prochainNumeroDossier");
+                long max = 0;
+                for (patient p : patients.values()) {
+                    if (p.getNumeroDossier() != null && p.getNumeroDossier().matches("[0-9]{1,18}")) {
+                        max = Math.max(max, Long.parseLong(p.getNumeroDossier()));
+                    }
+                }
+                return String.valueOf(max + 1);
             }
 
             @Override

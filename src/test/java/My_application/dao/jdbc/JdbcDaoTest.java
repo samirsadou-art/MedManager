@@ -90,20 +90,45 @@ public class JdbcDaoTest {
     }
 
     @Test
-    public void insertionPatientSansNumeroUtiliseLaCleGeneree() {
+    public void insertionPatientUtiliseToujoursLaCleGeneree() {
         patient p = Donnees.patient(0, "NOUVEAU");
+        p.setNumeroDossier("2019/37");
         daos.getPatientDao().insert(p);
         assertTrue(p.getIdentPat() > 0);
-        assertFalse(base.derniere().sql.contains("idPatient"));
+        FauxJdbc.Execution e = base.derniere();
+        assertFalse("idPatient n'est plus saisi (V15)", e.sql.contains("idPatient"));
+        assertTrue(e.sql.startsWith("INSERT INTO patient (numeroDossier,"));
+        assertEquals("2019/37", e.param(1));
+        assertEquals("NOUVEAU", e.param(2));
     }
 
     @Test
-    public void insertionPatientAvecNumeroSaisi() {
-        daos.getPatientDao().insert(Donnees.patient(42, "DUPONT"));
+    public void modificationPatientEcritLeNumeroDeDossier() {
+        patient p = Donnees.patient(7, "DUPONT");
+        p.setNumeroDossier("A-12");
+        daos.getPatientDao().update(p);
         FauxJdbc.Execution e = base.derniere();
-        assertTrue(e.sql.startsWith("INSERT INTO patient (idPatient,"));
-        assertEquals(42, e.param(1));
-        assertEquals("DUPONT", e.param(2));
+        assertTrue(e.sql.startsWith("UPDATE patient SET numeroDossier=?"));
+        assertEquals("A-12", e.param(1));
+        assertEquals(7, e.param(14));
+    }
+
+    @Test
+    public void prochainNumeroDeDossierNeCompteQueLesNumerosNumeriques() {
+        base.quand("AS prochain", ligne("prochain", "502"));
+        assertEquals("502", daos.getPatientDao().prochainNumeroDossier());
+        assertTrue(base.derniere().sql.contains("REGEXP '^[0-9]{1,18}$'"));
+    }
+
+    @Test
+    public void patientRetrouveParNumeroDeDossier() {
+        base.quand("WHERE numeroDossier=?", ligne("idPatient", 4, "numeroDossier", "2019/37",
+                "nomPatient", "X", "prenomPatient", "Y", "date_Nais_Patient", java.sql.Date.valueOf("1990-01-01"),
+                "sexePatient", true));
+        patient p = daos.getPatientDao().findByNumeroDossier("2019/37");
+        assertEquals(4, p.getIdentPat());
+        assertEquals("2019/37", p.getNumeroDossier());
+        assertEquals("2019/37", base.derniere().param(1));
     }
 
     @Test
