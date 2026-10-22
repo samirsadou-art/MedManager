@@ -12,7 +12,8 @@ Faites-le de préférence **avant l'ouverture**, avec deux patients d'essai que 
 
 - [ ] Sauvegarde : `sql\sauvegarder_base.bat E:\Sauvegardes` ; le fichier `.sql` fait plus de quelques Ko.
 - [ ] Mise à jour de la base : `java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.MigrationBase migrer`
-      se termine par la version 14 (une base en version 9 reçoit V10 à V14).
+      se termine sans erreur et annonce la dernière version du dépôt (une base en version 9 reçoit toutes les
+      migrations à partir de V10).
 - [ ] Le nouveau jar est copié sur le PC de la secrétaire **et** sur chaque poste médecin.
 - [ ] `My_application.outils.InstallationPoste` affiche « poste prêt » sur chaque poste.
 - [ ] Les comptes existent : un `admin`, un `secretaire`, un compte par médecin (`GestionComptes liste`).

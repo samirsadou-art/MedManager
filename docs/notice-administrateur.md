@@ -99,7 +99,10 @@ N'utilisez pas l'export de phpMyAdmin : il perd des contraintes de la base.
 Chaque ouverture ou modification d'un dossier patient est notée : qui, quand, depuis quel poste. Les connexions,
 les échecs de connexion et les changements de comptes sont notés aussi, dans la table `journal_acces`.
 
-Pour savoir qui a consulté le dossier d'un patient, indiquez son numéro de dossier (affiché sur sa fiche) :
+Pour savoir qui a consulté le dossier d'un patient, indiquez son identifiant interne (`idPatient` dans la base) :
 ```
-java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.GestionComptes journal <n° de dossier>
+java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.GestionComptes journal <idPatient>
 ```
+Pour les dossiers inscrits avant la version 15 de la base, l'identifiant interne est le numéro de dossier. Pour les
+autres, il peut en différer : retrouvez-le avec
+`SELECT idPatient FROM patient WHERE numeroDossier = '<n° de dossier>'`.
