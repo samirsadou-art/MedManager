@@ -10,6 +10,7 @@ import My_application.service.DossierService;
 import My_application.service.JournalAcces;
 import My_application.service.JournalAccesEnBase;
 import My_application.service.MembresService;
+import My_application.service.StatistiquesService;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.MessagerieService;
@@ -47,6 +48,7 @@ public final class AppContext implements AutoCloseable {
     private final JournalAcces journal;
     private final AuthentificationService authentificationService;
     private final MembresService membresService;
+    private final StatistiquesService statistiquesService;
     private final AutoCloseable ressource;
 
     /** Assemblage sur une fabrique de DAO donnée (autre base, tests). */
@@ -65,6 +67,7 @@ public final class AppContext implements AutoCloseable {
         this.patientService = new PatientService(daos, journal);
         this.dossierService = new DossierService(daos, journal, session);
         this.membresService = new MembresService(daos, journal, session);
+        this.statistiquesService = new StatistiquesService(daos, session);
         this.catalogueService = new CatalogueService(daos);
         this.rendezVousService = new RendezVousService(daos, journal, session::getIdMedecinDuPoste);
         this.salleAttenteService = new SalleAttenteService(daos, rendezVousService, session,
@@ -135,6 +138,10 @@ public final class AppContext implements AutoCloseable {
 
     public MembresService getMembresService() {
         return membresService;
+    }
+
+    public StatistiquesService getStatistiquesService() {
+        return statistiquesService;
     }
 
     public JournalAcces getJournal() {
