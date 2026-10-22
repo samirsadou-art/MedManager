@@ -10,6 +10,7 @@ import My_application.entities.Compte;
 import My_application.entities.EntreeJournal;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.consultation;
+import My_application.entities.medecin;
 import My_application.entities.medicament;
 import My_application.entities.patient;
 import My_application.entities.symptome;
@@ -242,5 +243,17 @@ public class JdbcDaoTest {
         assertEquals(1, r.size());
         assertNull(r.get(0).getIdUtilisateur());
         assertEquals(LocalDateTime.of(2026, 10, 21, 9, 30), r.get(0).getDateHeure());
+    }
+
+    @Test
+    public void listeDesMedecinsTrieeParNom() {
+        base.quand("FROM medecin ORDER BY nomMedecin",
+                ligne("idMedecin", 2, "nomMedecin", "AMRANI", "prenomMedecin", "Lila", "titre", "Dr"),
+                ligne("idMedecin", 1, "nomMedecin", "SAHAB", "prenomMedecin", "Said", "titre", "Dr"));
+        List<medecin> r = daos.getMedecinDao().findAll();
+        assertEquals(2, r.size());
+        assertEquals(2, r.get(0).getIdmedecin());
+        assertEquals("Dr AMRANI Lila", r.get(0).getNomComplet());
+        assertEquals(0, base.derniere().parametres.size());
     }
 }

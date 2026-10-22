@@ -1,6 +1,7 @@
 package My_application.rendezvous;
 
 import My_application.entities.Rendez_Vous;
+import My_application.entities.medecin;
 import My_application.entities.patient;
 import My_application.vue.Theme;
 import java.awt.AlphaComposite;
@@ -25,8 +26,11 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import javax.swing.JComponent;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
@@ -42,6 +46,10 @@ import javax.swing.ToolTipManager;
  * rendez-vous de la semaine et reçoit les clics par un {@link Ecouteur}.
  * L'en-tête des jours ({@link #getEnTete()}) et la colonne des heures
  * ({@link #getColonneHeures()}) se placent dans le {@code JScrollPane}.
+ * <p>
+ * Dans un cabinet à plusieurs médecins, l'agenda peut n'afficher que les
+ * rendez-vous d'un médecin ({@link #setFiltreMedecin}). Sinon, quand deux
+ * médecins reçoivent au même créneau, leurs cartes se partagent la case.
  */
 public class AgendaSemaine extends JComponent implements Scrollable {
 
@@ -61,6 +69,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     static final int LARGEUR_HEURES = 64;
     static final int HAUTEUR_EN_TETE = 54;
     private static final int LARGEUR_MIN_JOUR = 120;
+    private static final int LARGEUR_CARTE_ETROITE = 100;
     private static final String[] JOURS_COURTS = {"Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."};
     private static final DateTimeFormatter MOIS = DateTimeFormatter.ofPattern("MMMM", Locale.FRENCH);
     private static final DateTimeFormatter HEURE = DateTimeFormatter.ofPattern("HH:mm");
@@ -80,6 +89,9 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     private Rendez_Vous selection;
     private Rendez_Vous propose;
     private String filtre = "";
+    private Integer filtreMedecin;
+    private Integer medecinReservation;
+    private Map<Integer, medecin> medecins = new HashMap<>();
     private Point survol;
     private Ecouteur ecouteur;
 
@@ -154,11 +166,22 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         return rendezVous;
     }
 
-    /** Nombre de rendez-vous de la semaine qui correspondent à la recherche. */
+    /** Nombre de rendez-vous de la semaine affichés (médecin choisi, ou tous). */
+    public int nombreAffiches() {
+        int n = 0;
+        for (Rendez_Vous r : rendezVous) {
+            if (duMedecinAffiche(r)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** Parmi les rendez-vous affichés, ceux qui correspondent à la recherche. */
     public int nombreVisibles() {
         int n = 0;
         for (Rendez_Vous r : rendezVous) {
-            if (correspond(r, filtre)) {
+            if (duMedecinAffiche(r) && correspond(r, filtre)) {
                 n++;
             }
         }
@@ -188,6 +211,71 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     public void setFiltre(String texte) {
         filtre = texte == null ? "" : texte.trim();
         repaint();
+    }
+
+    /**
+     * N'affiche que les rendez-vous de ce médecin ; null pour tous les
+     * médecins. Les rendez-vous des autres sont masqués, pas estompés.
+     */
+    public void setFiltreMedecin(Integer idMedecin) {
+        filtreMedecin = idMedecin;
+        if (selection != null && !duMedecinAffiche(selection)) {
+            selection = null;
+        }
+        enTete.repaint();
+        repaint();
+    }
+
+    public Integer getFiltreMedecin() {
+        return filtreMedecin;
+    }
+
+    /**
+     * Médecin des prochains rendez-vous : les places libres d'une heure
+     * (survol, info-bulle) sont comptées dans son agenda. Null : toutes les
+     * places du cabinet.
+     */
+    public void setMedecinReservation(Integer idMedecin) {
+        medecinReservation = idMedecin;
+        repaint();
+    }
+
+    /** Médecins du cabinet : leur nom figure sur les cartes quand ils sont plusieurs. */
+    public void setMedecins(List<medecin> liste) {
+        medecins = new HashMap<>();
+        for (medecin m : liste) {
+            medecins.put(m.getIdmedecin(), m);
+        }
+        repaint();
+    }
+
+    private medecin medecinDe(Integer id) {
+        return id == null ? null : medecins.get(id);
+    }
+
+    /** Nom court du médecin du rendez-vous (« Dr SAHAB »), ou null s'il est inconnu. */
+    public String nomMedecin(Rendez_Vous r) {
+        medecin m = medecinDe(r.getIdMedecin());
+        return m == null ? null : nomCourt(m);
+    }
+
+    /** « Dr SAHAB » : titre et nom, assez court pour une carte. */
+    public static String nomCourt(medecin m) {
+        return ((m.getTitre() == null ? "" : m.getTitre().trim()) + " " + nomSeul(m)).trim();
+    }
+
+    private static String nomSeul(medecin m) {
+        return m.getNom() == null ? "" : m.getNom().trim().toUpperCase(Locale.FRENCH);
+    }
+
+    /** Vrai si le rendez-vous est celui du médecin affiché (ou si tous le sont). */
+    boolean duMedecinAffiche(Rendez_Vous r) {
+        return filtreMedecin == null || filtreMedecin.equals(r.getIdMedecin());
+    }
+
+    /** Le nom du médecin n'est utile sur les cartes que si plusieurs médecins y figurent. */
+    private boolean nomMedecinSurLesCartes() {
+        return filtreMedecin == null && medecins.size() > 1;
     }
 
     public void setEcouteur(Ecouteur ecouteur) {
@@ -281,12 +369,55 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         return new Rectangle(x, i * HAUTEUR_CRENEAU, xJour(j + 1) - x, HAUTEUR_CRENEAU);
     }
 
-    /** Rendez-vous dont la carte est sous le point, ou null. */
+    /**
+     * Carte d'un rendez-vous : la case de son créneau, partagée en colonnes
+     * (par médecin) quand plusieurs rendez-vous affichés tombent au même
+     * créneau. Null s'il n'est pas dans la semaine affichée.
+     */
+    public Rectangle carteDe(Rendez_Vous r) {
+        Rectangle c = rectangleDe(r);
+        if (c == null) {
+            return null;
+        }
+        List<Rendez_Vous> voisins = memeCase(r, c);
+        int n = voisins.size();
+        if (n <= 1) {
+            return c;
+        }
+        int i = 0;
+        while (voisins.get(i) != r) {
+            i++;
+        }
+        int debut = c.x + c.width * i / n;
+        int fin = c.x + c.width * (i + 1) / n;
+        return new Rectangle(debut, c.y, fin - debut, c.height);
+    }
+
+    /** Rendez-vous affichés (et créneau proposé) dans la même case que r, triés par médecin. */
+    private List<Rendez_Vous> memeCase(Rendez_Vous r, Rectangle c) {
+        List<Rendez_Vous> l = new ArrayList<>();
+        for (Rendez_Vous x : rendezVous) {
+            if (x == r || duMedecinAffiche(x) && c.equals(rectangleDe(x))) {
+                l.add(x);
+            }
+        }
+        if (propose != null && (propose == r || c.equals(rectangleDe(propose)))) {
+            l.add(propose);
+        } else if (!rendezVous.contains(r)) {
+            l.add(r);
+        }
+        l.sort(Comparator.comparing(Rendez_Vous::getIdMedecin, Comparator.nullsLast(Comparator.naturalOrder())));
+        return l;
+    }
+
+    /** Rendez-vous affiché dont la carte est sous le point, ou null. */
     public Rendez_Vous rendezVousA(Point p) {
         for (Rendez_Vous r : rendezVous) {
-            Rectangle c = rectangleDe(r);
-            if (c != null && c.contains(p)) {
-                return r;
+            if (duMedecinAffiche(r)) {
+                Rectangle c = carteDe(r);
+                if (c != null && c.contains(p)) {
+                    return r;
+                }
             }
         }
         return null;
@@ -318,20 +449,27 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         return courant != null && jour != null && heure >= 0 && heureFuture(jour, heure);
     }
 
-    private int nombreDansLHeure(LocalDate jour, int heure) {
+    /**
+     * Places prises dans l'heure chez le médecin des prochains rendez-vous
+     * (comme {@code RendezVousService} : un rendez-vous sans médecin compte
+     * pour tous).
+     */
+    int nombreDansLHeure(LocalDate jour, int heure) {
         int n = 0;
         for (Rendez_Vous r : rendezVous) {
-            if (r.getDate().equals(jour) && r.getHeure().getHour() == heure) {
+            if (r.getDate().equals(jour) && r.getHeure().getHour() == heure
+                    && (medecinReservation == null || r.getIdMedecin() == null
+                    || medecinReservation.equals(r.getIdMedecin()))) {
                 n++;
             }
         }
         return n;
     }
 
-    private int nombreDuJour(LocalDate jour) {
+    int nombreDuJour(LocalDate jour) {
         int n = 0;
         for (Rendez_Vous r : rendezVous) {
-            if (r.getDate().equals(jour)) {
+            if (r.getDate().equals(jour) && duMedecinAffiche(r)) {
                 n++;
             }
         }
@@ -360,9 +498,12 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         Rendez_Vous r = rendezVousA(e.getPoint());
         if (r != null) {
             LocalTime debut = r.getHeure();
+            medecin m = medecinDe(r.getIdMedecin());
+            String medecin = m == null ? null : m.toString();
             return "<html><b>" + r.getPatient().getNom() + " " + r.getPatient().getPrenom() + "</b><br>"
                     + DATE_LONGUE.format(r.getDate()) + "<br>"
                     + HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(pas))
+                    + (medecin == null ? "" : "<br>Avec " + medecin)
                     + "<br>" + statut(r).getLibelle() + "</html>";
         }
         LocalDate jour = jourA(e.getX());
@@ -371,7 +512,10 @@ public class AgendaSemaine extends JComponent implements Scrollable {
             return null;
         }
         int n = nombreDansLHeure(jour, heure);
-        String places = n + " / " + maxParHeure + " places prises de " + heure + " h à " + (heure + 1) + " h";
+        medecin m = medecins.size() > 1 ? medecinDe(medecinReservation) : null;
+        String chez = m == null ? null : nomCourt(m);
+        String places = n + " / " + maxParHeure + " places prises de " + heure + " h à " + (heure + 1) + " h"
+                + (chez == null ? "" : " chez " + chez);
         if (!heureFuture(jour, heure)) {
             return places;
         }
@@ -497,13 +641,13 @@ public class AgendaSemaine extends JComponent implements Scrollable {
 
         // Cartes.
         for (Rendez_Vous r : rendezVous) {
-            Rectangle c = rectangleDe(r);
+            Rectangle c = duMedecinAffiche(r) ? carteDe(r) : null;
             if (c != null) {
                 dessinerCarte(g2, r, c);
             }
         }
         if (propose != null) {
-            Rectangle c = rectangleDe(propose);
+            Rectangle c = carteDe(propose);
             if (c != null) {
                 dessinerProposition(g2, propose, c);
             }
@@ -542,18 +686,32 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         g2.setStroke(new BasicStroke(choisi ? 2f : 1f));
         g2.drawRoundRect(x, y, l - 1, h - 1, 10, 10);
 
+        // Carte étroite (case partagée entre médecins) : pas de pastille,
+        // le médecin à la place de l'horaire (déjà lu dans la colonne des heures).
+        boolean etroite = l < LARGEUR_CARTE_ETROITE;
+        int marge = etroite ? 6 : 8;
         g2.setColor(s.getCouleur());
-        g2.fillOval(x + 8, y + 7, 7, 7);
+        if (!etroite) {
+            g2.fillOval(x + 8, y + 7, 7, 7);
+        }
         LocalTime debut = r.getHeure();
         g2.setFont(Theme.police(Font.BOLD, 10.5f));
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(couper(HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(pas)), fm, l - 26),
-                x + 20, y + 14);
+        medecin m = nomMedecinSurLesCartes() ? medecinDe(r.getIdMedecin()) : null;
+        String horaire;
+        if (m == null) {
+            horaire = etroite ? HEURE.format(debut) : HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(pas));
+        } else {
+            horaire = etroite ? nomSeul(m) : HEURE.format(debut) + " · " + nomCourt(m);
+        }
+        int xTexte = etroite ? x + marge : x + 20;
+        g2.drawString(couper(horaire, fm, x + l - xTexte - marge), xTexte, y + 14);
         g2.setFont(Theme.police(Font.BOLD, 12));
         fm = g2.getFontMetrics();
         g2.setColor(s == StatutRendezVous.PASSE ? Theme.TEXTE_SECONDAIRE : Theme.TEXTE);
-        String nom = r.getPatient().getNom().toUpperCase(Locale.FRENCH) + " " + r.getPatient().getPrenom();
-        g2.drawString(couper(nom, fm, l - 16), x + 8, y + h - 7);
+        String nom = r.getPatient().getNom().toUpperCase(Locale.FRENCH)
+                + (etroite ? "" : " " + r.getPatient().getPrenom());
+        g2.drawString(couper(nom, fm, l - 2 * marge), x + marge, y + h - 7);
         g2.dispose();
     }
 

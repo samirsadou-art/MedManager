@@ -245,6 +245,20 @@ public class MemoireDAOFactory implements DAOFactory {
                 appel("medecin.findById");
                 return medecins.get(id);
             }
+
+            @Override
+            public List<medecin> findAll() {
+                appel("medecin.findAll");
+                List<medecin> r = new ArrayList<>(medecins.values());
+                r.sort(new Comparator<medecin>() {
+                    @Override
+                    public int compare(medecin a, medecin b) {
+                        int c = a.getNom().compareTo(b.getNom());
+                        return c != 0 ? c : a.getPrenom().compareTo(b.getPrenom());
+                    }
+                });
+                return r;
+            }
         };
     }
 

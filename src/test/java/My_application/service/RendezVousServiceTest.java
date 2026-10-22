@@ -7,6 +7,7 @@ import static org.junit.Assert.fail;
 import My_application.dao.DoublonException;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
+import My_application.entities.medecin;
 import My_application.entities.patient;
 import My_application.fake.Donnees;
 import My_application.fake.MemoireDAOFactory;
@@ -79,6 +80,16 @@ public class RendezVousServiceTest {
         } catch (MetierException attendu) {
             assertTrue(attendu.getMessage().contains("par heure"));
         }
+    }
+
+    @Test
+    public void listeDesMedecinsDuCabinetEtMedecinDuPoste() {
+        medecin m = Donnees.medecin(2);
+        m.setNom("AMRANI");
+        base.medecins.put(2, m);
+        assertEquals(2, service.medecins().size());
+        assertEquals("AMRANI", service.medecins().get(0).getNom());
+        assertEquals(RendezVousService.MEDECIN_PAR_DEFAUT, service.getIdMedecinCourant());
     }
 
     @Test

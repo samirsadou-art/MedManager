@@ -7,10 +7,13 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import My_application.entities.Rendez_Vous;
+import My_application.entities.medecin;
 import My_application.entities.patient;
 import My_application.fake.Donnees;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import java.time.LocalTime;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -44,6 +47,23 @@ public class AgendaSemaineTest {
         r.setDate(jour);
         r.setHeure(LocalTime.parse(heure));
         return r;
+    }
+
+    private static Rendez_Vous rdv(patient p, LocalDate jour, String heure, Integer idMedecin) {
+        Rendez_Vous r = rdv(p, jour, heure);
+        r.setIdMedecin(idMedecin);
+        return r;
+    }
+
+    private void deuxMedecins() {
+        medecin amrani = Donnees.medecin(2);
+        amrani.setNom("Amrani");
+        amrani.setPrenom("Lila");
+        agenda.setMedecins(Arrays.asList(Donnees.medecin(1), amrani));
+    }
+
+    private String infoBulle(int x, int y) {
+        return agenda.getToolTipText(new MouseEvent(agenda, MouseEvent.MOUSE_MOVED, 0, 0, x, y, 0, false));
     }
 
     @Test
@@ -110,5 +130,91 @@ public class AgendaSemaineTest {
                 AgendaSemaine.libelleSemaine(LocalDate.of(2026, 9, 27)));
         assertEquals("Semaine du 27 décembre 2026 au 2 janvier 2027",
                 AgendaSemaine.libelleSemaine(LocalDate.of(2026, 12, 27)));
+    }
+
+    @Test
+    public void leFiltreMedecinMasqueLesRendezVousDesAutres() {
+        LocalDate mercredi = LocalDate.of(2026, 10, 7);
+        Rendez_Vous chezSahab = rdv(dossier, mercredi, "09:00:00", 1);
+        Rendez_Vous chezAmrani = rdv(Donnees.patient(2, "Martin"), mercredi, "10:00:00", 2);
+        agenda.afficherSemaine(DIMANCHE, Arrays.asList(chezSahab, chezAmrani));
+        int h = AgendaSemaine.HAUTEUR_CRENEAU;
+        agenda.setSelection(chezSahab);
+        assertEquals(2, agenda.nombreAffiches());
+        assertEquals(2, agenda.nombreDuJour(mercredi));
+
+        agenda.setFiltreMedecin(2);
+        assertEquals(Integer.valueOf(2), agenda.getFiltreMedecin());
+        assertEquals(1, agenda.nombreAffiches());
+        assertEquals(1, agenda.nombreDuJour(mercredi));
+        assertNull("rendez-vous masqué : plus cliquable", agenda.rendezVousA(new Point(350, 4 * h + 5)));
+        assertSame(chezAmrani, agenda.rendezVousA(new Point(350, 8 * h + 5)));
+        assertNull("la sélection masquée est abandonnée", agenda.getSelection());
+        agenda.setFiltre("dubois");
+        assertEquals(0, agenda.nombreVisibles());
+
+        agenda.setFiltreMedecin(null);
+        assertEquals(1, agenda.nombreVisibles());
+    }
+
+    @Test
+    public void deuxMedecinsAuMemeCreneauSePartagentLaCase() {
+        LocalDate mercredi = LocalDate.of(2026, 10, 7);
+        Rendez_Vous chezAmrani = rdv(Donnees.patient(2, "Martin"), mercredi, "09:00:00", 2);
+        Rendez_Vous chezSahab = rdv(dossier, mercredi, "09:00:00", 1);
+        agenda.afficherSemaine(DIMANCHE, Arrays.asList(chezAmrani, chezSahab));
+        int y = 4 * AgendaSemaine.HAUTEUR_CRENEAU;
+        // Triées par médecin : le n° 1 à gauche.
+        assertEquals(new Rectangle(300, y, 50, AgendaSemaine.HAUTEUR_CRENEAU), agenda.carteDe(chezSahab));
+        assertEquals(new Rectangle(350, y, 50, AgendaSemaine.HAUTEUR_CRENEAU), agenda.carteDe(chezAmrani));
+        assertSame(chezSahab, agenda.rendezVousA(new Point(320, y + 5)));
+        assertSame(chezAmrani, agenda.rendezVousA(new Point(380, y + 5)));
+
+        // Un créneau proposé au même quart d'heure prend sa part de la case.
+        Rendez_Vous propose = rdv(Donnees.patient(3, "Petit"), mercredi, "09:00:00", 3);
+        agenda.setPropose(propose);
+        assertEquals(new Rectangle(366, y, 34, AgendaSemaine.HAUTEUR_CRENEAU), agenda.carteDe(propose));
+        agenda.setPropose(null);
+
+        agenda.setFiltreMedecin(2);
+        assertEquals(agenda.rectangleDe(chezAmrani), agenda.carteDe(chezAmrani));
+    }
+
+    @Test
+    public void lesPlacesLibresSontCompteesChezLeMedecinDesProchainsRendezVous() {
+        LocalDate mercredi = LocalDate.of(2026, 10, 7);
+        agenda.afficherSemaine(DIMANCHE, Arrays.asList(
+                rdv(dossier, mercredi, "09:00:00", 1),
+                rdv(Donnees.patient(2, "Martin"), mercredi, "09:15:00", 2),
+                rdv(Donnees.patient(3, "Petit"), mercredi, "09:30:00", null)));
+        assertEquals("sans médecin choisi : tout le cabinet", 3, agenda.nombreDansLHeure(mercredi, 9));
+        agenda.setMedecinReservation(2);
+        assertEquals("un rendez-vous sans médecin compte pour tous", 2, agenda.nombreDansLHeure(mercredi, 9));
+
+        deuxMedecins();
+        int h = AgendaSemaine.HAUTEUR_CRENEAU;
+        assertTrue(infoBulle(350, 7 * h + 5).contains("2 / 4 places prises de 9 h à 10 h chez Dr AMRANI"));
+        assertTrue(infoBulle(350, 5 * h + 5).contains("Avec Dr Amrani Lila"));
+        assertEquals("Dr SAHAB", agenda.nomMedecin(rdv(dossier, mercredi, "11:00:00", 1)));
+        medecin sansTitre = Donnees.medecin(3);
+        sansTitre.setTitre(null);
+        assertEquals("SAHAB", AgendaSemaine.nomCourt(sansTitre));
+        assertNull(agenda.nomMedecin(rdv(dossier, mercredi, "11:00:00", null)));
+    }
+
+    @Test
+    public void leDessinAfficheLeMedecinSansErreur() {
+        LocalDate mardi = LocalDate.of(2026, 10, 6);
+        Rendez_Vous a = rdv(dossier, mardi, "11:00:00", 1);
+        Rendez_Vous b = rdv(Donnees.patient(2, "Martin"), mardi, "11:00:00", 2);
+        agenda.afficherSemaine(DIMANCHE, Arrays.asList(a, b, rdv(dossier, mardi, "08:00:00", 2)));
+        deuxMedecins();
+        agenda.setSelection(a);
+        agenda.setPropose(rdv(dossier, mardi, "11:15:00", 1));
+        BufferedImage image = new BufferedImage(700, agenda.getHeight(), BufferedImage.TYPE_INT_RGB);
+        agenda.paint(image.getGraphics());
+        agenda.setFiltreMedecin(1);
+        agenda.paint(image.getGraphics());
+        assertEquals(1, agenda.nombreDuJour(mardi));
     }
 }

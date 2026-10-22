@@ -2,6 +2,7 @@ package My_application.controller;
 
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
+import My_application.entities.medecin;
 import My_application.entities.patient;
 import My_application.service.MetierException;
 import My_application.service.RendezVousService;
@@ -16,6 +17,8 @@ public class RendezVousController extends ControleurBase {
     private final RendezVousService service;
     private final patient malade;
     private final User utilisateur;
+    /** Médecin choisi dans l'agenda ; null = médecin du poste. */
+    private Integer medecin;
 
     public RendezVousController(Vue vue, RendezVousService service, patient malade, User utilisateur) {
         super(vue);
@@ -33,6 +36,24 @@ public class RendezVousController extends ControleurBase {
         return malade;
     }
 
+    /**
+     * Médecin avec lequel les prochains rendez-vous seront proposés ; null
+     * pour revenir au médecin du poste.
+     */
+    public void setMedecin(Integer idMedecin) {
+        this.medecin = idMedecin;
+    }
+
+    /** Médecin des prochains rendez-vous : celui choisi, sinon celui du poste. */
+    public int getIdMedecinReservation() {
+        return medecin != null ? medecin : service.getIdMedecinCourant();
+    }
+
+    /** Médecins du cabinet ; liste vide si la base est indisponible. */
+    public List<medecin> medecins() {
+        return tenter(service::medecins, Collections.<medecin>emptyList());
+    }
+
     public List<Rendez_Vous> semaine(LocalDate dimanche) {
         return tenter(() -> service.deLaSemaine(dimanche), Collections.<Rendez_Vous>emptyList());
     }
@@ -46,7 +67,7 @@ public class RendezVousController extends ControleurBase {
         // seul le refus métier reste silencieux.
         return tenter(() -> {
             try {
-                return service.proposer(malade, utilisateur, jour, heure);
+                return service.proposer(malade, utilisateur, jour, heure, getIdMedecinReservation());
             } catch (MetierException e) {
                 return null;
             }
@@ -55,7 +76,7 @@ public class RendezVousController extends ControleurBase {
 
     /** Double clic : calcule le créneau ; la règle refusée est affichée. */
     public Rendez_Vous proposer(LocalDate jour, int heure) {
-        return tenter(() -> service.proposer(malade, utilisateur, jour, heure), null);
+        return tenter(() -> service.proposer(malade, utilisateur, jour, heure, getIdMedecinReservation()), null);
     }
 
     /** Enregistre le rendez-vous ; true si réussi. */
