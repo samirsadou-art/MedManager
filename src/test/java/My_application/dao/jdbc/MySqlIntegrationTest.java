@@ -210,6 +210,7 @@ public class MySqlIntegrationTest {
             }
         }
         assertEquals("Said", daos.getMedecinDao().findById(1).getPrenom());
+        assertEquals(1, daos.getMedecinDao().findAll().size());
     }
 
     /** Connexion réelle, mais qui peut simuler une panne sur une table donnée. */

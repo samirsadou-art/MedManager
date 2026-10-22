@@ -4,6 +4,7 @@ import My_application.controller.RendezVousController;
 import My_application.controller.Vue;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
+import My_application.entities.medecin;
 import My_application.entities.patient;
 import My_application.service.RendezVousService;
 import My_application.vue.Dialogues;
@@ -25,14 +26,20 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -56,6 +63,10 @@ import javax.swing.event.DocumentListener;
  * passé) restent dans {@link RendezVousService}, via
  * {@link RendezVousController}.
  * <p>
+ * Dans un cabinet à plusieurs médecins, une liste déroulante n'affiche que
+ * les rendez-vous du médecin choisi ; les créneaux proposés le sont alors
+ * avec ce médecin (sinon avec celui du poste).
+ * <p>
  * Fenêtre écrite à la main (plus de {@code .form}). Elle est harmonisée
  * ({@link Theme#harmoniser}) avant d'être construite : ses composants
  * utilisent déjà la charte et ne doivent pas être retouchés.
@@ -75,6 +86,9 @@ public class calandar extends javax.swing.JFrame implements Vue {
     private final JLabel libelleSemaine = new JLabel();
     private final JLabel compteur = new JLabel();
     private final JTextField recherche = new JTextField();
+    private final JComboBox<ChoixMedecin> choixMedecin = new JComboBox<>();
+    /** Médecins du cabinet, par identifiant (ordre alphabétique). */
+    private final Map<Integer, medecin> medecins = new LinkedHashMap<>();
     private final JPanel details = new JPanel();
     private final Timer minute;
     private LocalDate dimanche;
@@ -90,6 +104,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
                 service.getMaxParHeure(), Patient);
         miniCalendrier = new MiniCalendrier(service.aujourdhui());
         defilement = new JScrollPane(agenda);
+        chargerMedecins();
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setMinimumSize(new Dimension(1100, 700));
@@ -208,7 +223,14 @@ public class calandar extends javax.swing.JFrame implements Vue {
                 filtrer();
             }
         });
-        barre.add(recherche, BorderLayout.EAST);
+        JPanel filtres = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        filtres.setOpaque(false);
+        // Un seul médecin : la liste n'apporterait rien.
+        if (medecins.size() > 1) {
+            filtres.add(choixMedecin);
+        }
+        filtres.add(recherche);
+        barre.add(filtres, BorderLayout.EAST);
         carte.add(barre, BorderLayout.NORTH);
 
         defilement.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, Theme.BORDURE));
@@ -304,6 +326,78 @@ public class calandar extends javax.swing.JFrame implements Vue {
         public boolean getScrollableTracksViewportHeight() {
             return false;
         }
+    }
+
+    /** Entrée de la liste des médecins ; un identifiant null désigne tous les médecins. */
+    private static final class ChoixMedecin {
+
+        private final Integer id;
+        private final String libelle;
+
+        ChoixMedecin(Integer id, String libelle) {
+            this.id = id;
+            this.libelle = libelle;
+        }
+
+        @Override
+        public String toString() {
+            return libelle;
+        }
+    }
+
+    /** Remplit la liste « Tous les médecins / Dr … » et donne leurs noms à l'agenda. */
+    private void chargerMedecins() {
+        choixMedecin.addItem(new ChoixMedecin(null, "Tous les médecins"));
+        List<medecin> liste = controleur.medecins();
+        for (medecin m : liste) {
+            medecins.put(m.getIdmedecin(), m);
+            choixMedecin.addItem(new ChoixMedecin(m.getIdmedecin(), m.toString()));
+        }
+        agenda.setMedecins(liste);
+        agenda.setMedecinReservation(controleur.getIdMedecinReservation());
+        choixMedecin.setToolTipText("N'afficher que les rendez-vous d'un médecin");
+        choixMedecin.setPreferredSize(new Dimension(230, 34));
+        choixMedecin.setMaximumRowCount(12);
+        choixMedecin.setRenderer(new DefaultListCellRenderer() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                boolean tous = value instanceof ChoixMedecin && ((ChoixMedecin) value).id == null;
+                setIcon(Icones.svg(tous ? "users" : "stethoscope", 16,
+                        isSelected && index >= 0 ? getForeground() : Theme.PRIMAIRE));
+                setIconTextGap(8);
+                return this;
+            }
+        });
+        choixMedecin.addActionListener(e -> choisirMedecin());
+    }
+
+    /** Médecin choisi dans la liste, ou null pour tous. */
+    private Integer medecinFiltre() {
+        ChoixMedecin c = (ChoixMedecin) choixMedecin.getSelectedItem();
+        return c == null ? null : c.id;
+    }
+
+    private void choisirMedecin() {
+        Integer id = medecinFiltre();
+        controleur.setMedecin(id);
+        agenda.setMedecinReservation(controleur.getIdMedecinReservation());
+        agenda.setFiltreMedecin(id);
+        // Un créneau proposé l'était avec l'ancien médecin.
+        agenda.setPropose(null);
+        if (agenda.getSelection() == null) {
+            afficherAucunDetail();
+        }
+        majCompteur();
+    }
+
+    /** Nom complet du médecin (« Dr SAHAB Said »), ou null s'il est inconnu. */
+    private String nomMedecin(Integer id) {
+        medecin m = id == null ? null : medecins.get(id);
+        return m == null ? null : m.toString();
     }
 
     /** Panneau blanc à coins arrondis. */
@@ -430,8 +524,9 @@ public class calandar extends javax.swing.JFrame implements Vue {
     }
 
     private void majCompteur() {
-        int total = agenda.getRendezVous().size();
-        String texte = total + " rendez-vous sur cette semaine";
+        String medecin = nomMedecin(medecinFiltre());
+        String texte = agenda.nombreAffiches() + " rendez-vous sur cette semaine"
+                + (medecin == null ? "" : " avec " + medecin);
         if (!recherche.getText().trim().isEmpty()) {
             texte += " · " + agenda.nombreVisibles() + " pour « " + recherche.getText().trim() + " »";
         }
@@ -482,7 +577,10 @@ public class calandar extends javax.swing.JFrame implements Vue {
     private void reserver(Rendez_Vous r, boolean demanderConfirmation) {
         if (demanderConfirmation) {
             JLabel label = new JLabel("<html>Veuillez confirmer le rendez-vous suivant :<br>Patient : <b>"
-                    + nomComplet(r.getPatient()) + "</b><br>Date : <b>" + r.getDateString()
+                    + nomComplet(r.getPatient()) + "</b><br>"
+                    + (medecins.size() > 1 && nomMedecin(r.getIdMedecin()) != null
+                    ? "Médecin : <b>" + nomMedecin(r.getIdMedecin()) + "</b><br>" : "")
+                    + "Date : <b>" + r.getDateString()
                     + "</b><br>Heure : <b>" + r.getHeureString() + "</b><br>" + delai(r) + "</html>");
             label.setFont(Theme.police(Font.PLAIN, Theme.TAILLE_BASE + 1));
             int result = JOptionPane.showConfirmDialog(this, label, "Confirmation du rendez-vous ?",
@@ -547,9 +645,12 @@ public class calandar extends javax.swing.JFrame implements Vue {
 
     private void afficherAucunDetail() {
         nouveauxDetails("Détails du rendez-vous");
+        String avec = nomMedecin(controleur.getIdMedecinReservation());
         JLabel aide = new JLabel("<html>Cliquez sur un rendez-vous pour voir son détail"
                 + (malade == null ? ". Pour prendre un rendez-vous, ouvrez le dossier du patient."
-                : ", ou sur une heure libre pour proposer un créneau à <b>" + nomComplet(malade) + "</b>.")
+                : ", ou sur une heure libre pour proposer un créneau à <b>" + nomComplet(malade) + "</b>"
+                + (medecins.size() > 1 && avec != null ? " avec <b>" + avec + "</b>" : "")
+                + ".")
                 + "</html>");
         aide.setFont(Theme.police(Font.PLAIN, 12));
         aide.setForeground(Theme.TEXTE_SECONDAIRE);
@@ -565,6 +666,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         details.add(Box.createVerticalStrut(8));
         details.add(ligneDetail("user", "<html><b>" + nomComplet(r.getPatient()) + "</b>  ·  "
                 + r.getPatient().getStringAge() + "</html>"));
+        ajouterMedecin(r);
         details.add(ligneDetail("calendar", AgendaSemaine.capitaliser(DATE_LONGUE.format(r.getDate()))));
         details.add(ligneDetail("clock", horaire(r)));
         details.add(ligneDetail("history", delai(r)));
@@ -595,6 +697,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         details.add(badge("Créneau proposé", Theme.PRIMAIRE, Theme.PRIMAIRE_CLAIR));
         details.add(Box.createVerticalStrut(8));
         details.add(ligneDetail("user", "<html><b>" + nomComplet(r.getPatient()) + "</b></html>"));
+        ajouterMedecin(r);
         details.add(ligneDetail("calendar", AgendaSemaine.capitaliser(DATE_LONGUE.format(r.getDate()))));
         details.add(ligneDetail("clock", horaire(r)));
         details.add(ligneDetail("history", delai(r)));
@@ -612,6 +715,13 @@ public class calandar extends javax.swing.JFrame implements Vue {
         });
         details.add(abandonner);
         finDetails();
+    }
+
+    private void ajouterMedecin(Rendez_Vous r) {
+        String medecin = nomMedecin(r.getIdMedecin());
+        if (medecin != null) {
+            details.add(ligneDetail("stethoscope", medecin));
+        }
     }
 
     private void afficherIndisponible(LocalDate jour, int heure) {

@@ -6,6 +6,7 @@ import My_application.dao.RendezVousDao;
 import My_application.dao.UniteDeTravail;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
+import My_application.entities.medecin;
 import My_application.entities.patient;
 import java.time.Clock;
 import java.time.DayOfWeek;
@@ -104,6 +105,16 @@ public class RendezVousService {
         return nombreHeures;
     }
 
+    /** Médecin avec lequel les nouveaux rendez-vous sont pris (celui du poste). */
+    public int getIdMedecinCourant() {
+        return medecinCourant.getAsInt();
+    }
+
+    /** Médecins du cabinet, pour filtrer l'agenda (triés par nom). */
+    public List<medecin> medecins() {
+        return daos.getMedecinDao().findAll();
+    }
+
     public LocalDate aujourdhui() {
         return LocalDate.now(horloge);
     }
@@ -136,16 +147,29 @@ public class RendezVousService {
         return proposer(malade, utilisateur, jour, heure, duJour(jour));
     }
 
+    /**
+     * Comme {@link #proposer(patient, User, LocalDate, int)}, mais avec le
+     * médecin choisi dans l'agenda plutôt que celui du poste (cabinet à
+     * plusieurs médecins).
+     */
+    public Rendez_Vous proposer(patient malade, User utilisateur, LocalDate jour, int heure, int idMedecin) {
+        return proposer(malade, utilisateur, jour, heure, duJour(jour), idMedecin);
+    }
+
     /** Variante sans accès base : {@code existants} = rendez-vous déjà pris ce jour-là. */
     public Rendez_Vous proposer(patient malade, User utilisateur, LocalDate jour, int heure,
             List<Rendez_Vous> existants) {
+        return proposer(malade, utilisateur, jour, heure, existants, medecinCourant.getAsInt());
+    }
+
+    private Rendez_Vous proposer(patient malade, User utilisateur, LocalDate jour, int heure,
+            List<Rendez_Vous> existants, int idMedecin) {
         if (malade == null) {
             throw new MetierException("Aucun patient sélectionné.");
         }
         if (heure < heureOuverture || heure >= heureOuverture + nombreHeures) {
             throw new MetierException("Le cabinet est fermé à " + heure + " h.");
         }
-        int idMedecin = medecinCourant.getAsInt();
         for (Rendez_Vous r : dansLHeure(existants, jour, heure)) {
             if (r.getPatient().getIdentPat() == malade.getIdentPat()) {
                 throw new MetierException("Vous ne pouvez pas prendre plus d'un rendez-vous par heure !");

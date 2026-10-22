@@ -263,6 +263,29 @@ public class ControleursTest {
     }
 
     @Test
+    public void listeDesMedecinsVidePlutotQuUnePanne() {
+        FausseVue vue = new FausseVue();
+        RendezVousController ctrl = new RendezVousController(vue, new RendezVousService(base), null, null);
+        assertEquals(1, ctrl.medecins().size());
+        base.echouerSur("medecin.findAll");
+        assertTrue(ctrl.medecins().isEmpty());
+        assertEquals(1, vue.erreurs.size());
+    }
+
+    @Test
+    public void leRendezVousEstProposeAvecLeMedecinChoisiDansLAgenda() {
+        RendezVousController ctrl = new RendezVousController(new FausseVue(), new RendezVousService(base),
+                base.patients.get(1), Donnees.utilisateur(1));
+        LocalDate jour = LocalDate.now().plusDays(1);
+        assertEquals(RendezVousService.MEDECIN_PAR_DEFAUT, ctrl.getIdMedecinReservation());
+        ctrl.setMedecin(2);
+        assertEquals(Integer.valueOf(2), ctrl.apercu(jour, 9).getIdMedecin());
+        assertEquals(Integer.valueOf(2), ctrl.proposer(jour, 10).getIdMedecin());
+        ctrl.setMedecin(null);
+        assertEquals(Integer.valueOf(RendezVousService.MEDECIN_PAR_DEFAUT), ctrl.proposer(jour, 10).getIdMedecin());
+    }
+
+    @Test
     public void priseDeRendezVousComplete() {
         FausseVue vue = new FausseVue();
         RendezVousController ctrl = new RendezVousController(vue, new RendezVousService(base),
