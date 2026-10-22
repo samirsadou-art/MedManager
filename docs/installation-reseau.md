@@ -19,7 +19,7 @@ MariaDB devient un service Windows et tourne dès l'allumage du PC, même si per
 Désactivez la mise en veille de ce PC (Paramètres > Alimentation) pendant les heures d'ouverture.
 
 ### 1.3 Ouvrir MariaDB au réseau du cabinet
-Dans `D:\xampp\mysql\bin\my.ini`, section `[mysqld]` : si une ligne `bind-address=127.0.0.1` est active,
+Dans `<xampp>\mysql\bin\my.ini` (`<xampp>` : dossier d'installation de XAMPP, par exemple `D:\xampp` ou `F:\xampp`), section `[mysqld]` : si une ligne `bind-address=127.0.0.1` est active,
 remplacez-la par `bind-address=0.0.0.0` (ou mettez-la en commentaire avec `#`). Redémarrez MariaDB.
 
 Autorisez le port 3306 **pour le seul réseau du cabinet** (invite de commandes en administrateur,
@@ -86,7 +86,7 @@ correspond pas à la base.
 ## 5. Sauvegarde quotidienne
 
 1. Créez le compte de sauvegarde (lecture seule) : modifiez le mot de passe dans `sql/creer_compte_sauvegarde.sql`,
-   puis `D:\xampp\mysql\bin\mysql.exe -u root -p < sql\creer_compte_sauvegarde.sql`.
+   puis `<xampp>\mysql\bin\mysql.exe -u root -p < sql\creer_compte_sauvegarde.sql`.
 2. À côté de `sauvegarder_base.bat`, créez `sauvegarde.cnf` :
 
    ```
@@ -96,7 +96,7 @@ correspond pas à la base.
    ```
 
 3. Essayez : `sql\sauvegarder_base.bat E:\Sauvegardes`. Le fichier `sauvegarde_medicale_<date>.sql` doit apparaître,
-   sans qu'aucun mot de passe soit demandé. Les sauvegardes de plus de 30 jours sont supprimées.
+   sans qu'aucun mot de passe soit demandé. Les sauvegardes horodatées de plus de 30 jours sont supprimées ; une sauvegarde renommée à la main (par exemple `sauvegarde_medicale_avant_mise_a_jour.sql`) est conservée.
 4. Planifiez-la chaque jour à 13 h (invite de commandes, adaptez les chemins) :
 
    ```
