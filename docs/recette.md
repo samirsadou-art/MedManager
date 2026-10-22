@@ -68,10 +68,12 @@ Faites-le de préférence **avant l'ouverture**, avec deux patients d'essai que 
 - [ ] (M) Les deux patients apparaissent dans sa file ; le patient au rendez-vous est en premier.
 - [ ] (S) **Urgence** sur le patient sans rendez-vous : il passe en tête, chez M aussi.
 - [ ] (M) **Patient suivant** : (S) voit le bandeau « … appelé par Dr … ».
-- [ ] (M) Le dossier s'ouvre ; enregistrez une consultation d'essai. Le patient sort de la salle et son rendez-vous
-      passe à « Terminé » chez S.
+- [ ] (M) Le dossier s'ouvre ; enregistrez une consultation d'essai et indiquez 2000 DA de frais. Le patient sort
+      de la file de M, son rendez-vous passe à « Terminé » chez S.
+- [ ] (S) Un bandeau annonce « … a terminé sa consultation : 2 000 DA à régler » ; sa carte est en tête, en vert.
+- [ ] (S) **Encaisser et libérer…** : le montant 2000 est proposé ; validez. Le patient quitte la salle d'attente.
 - [ ] (S) **Parti sans consultation** sur l'autre patient : il quitte la salle.
-- [ ] (S) **Fin de journée…** affiche le bilan (vus, partis, absents).
+- [ ] (S) **Fin de journée…** affiche le bilan (vus, partis, absents, encaissé : 2 000 DA).
 - [ ] Débranchez le câble réseau du poste M 10 secondes puis rebranchez : GestiMed reprend sans redémarrer
       (au pire un message d'erreur, puis l'actualisation repart).
 

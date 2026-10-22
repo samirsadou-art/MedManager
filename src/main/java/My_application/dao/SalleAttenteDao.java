@@ -19,10 +19,14 @@ public interface SalleAttenteDao {
     List<Passage> findDuJour(LocalDate jour);
 
     /**
-     * Enregistre l'état, les heures d'appel et de sortie et la priorité du
-     * passage, seulement s'il est encore dans l'état {@code etatAttendu}.
+     * Enregistre l'état, les heures d'appel et de sortie, la priorité, les
+     * frais et le paiement du passage, seulement s'il est encore dans l'état
+     * {@code etatAttendu}.
      *
      * @return true si le passage a été modifié
      */
     boolean mettreAJour(Passage p, int etatAttendu);
+
+    /** Derniers frais fixés par ce médecin (pour les proposer à nouveau) ; null s'il n'en a jamais fixé. */
+    Integer dernierFrais(int idMedecin);
 }

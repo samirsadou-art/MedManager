@@ -186,15 +186,125 @@ public class SalleAttenteServiceTest {
     }
 
     @Test
-    public void laConsultationTermineLePassageEtLeRendezVous() {
+    public void laConsultationTermineeLaissePatientARegler() {
         Rendez_Vous r = rdv(10, "09:00", 1);
         salle.arrivee(r);
         salle.appelerSuivant(1);
-        assertTrue(SalleAttenteService.cloreConsultation(base, 10, MAINTENANT.plusMinutes(20)));
-        assertTrue(salle.file(null).isEmpty());
+        assertTrue(SalleAttenteService.cloreConsultation(base, 10, MAINTENANT.plusMinutes(20), 2000));
+        assertTrue("il quitte la file du médecin", salle.file(null).isEmpty());
         assertEquals(Rendez_Vous.ETAT_TERMINE, base.rendezVous.get(0).getEtat());
-        assertFalse("pas de second passage à clore", SalleAttenteService.cloreConsultation(base, 10, MAINTENANT));
-        assertFalse(SalleAttenteService.cloreConsultation(base, 11, MAINTENANT));
+        Passage p = salle.presents(null).get(0);
+        assertEquals("il reste au cabinet, à régler", Passage.A_REGLER, p.getEtat());
+        assertEquals(Integer.valueOf(2000), p.getFrais());
+        assertNull(p.getSortieLe());
+        assertFalse("pas de second passage à clore",
+                SalleAttenteService.cloreConsultation(base, 10, MAINTENANT, 2000));
+        assertFalse(SalleAttenteService.cloreConsultation(base, 11, MAINTENANT, null));
+        try {
+            salle.arriveeSansRendezVous(base.patients.get(10), 1);
+            fail("pas pointé deux fois avant d'être libéré");
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("déjà dans la salle d'attente"));
+        }
+    }
+
+    @Test
+    public void laSecretaireEncaisseEtLibereLePatient() {
+        salle.arriveeSansRendezVous(base.patients.get(10), 1);
+        salle.arriveeSansRendezVous(base.patients.get(11), 1);
+        salle.appelerSuivant(1);
+        SalleAttenteService.cloreConsultation(base, 10, MAINTENANT, 1500);
+        List<Passage> accueil = salle.presents(null);
+        assertEquals("le patient à régler vient en tête", Passage.A_REGLER, accueil.get(0).getEtat());
+        assertEquals(2, accueil.size());
+        try {
+            salle.liberer(accueil.get(1), 1500);
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("terminée"));
+        }
+        long avant = salle.dernierEvenement();
+        salle.liberer(accueil.get(0), 1000);
+        Passage lu = base.passages.get(0);
+        assertEquals(Passage.TERMINE, lu.getEtat());
+        assertEquals(Integer.valueOf(1000), lu.getMontantRegle());
+        assertEquals(MAINTENANT, lu.getRegleLe());
+        assertEquals(MAINTENANT, lu.getSortieLe());
+        assertEquals("les autres postes sont prévenus", avant + 1, salle.dernierEvenement());
+        assertEquals(1, salle.presents(null).size());
+        // Libéré, il peut revenir dans la journée.
+        assertNotNull(salle.arriveeSansRendezVous(base.patients.get(10), 1));
+        try {
+            salle.liberer(lu, 1000);
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("terminée"));
+        }
+    }
+
+    @Test
+    public void unPatientLibereSansPaiement() {
+        salle.arriveeSansRendezVous(base.patients.get(10), 1);
+        SalleAttenteService.cloreConsultation(base, 10, MAINTENANT, null);
+        Passage p = salle.presents(1).get(0);
+        assertNull(p.getFrais());
+        salle.liberer(p, null);
+        assertNull(base.passages.get(0).getMontantRegle());
+        assertNull(base.passages.get(0).getRegleLe());
+        assertNotNull(base.passages.get(0).getSortieLe());
+    }
+
+    @Test
+    public void unPassageModifieAilleursNEstPasLibere() {
+        salle.arriveeSansRendezVous(base.patients.get(10), 1);
+        SalleAttenteService.cloreConsultation(base, 10, MAINTENANT, 800);
+        Passage ici = salle.presents(null).get(0);
+        salle.liberer(salle.presents(null).get(0), 800); // sur un autre poste
+        try {
+            salle.liberer(ici, 800);
+            fail();
+        } catch (MetierException e) {
+            assertEquals(SalleAttenteService.MODIFIE_AILLEURS, e.getMessage());
+        }
+        assertEquals("l'objet affiché n'est pas modifié", Passage.A_REGLER, ici.getEtat());
+        assertNull(ici.getMontantRegle());
+    }
+
+    @Test
+    public void lesMontantsSaisis() {
+        assertNull(SalleAttenteService.montant(null));
+        assertNull(SalleAttenteService.montant("  "));
+        assertEquals(Integer.valueOf(2000), SalleAttenteService.montant("2000"));
+        assertEquals(Integer.valueOf(2500), SalleAttenteService.montant("2 500 DA"));
+        assertEquals(Integer.valueOf(0), SalleAttenteService.montant("0"));
+        for (String faux : new String[] {"-5", "12,50", "deux mille", "2000000"}) {
+            try {
+                SalleAttenteService.montant(faux);
+                fail(faux);
+            } catch (MetierException attendue) {
+                assertTrue(attendue.getMessage().contains("ontant"));
+            }
+        }
+        try {
+            SalleAttenteService.cloreConsultation(base, 10, MAINTENANT, -1);
+            fail();
+        } catch (MetierException attendue) {
+            assertTrue(attendue.getMessage().contains("compris entre"));
+        }
+    }
+
+    @Test
+    public void lesDerniersFraisDuMedecinSontProposes() {
+        assertNull(SalleAttenteService.dernierFrais(base, 1));
+        salle.arriveeSansRendezVous(base.patients.get(10), 1);
+        SalleAttenteService.cloreConsultation(base, 10, MAINTENANT, 1500);
+        salle.arriveeSansRendezVous(base.patients.get(11), 1);
+        SalleAttenteService.cloreConsultation(base, 11, MAINTENANT, 2000);
+        salle.arriveeSansRendezVous(base.patients.get(12), 1);
+        SalleAttenteService.cloreConsultation(base, 12, MAINTENANT, null);
+        assertEquals(Integer.valueOf(2000), SalleAttenteService.dernierFrais(base, 1));
+        assertNull(SalleAttenteService.dernierFrais(base, 2));
+        assertFalse(SalleAttenteService.estDansLaFile(base, 13, AUJOURDHUI));
     }
 
     @Test
@@ -224,11 +334,18 @@ public class SalleAttenteServiceTest {
         salle.arrivee(parti);
         salle.arriveeSansRendezVous(base.patients.get(14), 1);
         salle.appelerSuivant(1);
-        SalleAttenteService.cloreConsultation(base, 11, MAINTENANT);
+        SalleAttenteService.cloreConsultation(base, 11, MAINTENANT, 2000);
         salle.partiSansConsultation(salle.file(1).get(0));
         assertEquals("seul le rendez-vous passé et non pointé", 1, salle.finDeJournee());
         SalleAttenteService.Bilan b = salle.bilan();
         assertEquals(1, b.getVus());
+        assertEquals(1, b.getARegler());
+        assertEquals(0, b.getEncaisse());
+        salle.liberer(salle.presents(null).get(0), 2000);
+        b = salle.bilan();
+        assertEquals(1, b.getVus());
+        assertEquals(0, b.getARegler());
+        assertEquals(2000, b.getEncaisse());
         assertEquals(1, b.getPartis());
         assertEquals(1, b.getEnAttente());
         assertEquals(1, b.getSansRendezVous());

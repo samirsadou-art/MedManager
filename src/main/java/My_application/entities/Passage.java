@@ -17,6 +17,11 @@ public class Passage {
     public static final int TERMINE = 2;
     /** Le patient est reparti sans être vu. */
     public static final int PARTI = 3;
+    /**
+     * Consultation terminée (V17) : le patient est encore au cabinet, la
+     * secrétaire encaisse les frais puis le libère (état {@link #TERMINE}).
+     */
+    public static final int A_REGLER = 4;
 
     private Integer idPassage;
     private patient patient;
@@ -31,9 +36,19 @@ public class Passage {
     private LocalDateTime sortieLe;
     private boolean urgence;
     private int etat = EN_ATTENTE;
+    /** Frais fixés par le médecin, en dinars ; null s'il ne les a pas précisés. */
+    private Integer frais;
+    /** Montant encaissé par la secrétaire, en dinars ; null si rien n'a été encaissé. */
+    private Integer montantRegle;
+    private LocalDateTime regleLe;
 
-    /** Encore dans la salle : en attente ou en consultation. */
+    /** Encore au cabinet : en attente, en consultation ou à régler. */
     public boolean isPresent() {
+        return isDansLaFile() || etat == A_REGLER;
+    }
+
+    /** Dans la file d'un médecin : en attente ou en consultation. */
+    public boolean isDansLaFile() {
         return etat == EN_ATTENTE || etat == EN_CONSULTATION;
     }
 
@@ -133,5 +148,29 @@ public class Passage {
 
     public void setEtat(int etat) {
         this.etat = etat;
+    }
+
+    public Integer getFrais() {
+        return frais;
+    }
+
+    public void setFrais(Integer frais) {
+        this.frais = frais;
+    }
+
+    public Integer getMontantRegle() {
+        return montantRegle;
+    }
+
+    public void setMontantRegle(Integer montantRegle) {
+        this.montantRegle = montantRegle;
+    }
+
+    public LocalDateTime getRegleLe() {
+        return regleLe;
+    }
+
+    public void setRegleLe(LocalDateTime regleLe) {
+        this.regleLe = regleLe;
     }
 }

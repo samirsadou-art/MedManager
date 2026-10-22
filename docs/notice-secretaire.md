@@ -73,8 +73,14 @@ l'agenda.
   est marqué absent.
 - **Appel du médecin :** quand un médecin appelle un patient depuis son poste, un bandeau vous l'annonce. Cliquez
   sur le bandeau pour le masquer.
+- **Consultation terminée, paiement :** quand le médecin termine la consultation, il indique les frais. Un bandeau
+  vous l'annonce et la carte du patient passe en tête, en vert, avec « À régler : 2 000 DA ». Quand le patient
+  passe à l'accueil, sélectionnez sa carte puis **Encaisser et libérer…** (ou double-cliquez sur la carte) :
+  le montant demandé par le médecin est déjà saisi, corrigez-le si le patient paie autre chose, laissez-le vide
+  s'il ne paie rien, puis **Libérer le patient**. Il quitte la salle d'attente. Tant qu'il n'est pas libéré, il
+  ne peut pas être pointé une seconde fois.
 - **Fin de journée…** marque absents les rendez-vous du jour encore prévus dont l'heure est passée, puis affiche le
-  bilan de la journée.
+  bilan de la journée, avec le total encaissé et les patients consultés pas encore libérés.
 
 ## Messagerie
 

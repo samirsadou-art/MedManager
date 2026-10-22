@@ -147,14 +147,41 @@ public class DossierService {
     }
 
     /**
+     * Vrai si l'enregistrement terminera une consultation d'un patient qui
+     * est dans la file d'un médecin : le médecin indique alors les frais que
+     * la secrétaire encaissera.
+     */
+    public boolean fraisADemander(DossierPatient dossier) {
+        acces.exiger(Role.MEDECIN);
+        consultation c = dossier.getConsultationNonEnregistree();
+        return c != null && SalleAttenteService.estDansLaFile(daos, dossier.getMalade().getIdentPat(),
+                LocalDate.now());
+    }
+
+    /** Frais proposés au médecin : les derniers qu'il a fixés, ou null. */
+    public Integer fraisProposes(DossierPatient dossier) {
+        acces.exiger(Role.MEDECIN);
+        medecin m = dossier.getMedTraitant();
+        return m == null ? null : SalleAttenteService.dernierFrais(daos, m.getIdmedecin());
+    }
+
+    /** Même chose sans frais précisés. */
+    public int enregistrer(final DossierPatient dossier) {
+        return enregistrer(dossier, null);
+    }
+
+    /**
      * Enregistre en une seule transaction la nouvelle consultation (en-tête,
      * symptômes, pathologies, ordonnance, analyses) et les résultats
      * d'analyses modifiés. En cas d'erreur, rien n'est enregistré.
      *
+     * @param frais frais de la nouvelle consultation, en dinars, que la
+     *              secrétaire encaissera (null : non précisés)
      * @return le nombre de consultations écrites
      */
-    public int enregistrer(final DossierPatient dossier) {
+    public int enregistrer(final DossierPatient dossier, final Integer frais) {
         acces.exiger(Role.MEDECIN);
+        SalleAttenteService.verifierMontant(frais);
         final List<consultation> aEcrire = new ArrayList<>();
         for (consultation c : dossier.getConsultations()) {
             if (c.estNouvelle()) {
@@ -182,9 +209,9 @@ public class DossierService {
                             inserer(c);
                             journal.noter(JournalAcces.Action.ENREGISTREMENT_CONSULTATION,
                                     c.getPatient().getIdentPat(), "consultation n° " + c.getIdConsul());
-                            // Le patient sort de la salle d'attente (et son rendez-vous est terminé).
+                            // Le patient quitte la file du médecin, à régler (son rendez-vous est terminé).
                             SalleAttenteService.cloreConsultation(daos, c.getPatient().getIdentPat(),
-                                    LocalDateTime.now());
+                                    LocalDateTime.now(), frais);
                         } else {
                             demandeAnalyseDao.updateResultats(c.getIdConsul(), c.getAnaPat().getListeAnaly());
                             journal.noter(JournalAcces.Action.SAISIE_RESULTATS,

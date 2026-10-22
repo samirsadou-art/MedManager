@@ -458,9 +458,34 @@ public class MySqlIntegrationTest {
         DossierService dossiers = new DossierService(daos);
         DossierPatient d = dossiers.ouvrirDossier(appele.getPatient(), daos.getMedecinDao().findById(idMedecin));
         dossiers.nouvelleConsultation(d);
-        dossiers.enregistrer(d);
+        assertEquals("aucun frais encore fixé", null, dossiers.fraisProposes(d));
+        dossiers.enregistrer(d, 2000);
         assertEquals(Rendez_Vous.ETAT_TERMINE, rdv.duJour(LocalDate.now()).get(0).getEtat());
         assertEquals(1, salle.file(1).size());
+        // V17 : A reste au cabinet, à régler (present vaut 1) jusqu'à ce que la secrétaire le libère.
+        Passage aRegler = salle.presents(1).get(0);
+        assertEquals(Passage.A_REGLER, aRegler.getEtat());
+        assertEquals(Integer.valueOf(2000), aRegler.getFrais());
+        try {
+            salle.arriveeSansRendezVous(a, 1);
+            fail();
+        } catch (MetierException attendue) {
+            assertTrue(attendue.getMessage().contains("déjà dans la salle"));
+        }
+        assertEquals(Integer.valueOf(2000), dossiers.fraisProposes(d));
+        salle.liberer(aRegler, 1500);
+        Passage libere = salle.passagesDuJour().stream()
+                .filter(x -> x.getIdPassage().equals(aRegler.getIdPassage())).findFirst().get();
+        assertEquals(Passage.TERMINE, libere.getEtat());
+        assertEquals(Integer.valueOf(1500), libere.getMontantRegle());
+        assertNotNull(libere.getRegleLe());
+        // Le CHECK de V17 refuse un montant négatif écrit sans passer par le service.
+        try (Statement st = base.getConnection().createStatement()) {
+            st.executeUpdate("UPDATE salle_attente SET frais=-1 WHERE idPassage=" + libere.getIdPassage());
+            fail();
+        } catch (java.sql.SQLException attendue) {
+            // ck_salle_attente_frais
+        }
 
         // Sorti, A peut revenir dans la journée (present vaut NULL une fois terminé).
         salle.arriveeSansRendezVous(a, 1);
@@ -470,6 +495,7 @@ public class MySqlIntegrationTest {
         assertEquals("B, arrivé le premier, est parti", 1, bilan.getPartis());
         assertEquals(1, bilan.getEnAttente());
         assertEquals(2, bilan.getSansRendezVous());
+        assertEquals(1500, bilan.getEncaisse());
         assertEquals(0, salle.purgerEvenements());
     }
 

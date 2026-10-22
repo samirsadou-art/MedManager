@@ -21,6 +21,7 @@ import My_application.rendezvous.calandar;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
 import My_application.vue.FiltreSaisie;
+import My_application.vue.Formulaire;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import java.awt.BorderLayout;
@@ -1429,11 +1430,30 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         int result = JOptionPane.showConfirmDialog(this, "Voulez-vous enregistrer les modifications ?",
                 "Fermer et enregistrer ...", JOptionPane.YES_NO_CANCEL_OPTION);
         if (result == JOptionPane.YES_OPTION) {
-            if (controleur.enregistrer()) {
+            if (controleur.fraisADemander()) {
+                terminerAvecFrais();
+            } else if (controleur.enregistrer()) {
                 afficherInformation("Modifications effectuées avec succès !");
                 dispose();
             }
         } else if (result == JOptionPane.NO_OPTION) {
+            dispose();
+        }
+    }
+
+    /**
+     * Le patient est dans la salle d'attente : le médecin indique les frais
+     * de la consultation, que la secrétaire encaissera avant de le libérer.
+     */
+    private void terminerAvecFrais() {
+        JTextField frais = new JTextField(controleur.fraisProposes(), 10);
+        FiltreSaisie.installer(frais, FiltreSaisie.entier(7));
+        Formulaire f = new Formulaire(this, "Fin de consultation", "check",
+                "Frais à régler à l'accueil, en dinars. La secrétaire les "
+                + "encaissera avant de libérer le patient de la salle d'attente. Laissez vide pour qu'elle les "
+                + "demande, 0 pour une consultation gratuite.", "Enregistrer")
+                .ligne("Frais (DA)", frais);
+        if (f.afficher(() -> controleur.enregistrer(frais.getText()))) {
             dispose();
         }
     }

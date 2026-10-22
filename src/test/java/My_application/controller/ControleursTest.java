@@ -27,6 +27,7 @@ import My_application.service.JournalAcces;
 import My_application.service.MembresService;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
+import My_application.service.SalleAttenteService;
 import My_application.service.Session;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -235,6 +236,23 @@ public class ControleursTest {
         assertTrue(ouverts.get(0).getName().endsWith(".pdf"));
         assertEquals(DossierPatientController.IMPRESSION_INDISPONIBLE, vue.informations.get(0));
         assertTrue(vue.erreurs.isEmpty());
+    }
+
+    @Test
+    public void leMedecinIndiqueLesFraisDuPatientEnSalleDAttente() {
+        FausseVue vue = new FausseVue();
+        SalleAttenteService salle = new SalleAttenteService(base, new RendezVousService(base));
+        salle.arriveeSansRendezVous(base.patients.get(1), 1);
+        DossierPatientController ctrl = dossier(vue);
+        assertFalse("pas de nouvelle consultation", ctrl.fraisADemander());
+        ctrl.nouvelleConsultation();
+        assertTrue(ctrl.fraisADemander());
+        assertEquals("", ctrl.fraisProposes());
+        assertFalse(ctrl.enregistrer("-3"));
+        assertEquals(1, vue.erreurs.size());
+        assertTrue(ctrl.enregistrer("1 500"));
+        assertEquals(Integer.valueOf(1500), base.passages.get(0).getFrais());
+        assertEquals("1500", ctrl.fraisProposes());
     }
 
     // ----- connexion -----

@@ -27,6 +27,7 @@ import My_application.service.MotDePasse;
 import My_application.vue.Bandeau;
 import My_application.vue.Dialogues;
 import My_application.vue.EnTetePage;
+import My_application.vue.FiltreSaisie;
 import My_application.vue.Formulaire;
 import My_application.vue.Icones;
 import My_application.vue.MenuLateral;
@@ -49,9 +50,11 @@ import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JTextField;
 import javax.swing.Timer;
 
 /**
@@ -194,11 +197,18 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         boolean secretaire = role == Role.SECRETAIRE;
         Integer medecinDuPoste = ctx.getSession().getIdMedecinDuPoste();
         controleur.brancherSalleAttente(ctx.getSalleAttenteService(), secretaire ? null : medecinDuPoste,
-                ctx.getSession()::getMedecinTraitant, secretaire);
+                ctx.getSession()::getMedecinTraitant, secretaire, secretaire);
 
         salle = new PanneauSalleAttente(secretaire || medecinDuPoste == null);
         if (secretaire) {
             salle.ajouterAction("Patient sans rendez-vous…", "user-plus", () -> userMenuBtn.doClick());
+            salle.ajouterBouton("Encaisser et libérer…", "check", p -> p.getEtat() == Passage.A_REGLER,
+                    this::encaisserEtLiberer);
+            salle.surDoubleClic(p -> {
+                if (p.getEtat() == Passage.A_REGLER) {
+                    encaisserEtLiberer(p);
+                }
+            });
         } else {
             salle.ajouterAction("Patient suivant", "speakerphone", controleur::appelerSuivant);
             salle.ajouterBouton("Appeler", "stethoscope",
@@ -257,6 +267,26 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         });
         surveillance.start();
         controleur.purgerEvenements();
+    }
+
+    /**
+     * Le patient a terminé sa consultation : la secrétaire encaisse les frais
+     * fixés par le médecin (modifiables) et le libère de la salle d'attente.
+     */
+    private void encaisserEtLiberer(Passage p) {
+        Integer frais = p.getFrais();
+        JTextField montant = new JTextField(frais == null ? "" : String.valueOf(frais), 10);
+        FiltreSaisie.installer(montant, FiltreSaisie.entier(7));
+        JLabel patient = new JLabel(p.getPatient().getNom().toUpperCase(Locale.FRENCH) + " "
+                + p.getPatient().getPrenom());
+        patient.setFont(Theme.policeGras());
+        JLabel demandes = new JLabel(frais == null ? "non précisés par le médecin"
+                : frais == 0 ? "consultation gratuite" : AccueilController.montant(frais));
+        new Formulaire(this, "Encaisser et libérer", "check",
+                "Saisissez le montant reçu, puis le patient quitte la salle d'attente. "
+                + "Laissez vide s'il n'a rien payé.", "Libérer le patient")
+                .ligne("Patient", patient).ligne("Frais demandés", demandes).ligne("Montant reçu (DA)", montant)
+                .afficher(() -> controleur.liberer(p, montant.getText()));
     }
 
     private Rendez_Vous rendezVousSelectionne() {

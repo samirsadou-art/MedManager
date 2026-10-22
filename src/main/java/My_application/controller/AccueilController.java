@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -31,12 +32,16 @@ public class AccueilController extends ControleurBase {
     private Integer medecinDeLaFile;
     private Supplier<medecin> medecinTraitant;
     private boolean annoncerAppels;
+    /** Vrai à l'accueil : les patients consultés restent affichés jusqu'à leur paiement. */
+    private boolean avecCaisse;
 
     /** Dernier événement pris en compte : un autre poste a changé quelque chose s'il augmente. */
     private long dernierEvenementVu = -1;
     private boolean verificationEnCours;
     /** Passages déjà vus en consultation (null avant la première lecture : rien à annoncer). */
     private Set<Integer> appelsConnus;
+    /** Passages déjà vus « à régler » (même règle). */
+    private Set<Integer> fraisConnus;
 
     public AccueilController(AccueilVue vue, DossierService dossierService, RendezVousService rendezVousService) {
         this(vue, dossierService, rendezVousService, Executeur.SWING);
@@ -65,10 +70,21 @@ public class AccueilController extends ControleurBase {
      */
     public AccueilController brancherSalleAttente(SalleAttenteService salle, Integer medecinDeLaFile,
             Supplier<medecin> medecinTraitant, boolean annoncerAppels) {
+        return brancherSalleAttente(salle, medecinDeLaFile, medecinTraitant, annoncerAppels, false);
+    }
+
+    /**
+     * @param avecCaisse vrai à l'accueil : les patients dont la consultation
+     *                   est terminée restent affichés (et sont annoncés)
+     *                   jusqu'à ce que la secrétaire encaisse et les libère
+     */
+    public AccueilController brancherSalleAttente(SalleAttenteService salle, Integer medecinDeLaFile,
+            Supplier<medecin> medecinTraitant, boolean annoncerAppels, boolean avecCaisse) {
         this.salle = salle;
         this.medecinDeLaFile = medecinDeLaFile;
         this.medecinTraitant = medecinTraitant;
         this.annoncerAppels = annoncerAppels;
+        this.avecCaisse = avecCaisse;
         return this;
     }
 
@@ -100,7 +116,7 @@ public class AccueilController extends ControleurBase {
         if (salle != null) {
             // Lu en premier : un changement fait pendant la lecture sera revu au prochain tour.
             a.evenement = salle.dernierEvenement();
-            a.file = salle.file(medecinDeLaFile);
+            a.file = avecCaisse ? salle.presents(medecinDeLaFile) : salle.file(medecinDeLaFile);
             a.medecins = new HashMap<>();
             for (medecin m : rendezVousService.tousLesMedecins()) {
                 a.medecins.put(m.getIdmedecin(), m.toString());
@@ -116,7 +132,15 @@ public class AccueilController extends ControleurBase {
 
     private void annoncerLesAppels(Activite a) {
         Set<Integer> appels = new HashSet<>();
+        Set<Integer> frais = new HashSet<>();
         for (Passage p : a.file) {
+            if (p.getEtat() == Passage.A_REGLER) {
+                frais.add(p.getIdPassage());
+                if (fraisConnus != null && !fraisConnus.contains(p.getIdPassage())) {
+                    vue.annoncerAppel(p.getPatient().getNom() + " " + p.getPatient().getPrenom()
+                            + " a terminé sa consultation : " + texteFrais(p.getFrais()) + ".");
+                }
+            }
             if (p.getEtat() == Passage.EN_CONSULTATION) {
                 appels.add(p.getIdPassage());
                 if (annoncerAppels && appelsConnus != null && !appelsConnus.contains(p.getIdPassage())) {
@@ -127,6 +151,20 @@ public class AccueilController extends ControleurBase {
             }
         }
         appelsConnus = appels;
+        fraisConnus = frais;
+    }
+
+    /** « 2 000 DA à régler », « consultation gratuite » ou « frais à demander ». */
+    public static String texteFrais(Integer frais) {
+        if (frais == null) {
+            return "frais à demander au médecin";
+        }
+        return frais == 0 ? "consultation gratuite" : montant(frais) + " à régler";
+    }
+
+    /** « 2 000 DA ». */
+    public static String montant(long dinars) {
+        return String.format(Locale.FRENCH, "%,d DA", dinars).replace('\u202f', ' ').replace('\u00a0', ' ');
     }
 
     /**
@@ -200,6 +238,8 @@ public class AccueilController extends ControleurBase {
                 + "\n  absents : " + b.getAbsents()
                 + "\n  partis sans consultation : " + b.getPartis()
                 + "\n  encore en attente : " + b.getEnAttente()
+                + (b.getARegler() == 0 ? "" : "\n  consultés pas encore libérés : " + b.getARegler())
+                + "\n  encaissé : " + montant(b.getEncaisse())
                 + "\n  attente moyenne : " + b.getAttenteMoyenne() + " min";
     }
 
@@ -209,6 +249,18 @@ public class AccueilController extends ControleurBase {
         if (p != null && tenter(() -> salle.urgence(p, !p.isUrgence()))) {
             rafraichir();
         }
+    }
+
+    /**
+     * Le patient a réglé {@code montantSaisi} (vide : rien) et quitte le
+     * cabinet. Renvoie true s'il a été libéré.
+     */
+    public boolean liberer(Passage p, String montantSaisi) {
+        if (p != null && tenter(() -> salle.liberer(p, SalleAttenteService.montant(montantSaisi)))) {
+            rafraichir();
+            return true;
+        }
+        return false;
     }
 
     public void parti(Passage p) {

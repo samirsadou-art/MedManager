@@ -8,6 +8,7 @@ import My_application.report.RapportService;
 import My_application.service.CatalogueService;
 import My_application.service.ConstantesVitales;
 import My_application.service.DossierService;
+import My_application.service.SalleAttenteService;
 import java.util.Collections;
 import java.util.List;
 
@@ -114,6 +115,25 @@ public class DossierPatientController extends ControleurBase {
     /** Enregistre le dossier ; renvoie true si tout a été écrit. */
     public boolean enregistrer() {
         return tenter(() -> dossierService.enregistrer(dossier));
+    }
+
+    /** Vrai si le médecin doit indiquer les frais : le patient attend son passage à l'accueil. */
+    public boolean fraisADemander() {
+        return Boolean.TRUE.equals(tenter(() -> dossierService.fraisADemander(dossier), false));
+    }
+
+    /** Frais proposés dans la saisie : les derniers fixés par ce médecin, sinon vide. */
+    public String fraisProposes() {
+        Integer f = tenter(() -> dossierService.fraisProposes(dossier), null);
+        return f == null ? "" : String.valueOf(f);
+    }
+
+    /**
+     * Termine la consultation avec les frais saisis (en dinars, vide : non
+     * précisés) ; renvoie true si tout a été écrit.
+     */
+    public boolean enregistrer(String fraisSaisis) {
+        return tenter(() -> dossierService.enregistrer(dossier, SalleAttenteService.montant(fraisSaisis)));
     }
 
     // ----- documents -----
