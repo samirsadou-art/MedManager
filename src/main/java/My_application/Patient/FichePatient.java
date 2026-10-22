@@ -47,7 +47,8 @@ public class FichePatient extends JDialog implements FichePatientVue {
     /** Ce que l'utilisateur veut faire après l'inscription. */
     public enum Suite {
         AUCUNE,
-        RENDEZ_VOUS
+        RENDEZ_VOUS,
+        SALLE_ATTENTE
     }
 
     /** Wilayas d'Algérie, dans l'ordre de leur code. */
@@ -245,11 +246,11 @@ public class FichePatient extends JDialog implements FichePatientVue {
     }
 
     private Suite demanderSuite(patient p) {
-        Object[] choix = {"Prendre un rendez-vous", "Terminer"};
+        Object[] choix = {"Prendre un rendez-vous", "Mettre en salle d'attente", "Terminer"};
         int reponse = JOptionPane.showOptionDialog(this,
                 "Patient " + p + " inscrit (dossier n° " + p.getIdentPat() + ").\nQue voulez-vous faire ?",
                 "Patient inscrit", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, choix, choix[0]);
-        return reponse == 0 ? Suite.RENDEZ_VOUS : Suite.AUCUNE;
+        return reponse == 0 ? Suite.RENDEZ_VOUS : reponse == 1 ? Suite.SALLE_ATTENTE : Suite.AUCUNE;
     }
 
     /** Patient inscrit ou modifié, fiche existante choisie, ou null si rien n'a été enregistré. */

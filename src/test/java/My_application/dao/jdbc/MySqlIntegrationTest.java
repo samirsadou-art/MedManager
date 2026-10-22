@@ -12,6 +12,7 @@ import My_application.dao.DAOFactory;
 import My_application.dao.DataAccessException;
 import My_application.entities.DossierPatient;
 import My_application.entities.EntreeJournal;
+import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.Role;
 import My_application.entities.User;
@@ -31,6 +32,7 @@ import My_application.service.Session;
 import My_application.service.CatalogueService;
 import My_application.service.DossierService;
 import My_application.service.RendezVousService;
+import My_application.service.SalleAttenteService;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -380,6 +382,56 @@ public class MySqlIntegrationTest {
         Rendez_Vous hier = rdv.duJour(LocalDate.now().minusDays(1)).get(0);
         rdv.marquerAbsent(hier);
         assertEquals(Rendez_Vous.ETAT_ABSENT, rdv.duJour(LocalDate.now().minusDays(1)).get(0).getEtat());
+    }
+
+    @Test
+    public void salleDAttenteDeLArriveeALaFinDeConsultation() throws Exception {
+        patient a = creerPatient("A");
+        patient b = creerPatient("B");
+        RendezVousService rdv = new RendezVousService(daos);
+        SalleAttenteService salle = new SalleAttenteService(daos, rdv);
+        long avant = salle.dernierEvenement();
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO rendezvous (idUser, idPatient, idMedecin, date, heure) VALUES (1, "
+                    + a.getIdentPat() + ", 1, '" + LocalDate.now() + "', '00:15:00')");
+        }
+        Rendez_Vous ra = rdv.duJour(LocalDate.now()).get(0);
+        salle.arriveeSansRendezVous(b, null);
+        salle.arrivee(ra);
+        assertTrue("chaque arrivée publie un événement", salle.dernierEvenement() >= avant + 2);
+        List<Passage> file = salle.file(1);
+        assertEquals("le rendez-vous passe avant l'arrivée sans rendez-vous", "A",
+                file.get(0).getPatient().getNom());
+        assertEquals(15, file.get(0).getHeurePrevue().getMinute());
+        assertTrue(file.get(1).isSansRendezVous());
+        // La clé unique (V13) refuse un second passage du même patient.
+        try {
+            salle.arriveeSansRendezVous(b, 1);
+            fail();
+        } catch (MetierException attendue) {
+            assertTrue(attendue.getMessage().contains("déjà dans la salle"));
+        }
+        assertEquals(Rendez_Vous.ETAT_ARRIVE, rdv.duJour(LocalDate.now()).get(0).getEtat());
+
+        Passage appele = salle.appelerSuivant(1);
+        assertEquals("A", appele.getPatient().getNom());
+        assertEquals(Rendez_Vous.ETAT_EN_CONSULTATION, rdv.duJour(LocalDate.now()).get(0).getEtat());
+        DossierService dossiers = new DossierService(daos);
+        DossierPatient d = dossiers.ouvrirDossier(appele.getPatient(), daos.getMedecinDao().findById(idMedecin));
+        dossiers.nouvelleConsultation(d);
+        dossiers.enregistrer(d);
+        assertEquals(Rendez_Vous.ETAT_TERMINE, rdv.duJour(LocalDate.now()).get(0).getEtat());
+        assertEquals(1, salle.file(1).size());
+
+        // Sorti, A peut revenir dans la journée (present vaut NULL une fois terminé).
+        salle.arriveeSansRendezVous(a, 1);
+        salle.partiSansConsultation(salle.file(1).get(0));
+        SalleAttenteService.Bilan bilan = salle.bilan();
+        assertEquals(1, bilan.getVus());
+        assertEquals("B, arrivé le premier, est parti", 1, bilan.getPartis());
+        assertEquals(1, bilan.getEnAttente());
+        assertEquals(2, bilan.getSansRendezVous());
+        assertEquals(0, salle.purgerEvenements());
     }
 
     @Test

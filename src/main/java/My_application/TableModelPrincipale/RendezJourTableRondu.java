@@ -6,6 +6,9 @@
 package My_application.TableModelPrincipale;
 
 import java.util.Locale;
+import java.time.LocalDateTime;
+import My_application.rendezvous.Pastille;
+import My_application.rendezvous.StatutRendezVous;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import java.awt.Component;
@@ -41,6 +44,7 @@ ImageIcon imageIcon;
        JLabel renderer = (JLabel) defaultRenderer.getTableCellRendererComponent(table, value,isSelected, hasFocus, row, column);
         
        renderer.setHorizontalAlignment(JLabel.LEFT);
+       renderer.setIcon(null);
        Theme.cellule(renderer, table, isSelected, row);
 
         Rendez_Vous rendez=(Rendez_Vous)value;
@@ -59,6 +63,15 @@ ImageIcon imageIcon;
             case 3: renderer.setHorizontalAlignment(JLabel.CENTER);renderer.setText(rendez.getPatient().getStringAge()); break;
             case 4: renderer.setHorizontalAlignment(JLabel.CENTER); 
                     renderer.setText(rendez.getHeureString());
+                    break;
+            case 5: StatutRendezVous statut = StatutRendezVous.de(rendez, null, LocalDateTime.now());
+                    renderer.setText(statut.getLibelle());
+                    renderer.setIcon(new Pastille(statut.getCouleur(), 10));
+                    renderer.setIconTextGap(6);
+                    if (!isSelected) {
+                        renderer.setForeground(statut.getCouleur());
+                    }
+                    return renderer;
             
             
             

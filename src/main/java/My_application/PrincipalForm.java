@@ -13,24 +13,34 @@ import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
 import My_application.controller.Executeur;
 import My_application.admin.PageMembres;
+import My_application.entities.DossierPatient;
+import My_application.entities.Passage;
 import My_application.entities.Role;
 import My_application.entities.Rendez_Vous;
 import My_application.dao.jdbc.DatabaseConfig;
 import My_application.dao.jdbc.Migrations;
 import My_application.entities.consultation;
 import My_application.rendezvous.calandar;
+import My_application.salle.PanneauSalleAttente;
 import My_application.vue.Bandeau;
 import My_application.vue.Dialogues;
 import My_application.vue.EnTetePage;
+import My_application.vue.Icones;
 import My_application.vue.MenuLateral;
 import java.awt.BorderLayout;
 import java.awt.Container;
 import java.awt.Frame;
+import java.awt.FlowLayout;
+import java.awt.Toolkit;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.Timer;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import java.util.logging.Level;
@@ -54,6 +64,11 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     private Tchat disc;
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
+    private PanneauSalleAttente salle;
+    /** Toutes les 3 secondes : un autre poste a-t-il changé la salle d'attente ou l'agenda ? */
+    private Timer surveillance;
+    private final JButton arriveBtn = new JButton("Patient arrivé");
+    private final JButton absentBtn = new JButton("Absent");
 
     public PrincipalForm(AppContext ctx) {
         this.ctx = ctx;
@@ -70,16 +85,135 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         TableConsult.setDefaultRenderer(Object.class, new ConsultJourTableRondu());
         controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService(),
                 Executeur.SWING, role == Role.MEDECIN);
+        if (role != Role.ADMIN) {
+            installerSalleAttente();
+        }
         refresh();
+    }
+
+    /**
+     * Salle d'attente : le médecin voit sa file et appelle ; la secrétaire voit
+     * toutes les files, pointe les arrivées et est prévenue de chaque appel.
+     * Sous les rendez-vous du jour : pointer l'arrivée, l'absence, la fin de journée.
+     */
+    private void installerSalleAttente() {
+        boolean secretaire = role == Role.SECRETAIRE;
+        Integer medecinDuPoste = ctx.getSession().getIdMedecinDuPoste();
+        controleur.brancherSalleAttente(ctx.getSalleAttenteService(), secretaire ? null : medecinDuPoste,
+                ctx.getSession()::getMedecinTraitant, secretaire);
+
+        salle = new PanneauSalleAttente(secretaire || medecinDuPoste == null);
+        if (secretaire) {
+            salle.ajouterAction("Patient sans rendez-vous…", "user-plus", () -> userMenuBtn.doClick());
+        } else {
+            salle.ajouterAction("Patient suivant", "speakerphone", controleur::appelerSuivant);
+            salle.ajouterBouton("Appeler", "stethoscope",
+                    p -> p.getEtat() == Passage.EN_ATTENTE || p.getEtat() == Passage.EN_CONSULTATION,
+                    controleur::appeler);
+            salle.surDoubleClic(controleur::appeler);
+        }
+        salle.ajouterBouton("Urgence", "first-aid-kit", p -> p.getEtat() == Passage.EN_ATTENTE,
+                controleur::urgence);
+        salle.ajouterBouton("Parti sans consultation", "x", p -> p.getEtat() == Passage.EN_ATTENTE, p -> {
+            if (Dialogues.confirmer(this, p.getPatient() + " est reparti sans consultation ?")) {
+                controleur.parti(p);
+            }
+        });
+        jPanel11.removeAll();
+        jPanel11.add(salle, BorderLayout.CENTER);
+        jButton2.setVisible(false);
+
+        arriveBtn.setIcon(Icones.svg("check", 16, Theme.PRIMAIRE));
+        absentBtn.setIcon(Icones.svg("circle-minus", 16, Theme.PRIMAIRE));
+        JButton finBtn = new JButton("Fin de journée…", Icones.svg("player-stop", 16, Theme.PRIMAIRE));
+        arriveBtn.addActionListener(e -> {
+            Rendez_Vous r = rendezVousSelectionne();
+            if (r != null) {
+                controleur.arrivee(r);
+            }
+        });
+        absentBtn.addActionListener(e -> {
+            Rendez_Vous r = rendezVousSelectionne();
+            if (r != null && Dialogues.confirmer(this, r.getPatient() + " n'est pas venu ?")) {
+                controleur.absent(r);
+            }
+        });
+        finBtn.addActionListener(e -> {
+            if (Dialogues.confirmer(this, "Fin de journée : les rendez-vous d'aujourd'hui encore prévus et "
+                    + "dont l'heure est passée seront marqués absents.\nContinuer ?")) {
+                controleur.finDeJournee();
+            }
+        });
+        TableRendezvous.getSelectionModel().addListSelectionListener(e -> majBoutonsRendezVous());
+        majBoutonsRendezVous();
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        actions.setOpaque(false);
+        actions.add(arriveBtn);
+        actions.add(absentBtn);
+        actions.add(finBtn);
+        jPanel9.add(actions);
+
+        surveillance = new Timer(3000, e -> {
+            controleur.verifierEvenements();
+            salle.setMaintenant(LocalDateTime.now());
+        });
+        surveillance.start();
+        controleur.purgerEvenements();
+    }
+
+    private Rendez_Vous rendezVousSelectionne() {
+        int ligne = TableRendezvous.getSelectedRow();
+        return ligne < 0 ? null : RJModel.getElement(TableRendezvous.convertRowIndexToModel(ligne));
+    }
+
+    private void majBoutonsRendezVous() {
+        Rendez_Vous r = rendezVousSelectionne();
+        arriveBtn.setEnabled(controleur.peutPointer(r));
+        absentBtn.setEnabled(controleur.peutMarquerAbsent(r));
     }
 
     // ----- AccueilVue -----
 
     @Override
     public void afficherRendezVousDuJour(List<Rendez_Vous> rendezVous) {
+        Rendez_Vous avant = rendezVousSelectionne();
         RJModel.setDonnees(rendezVous);
         nbRendez.setText(String.valueOf(RJModel.getSize()));
         erreurDejaSignalee = false;
+        if (avant != null && avant.getIdRendezVous() != null) {
+            for (int i = 0; i < RJModel.getSize(); i++) {
+                if (avant.getIdRendezVous().equals(RJModel.getElement(i).getIdRendezVous())) {
+                    int ligne = TableRendezvous.convertRowIndexToView(i);
+                    TableRendezvous.setRowSelectionInterval(ligne, ligne);
+                }
+            }
+        }
+        if (salle != null) {
+            majBoutonsRendezVous();
+        }
+    }
+
+    @Override
+    public void afficherSalleAttente(List<Passage> file, Map<Integer, String> medecins, LocalDateTime maintenant) {
+        salle.setFile(file, medecins, maintenant);
+        int enAttente = 0;
+        for (Passage p : file) {
+            if (p.getEtat() == Passage.EN_ATTENTE) {
+                enAttente++;
+            }
+        }
+        nbAttente.setText(String.valueOf(enAttente));
+    }
+
+    @Override
+    public void annoncerAppel(String annonce) {
+        salle.annoncer(annonce);
+        Toolkit.getDefaultToolkit().beep();
+    }
+
+    @Override
+    public void ouvrirDossier(DossierPatient dossier) {
+        new DossierPatientForm(dossier, ctx).setVisible(true);
     }
 
     @Override
@@ -108,7 +242,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             return;
         }
         controleur.rafraichir();
-        nbAttente.setText("0");
     }
 
     /**
@@ -480,6 +613,9 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     }//GEN-LAST:event_ChatBtnActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        if (surveillance != null) {
+            surveillance.stop();
+        }
         disc.Close();
         ctx.close();
     }//GEN-LAST:event_formWindowClosing

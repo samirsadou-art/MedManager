@@ -13,11 +13,13 @@ import My_application.controller.ListePatientController;
 import My_application.controller.ListePatientVue;
 import My_application.entities.DossierPatient;
 import My_application.entities.Role;
+import My_application.entities.medecin;
 import My_application.entities.patient;
 import My_application.rendezvous.calandar;
 import My_application.vue.Dialogues;
 import java.util.List;
 import javax.swing.JButton;
+import javax.swing.JOptionPane;
 
 /**
  * Liste des patients (Vue). La recherche (nom ou téléphone) et l'ouverture du
@@ -33,6 +35,7 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
     private final boolean medecin;
     private final JButton modifierBtn = new JButton("Modifier la fiche");
     private final JButton rendezVousBtn = new JButton("Prendre un rendez-vous");
+    private final JButton salleBtn = new JButton("Salle d'attente");
 
     public ListePatient(AppContext ctx) {
         this.ctx = ctx;
@@ -48,7 +51,7 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
         table.setDefaultRenderer(Object.class, new ListePatientRondu());
         table.setRowHeight(42);
         controleur = new ListePatientController(this, ctx.getPatientService(), ctx.getDossierService(),
-                ctx.getSession());
+                ctx.getSession(), ctx.getSalleAttenteService(), ctx.getRendezVousService());
         ajouterBoutons();
         controleur.rechercher("");
     }
@@ -62,16 +65,21 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
         nouveau.addActionListener(e -> inscrire());
         modifierBtn.addActionListener(e -> modifierFiche());
         rendezVousBtn.addActionListener(e -> prendreRendezVous(selection()));
+        salleBtn.setToolTipText("Patient arrivé sans rendez-vous : le mettre en salle d'attente");
+        salleBtn.addActionListener(e -> mettreEnSalle(selection()));
         modifierBtn.setEnabled(false);
         rendezVousBtn.setEnabled(false);
+        salleBtn.setEnabled(false);
         table.getSelectionModel().addListSelectionListener(e -> {
             boolean une = table.getSelectedRowCount() == 1;
             modifierBtn.setEnabled(une);
             rendezVousBtn.setEnabled(une);
+            salleBtn.setEnabled(une);
         });
         jPanel2.add(nouveau, 0);
         jPanel2.add(modifierBtn, 1);
         jPanel2.add(rendezVousBtn, 2);
+        jPanel2.add(salleBtn, 3);
         OuvrirBtn.setVisible(medecin);
         pack();
         setLocationRelativeTo(null);
@@ -87,7 +95,27 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
         afficherSeul(p);
         if (fiche.getSuite() == FichePatient.Suite.RENDEZ_VOUS) {
             prendreRendezVous(p);
+        } else if (fiche.getSuite() == FichePatient.Suite.SALLE_ATTENTE) {
+            mettreEnSalle(p);
         }
+    }
+
+    /** Patient arrivé sans rendez-vous : on choisit son médecin s'il y en a plusieurs. */
+    private void mettreEnSalle(patient p) {
+        if (p == null) {
+            return;
+        }
+        Integer idMedecin = null;
+        List<medecin> medecins = controleur.medecinsAChoisir();
+        if (!medecins.isEmpty()) {
+            Object choix = JOptionPane.showInputDialog(this, "Médecin qui recevra " + p + " :",
+                    "Salle d'attente", JOptionPane.QUESTION_MESSAGE, null, medecins.toArray(), medecins.get(0));
+            if (choix == null) {
+                return;
+            }
+            idMedecin = ((medecin) choix).getIdmedecin();
+        }
+        controleur.mettreEnSalle(p, idMedecin);
     }
 
     private void modifierFiche() {

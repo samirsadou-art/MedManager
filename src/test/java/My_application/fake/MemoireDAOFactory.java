@@ -5,6 +5,8 @@ import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
 import My_application.dao.DataAccessException;
 import My_application.dao.DoublonException;
+import My_application.dao.EvenementDao;
+import My_application.dao.SalleAttenteDao;
 import My_application.dao.DemandeAnalyseDao;
 import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
@@ -19,6 +21,7 @@ import My_application.dao.UtilisateurDao;
 import My_application.entities.CategAnalyse;
 import My_application.entities.Compte;
 import My_application.entities.EntreeJournal;
+import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
 import My_application.entities.analyse;
@@ -29,6 +32,7 @@ import My_application.entities.pathologie;
 import My_application.entities.patient;
 import My_application.entities.symptome;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,6 +81,9 @@ public class MemoireDAOFactory implements DAOFactory {
     public final List<CategAnalyse> categories = new ArrayList<>();
     public final Map<Integer, List<analyse>> demandes = new HashMap<>();
     public final List<Rendez_Vous> rendezVous = new ArrayList<>();
+    public final List<Passage> passages = new ArrayList<>();
+    /** Événements publiés : type et identifiant de l'objet. */
+    public final List<String> evenements = new ArrayList<>();
 
     // ----- instrumentation -----
     public int commits;
@@ -143,6 +150,8 @@ public class MemoireDAOFactory implements DAOFactory {
         final Map<Integer, List<medicament>> pr = copie(prescriptions);
         final Map<Integer, List<analyse>> de = copie(demandes);
         final List<Rendez_Vous> rv = new ArrayList<>(rendezVous);
+        final List<Passage> sa = new ArrayList<>(passages);
+        final List<String> ev = new ArrayList<>(evenements);
         final List<symptome> sy = new ArrayList<>(symptomes);
         final List<pathologie> pa = new ArrayList<>(pathologies);
         final Map<Integer, String> lo = new HashMap<>(logins);
@@ -159,6 +168,8 @@ public class MemoireDAOFactory implements DAOFactory {
             demandes.clear();
             demandes.putAll(de);
             remplacer(rendezVous, rv);
+            remplacer(passages, sa);
+            remplacer(evenements, ev);
             remplacer(symptomes, sy);
             remplacer(pathologies, pa);
             logins.clear();
@@ -855,5 +866,96 @@ public class MemoireDAOFactory implements DAOFactory {
                 throw new DoublonException("Duplicate entry (uk_rendezvous_creneau)", null);
             }
         }
+    }
+
+    @Override
+    public SalleAttenteDao getSalleAttenteDao() {
+        return new SalleAttenteDao() {
+            @Override
+            public void insert(Passage p) {
+                appel("salle.insert");
+                for (Passage x : passages) {
+                    boolean memePresent = x.isPresent() && x.getPatient().getIdentPat() == p.getPatient().getIdentPat()
+                            && x.getJour().equals(p.getJour());
+                    boolean memeRdv = p.getIdRendezVous() != null && p.getIdRendezVous().equals(x.getIdRendezVous());
+                    if (memePresent || memeRdv) {
+                        throw new DoublonException("Duplicate entry (uk_salle_attente)", null);
+                    }
+                }
+                p.setIdPassage(nouvelId());
+                passages.add(copie(p)); // la base garde sa propre ligne
+            }
+
+            @Override
+            public List<Passage> findDuJour(LocalDate jour) {
+                appel("salle.findDuJour");
+                List<Passage> l = new ArrayList<>();
+                for (Passage x : passages) {
+                    if (x.getJour().equals(jour)) {
+                        l.add(copie(x));
+                    }
+                }
+                return l;
+            }
+
+            @Override
+            public boolean mettreAJour(Passage p, int etatAttendu) {
+                appel("salle.mettreAJour");
+                for (Passage x : passages) {
+                    if (x.getIdPassage().equals(p.getIdPassage())) {
+                        if (x.getEtat() != etatAttendu) {
+                            return false;
+                        }
+                        x.setEtat(p.getEtat());
+                        x.setAppeleLe(p.getAppeleLe());
+                        x.setSortieLe(p.getSortieLe());
+                        x.setUrgence(p.isUrgence());
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+    }
+
+    /** Comme une relecture en base : une copie, avec l'heure du rendez-vous. */
+    private Passage copie(Passage x) {
+        Passage c = new Passage();
+        c.setIdPassage(x.getIdPassage());
+        c.setPatient(x.getPatient());
+        c.setIdMedecin(x.getIdMedecin());
+        c.setIdRendezVous(x.getIdRendezVous());
+        Rendez_Vous r = x.getIdRendezVous() == null ? null : rendezVousNumero(x.getIdRendezVous());
+        c.setHeurePrevue(r == null ? null : r.getHeure());
+        c.setJour(x.getJour());
+        c.setArriveeLe(x.getArriveeLe());
+        c.setAppeleLe(x.getAppeleLe());
+        c.setSortieLe(x.getSortieLe());
+        c.setUrgence(x.isUrgence());
+        c.setEtat(x.getEtat());
+        return c;
+    }
+
+    @Override
+    public EvenementDao getEvenementDao() {
+        return new EvenementDao() {
+            @Override
+            public void publier(String type, Integer idObjet) {
+                appel("evenement.publier");
+                evenements.add(type + " " + idObjet);
+            }
+
+            @Override
+            public long dernier() {
+                appel("evenement.dernier");
+                return evenements.size();
+            }
+
+            @Override
+            public int purgerAvant(LocalDateTime limite) {
+                appel("evenement.purger");
+                return 0;
+            }
+        };
     }
 }

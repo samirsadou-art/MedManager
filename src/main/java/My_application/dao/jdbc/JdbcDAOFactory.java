@@ -4,6 +4,7 @@ import My_application.dao.AnalyseDao;
 import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
 import My_application.dao.DemandeAnalyseDao;
+import My_application.dao.EvenementDao;
 import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
 import My_application.dao.MedicamentDao;
@@ -11,6 +12,7 @@ import My_application.dao.PathologieDao;
 import My_application.dao.PatientDao;
 import My_application.dao.PrescriptionDao;
 import My_application.dao.RendezVousDao;
+import My_application.dao.SalleAttenteDao;
 import My_application.dao.SymptomeDao;
 import My_application.dao.UniteDeTravail;
 import My_application.dao.UtilisateurDao;
@@ -34,6 +36,8 @@ public class JdbcDAOFactory implements DAOFactory {
     private final DemandeAnalyseDao demandeAnalyseDao;
     private final RendezVousDao rendezVousDao;
     private final JournalDao journalDao;
+    private final SalleAttenteDao salleAttenteDao;
+    private final EvenementDao evenementDao;
 
     public JdbcDAOFactory(ConnectionProvider provider) {
         // Les DAO passent par le gestionnaire de transactions : pendant une
@@ -52,6 +56,8 @@ public class JdbcDAOFactory implements DAOFactory {
         this.demandeAnalyseDao = new JdbcDemandeAnalyseDao(jdbc);
         this.rendezVousDao = new JdbcRendezVousDao(jdbc);
         this.journalDao = new JdbcJournalDao(jdbc);
+        this.salleAttenteDao = new JdbcSalleAttenteDao(jdbc);
+        this.evenementDao = new JdbcEvenementDao(jdbc);
     }
 
     @Override
@@ -117,5 +123,15 @@ public class JdbcDAOFactory implements DAOFactory {
     @Override
     public JournalDao getJournalDao() {
         return journalDao;
+    }
+
+    @Override
+    public SalleAttenteDao getSalleAttenteDao() {
+        return salleAttenteDao;
+    }
+
+    @Override
+    public EvenementDao getEvenementDao() {
+        return evenementDao;
     }
 }

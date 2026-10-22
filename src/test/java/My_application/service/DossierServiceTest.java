@@ -8,6 +8,7 @@ import static org.junit.Assert.fail;
 
 import My_application.dao.DataAccessException;
 import My_application.entities.DossierPatient;
+import My_application.entities.Passage;
 import My_application.entities.analyse;
 import My_application.entities.consultation;
 import My_application.entities.pathologie;
@@ -56,6 +57,18 @@ public class DossierServiceTest {
         assertEquals(1, base.consultPathologie.size());
         assertEquals(1, base.prescriptions.get(c.getIdConsul()).size());
         assertEquals(1, base.demandes.get(c.getIdConsul()).size());
+    }
+
+    @Test
+    public void laConsultationEnregistreeFaitSortirLePatientDeLaSalleDAttente() {
+        SalleAttenteService salle = new SalleAttenteService(base, new RendezVousService(base));
+        Passage p = salle.arriveeSansRendezVous(base.patients.get(1), 1);
+        assertEquals(1, salle.file(null).size());
+        service.enregistrer(dossierAvecNouvelleConsultation());
+        assertTrue(salle.file(null).isEmpty());
+        assertEquals(Passage.TERMINE, base.passages.get(0).getEtat());
+        assertNotNull(base.passages.get(0).getSortieLe());
+        assertEquals(p.getIdPassage(), base.passages.get(0).getIdPassage());
     }
 
     @Test
