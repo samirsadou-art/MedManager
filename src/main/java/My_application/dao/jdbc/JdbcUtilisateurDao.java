@@ -2,14 +2,16 @@ package My_application.dao.jdbc;
 
 import My_application.dao.UtilisateurDao;
 import My_application.entities.Compte;
+import My_application.entities.Role;
 import My_application.entities.User;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class JdbcUtilisateurDao implements UtilisateurDao {
 
-    private static final String COLONNES = "idUtilisateur, nom, prenom, qualite, login, actif, idMedecin";
+    private static final String COLONNES = "idUtilisateur, nom, prenom, qualite, role, login, actif, idMedecin";
 
     private static final RowMapper<Compte> COMPTE = new RowMapper<Compte>() {
         @Override
@@ -61,5 +63,25 @@ public class JdbcUtilisateurDao implements UtilisateurDao {
     @Override
     public void definirActif(int idUtilisateur, boolean actif) {
         jdbc.update("UPDATE utilisateur SET actif=? WHERE idUtilisateur=?", actif, idUtilisateur);
+    }
+
+    @Override
+    public User insert(User u) {
+        int id = jdbc.insertAndGetKey("INSERT INTO utilisateur (nom, prenom, qualite, role, actif, idMedecin) "
+                + "VALUES (?,?,?,?,?,?)", u.getNom(), u.getPrenom(), u.getQuailite(), u.getRole().name(),
+                u.isActif(), u.getIdMedecin());
+        u.setIdent(id);
+        return u;
+    }
+
+    @Override
+    public void definirRole(int idUtilisateur, Role role, Integer idMedecin) {
+        jdbc.update("UPDATE utilisateur SET role=?, idMedecin=? WHERE idUtilisateur=?",
+                role.name(), idMedecin, idUtilisateur);
+    }
+
+    @Override
+    public void noterConnexion(int idUtilisateur, LocalDateTime quand) {
+        jdbc.update("UPDATE utilisateur SET derniereConnexion=? WHERE idUtilisateur=?", quand, idUtilisateur);
     }
 }

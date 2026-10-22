@@ -1,8 +1,10 @@
 package My_application.service;
 
 import My_application.dao.DAOFactory;
+import My_application.entities.Role;
 import My_application.entities.User;
 import My_application.entities.medecin;
+import java.util.Locale;
 
 /**
  * Utilisateur connecté et médecin traitant.
@@ -16,8 +18,13 @@ import My_application.entities.medecin;
  * renvoie l'utilisateur {@code idUtilisateur} par défaut, mais
  * {@link #getIdUtilisateurConnecte()} renvoie null : le journal des accès ne
  * l'attribue à personne.
+ * <p>
+ * Le rôle de l'utilisateur connecté ({@link #getRole()}) limite ce qu'il peut
+ * faire : les services appellent {@link #exiger(Role...)}. Sans session
+ * ouverte (outils en ligne de commande lancés par l'administrateur du poste,
+ * tests), aucun rôle n'est exigé.
  */
-public class Session {
+public class Session implements ControleAcces {
 
     private final DAOFactory daos;
     private final int idUtilisateur;
@@ -45,6 +52,27 @@ public class Session {
             idMedecin = u.getIdMedecin();
             medecinTraitant = null;
         }
+    }
+
+    /** Rôle de l'utilisateur connecté, ou null si personne n'est connecté. */
+    public synchronized Role getRole() {
+        return connecte == null ? null : connecte.getRole();
+    }
+
+    @Override
+    public synchronized void exiger(Role... roles) {
+        if (connecte == null) {
+            return;
+        }
+        StringBuilder permis = new StringBuilder();
+        for (Role r : roles) {
+            if (r == connecte.getRole()) {
+                return;
+            }
+            permis.append(permis.length() == 0 ? "" : ", ").append(r.getLibelle().toLowerCase(Locale.FRENCH));
+        }
+        throw new MetierException("Cette action est réservée aux comptes : " + permis + ".\n"
+                + "Vous êtes connecté avec un compte « " + connecte.getRole().getLibelle() + " ».");
     }
 
     public synchronized boolean estOuverte() {

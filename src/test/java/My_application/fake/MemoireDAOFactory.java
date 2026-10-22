@@ -58,6 +58,8 @@ public class MemoireDAOFactory implements DAOFactory {
     public final Map<Integer, String> logins = new HashMap<>();
     public final Map<Integer, String> empreintes = new HashMap<>();
     public final Set<Integer> inactifs = new HashSet<>();
+    /** Dernière connexion par idUtilisateur. */
+    public final Map<Integer, java.time.LocalDateTime> connexions = new HashMap<>();
     public final List<EntreeJournal> journal = new ArrayList<>();
     public final List<consultation> consultations = new ArrayList<>();
     public final List<int[]> consultSymptome = new ArrayList<>();
@@ -323,6 +325,35 @@ public class MemoireDAOFactory implements DAOFactory {
                 } else {
                     inactifs.add(idUtilisateur);
                 }
+            }
+
+            @Override
+            public User insert(User u) {
+                appel("utilisateur.insert");
+                int id = 1;
+                for (Integer k : utilisateurs.keySet()) {
+                    id = Math.max(id, k + 1);
+                }
+                u.setIdent(id);
+                utilisateurs.put(id, u);
+                if (!u.isActif()) {
+                    inactifs.add(id);
+                }
+                return u;
+            }
+
+            @Override
+            public void definirRole(int idUtilisateur, My_application.entities.Role role, Integer idMedecin) {
+                appel("utilisateur.definirRole");
+                User u = utilisateurs.get(idUtilisateur);
+                u.setRole(role);
+                u.setIdMedecin(idMedecin);
+            }
+
+            @Override
+            public void noterConnexion(int idUtilisateur, java.time.LocalDateTime quand) {
+                appel("utilisateur.noterConnexion");
+                connexions.put(idUtilisateur, quand);
             }
         };
     }

@@ -12,6 +12,8 @@ import My_application.dao.DataAccessException;
 import My_application.entities.DossierPatient;
 import My_application.entities.EntreeJournal;
 import My_application.entities.Rendez_Vous;
+import My_application.entities.Role;
+import My_application.entities.User;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
 import My_application.entities.medicament;
@@ -21,6 +23,7 @@ import My_application.fake.Donnees;
 import My_application.service.AuthentificationService;
 import My_application.service.JournalAcces;
 import My_application.service.JournalAccesEnBase;
+import My_application.service.MembresService;
 import My_application.service.MetierException;
 import My_application.service.Session;
 import My_application.service.CatalogueService;
@@ -34,6 +37,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
@@ -356,6 +360,31 @@ public class MySqlIntegrationTest {
             fail("créneau déjà pris chez ce médecin");
         } catch (SQLException attendu) {
             // uk_rendezvous_creneau
+        }
+    }
+
+    @Test
+    public void lesComptesExistantsDeviennentMedecinsEtLesRolesSontEnregistres() throws Exception {
+        // Reprise V10 : le compte inséré avant la migration garde l'accès au dossier.
+        assertEquals(Role.MEDECIN, daos.getUtilisateurDao().findById(1).getRole());
+        MembresService membres = new MembresService(daos, JournalAcces.AUCUN,
+                My_application.service.ControleAcces.AUCUN);
+        User secretaire = membres.ajouter("benali", "amina", Role.SECRETAIRE, null);
+        User admin = membres.ajouter("admin", "cabinet", Role.ADMIN, null);
+        assertEquals(Role.SECRETAIRE, daos.getUtilisateurDao().findById(secretaire.getIdent()).getRole());
+        membres.definirRole(1, Role.MEDECIN, idMedecin);
+        assertEquals(Integer.valueOf(idMedecin), daos.getUtilisateurDao().findById(1).getIdMedecin());
+        daos.getUtilisateurDao().noterConnexion(admin.getIdent(), LocalDateTime.of(2026, 10, 22, 8, 0));
+        try (Statement st = base.getConnection().createStatement()) {
+            java.sql.ResultSet rs = st.executeQuery("SELECT derniereConnexion FROM utilisateur WHERE idUtilisateur="
+                    + admin.getIdent());
+            assertTrue(rs.next());
+            assertEquals(LocalDateTime.of(2026, 10, 22, 8, 0), rs.getTimestamp(1).toLocalDateTime());
+            rs.close();
+            st.execute("UPDATE utilisateur SET role='CHEF' WHERE idUtilisateur=1");
+            fail("rôle hors liste refusé par ck_utilisateur_role");
+        } catch (SQLException attendu) {
+            // ck_utilisateur_role
         }
     }
 }

@@ -14,6 +14,8 @@ public class User {
     private String quailite;
     private String login;
     private boolean actif = true;
+    /** Rôle du compte ; médecin par défaut, comme les comptes d'avant la migration V10. */
+    private Role role = Role.MEDECIN;
     /** Médecin traitant de la session quand cet utilisateur se connecte (null : celui par défaut). */
     private Integer idMedecin;
 
@@ -73,6 +75,14 @@ public class User {
 
     public void setActif(boolean actif) {
         this.actif = actif;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role == null ? Role.MEDECIN : role;
     }
 
     public Integer getIdMedecin() {

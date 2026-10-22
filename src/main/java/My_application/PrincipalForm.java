@@ -11,6 +11,9 @@ import My_application.TableModelPrincipale.RendezJourTableModel;
 import My_application.TableModelPrincipale.RendezJourTableRondu;
 import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
+import My_application.controller.Executeur;
+import My_application.admin.PageMembres;
+import My_application.entities.Role;
 import My_application.entities.Rendez_Vous;
 import My_application.dao.jdbc.DatabaseConfig;
 import My_application.dao.jdbc.Migrations;
@@ -44,12 +47,17 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     private final ConsultJourTableModel CJModel = new ConsultJourTableModel();
     private final AppContext ctx;
     private final AccueilController controleur;
+    /** Rôle du compte connecté : il choisit la page d'accueil et le menu. */
+    private final Role role;
+    /** Page du compte administrateur (null pour les autres rôles). */
+    private PageMembres pageMembres;
     private Tchat disc;
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
 
     public PrincipalForm(AppContext ctx) {
         this.ctx = ctx;
+        this.role = ctx.getSession().getRole() == null ? Role.MEDECIN : ctx.getSession().getRole();
         initComponents();
         Theme.harmoniser(this);
         presenterNavigation();
@@ -60,7 +68,8 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         TableRendezvous.setDefaultRenderer(Object.class, new RendezJourTableRondu());
         TableConsult.setModel(CJModel);
         TableConsult.setDefaultRenderer(Object.class, new ConsultJourTableRondu());
-        controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService());
+        controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService(),
+                Executeur.SWING, role == Role.MEDECIN);
         refresh();
     }
 
@@ -94,6 +103,10 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     }
 
     public void refresh() {
+        if (pageMembres != null) {
+            pageMembres.rafraichir();
+            return;
+        }
         controleur.rafraichir();
         nbAttente.setText("0");
     }
@@ -102,33 +115,60 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
      * Habillage de la fenêtre principale (comme l'agenda) : bandeau en haut,
      * menu latéral à gauche et en-tête de page. L'ancienne barre d'icônes
      * sans libellés est remplacée par le menu, qui reprend ses actions.
+     * <p>
+     * Le contenu dépend du rôle : le médecin voit tout ; la secrétaire n'a
+     * pas les consultations du jour (dossier médical) ; l'administrateur
+     * arrive sur les membres du cabinet.
      */
     private void presenterNavigation() {
         Fnord.setVisible(false);
         Fsud.setVisible(false);
 
-        EnTetePage entete = new EnTetePage("home", "Accueil",
-                "Consultations, rendez-vous et salle d'attente du jour");
+        EnTetePage entete;
+        Container contenu = getContentPane();
+        if (role == Role.ADMIN) {
+            entete = new EnTetePage("users", "Membres du cabinet",
+                    "Comptes de connexion des médecins, de la secrétaire et des administrateurs");
+            pageMembres = new PageMembres(ctx.getMembresService());
+            contenu = pageMembres;
+            jMenu2.setVisible(false);
+        } else {
+            entete = new EnTetePage("home", "Accueil", role == Role.SECRETAIRE
+                    ? "Rendez-vous et salle d'attente du jour"
+                    : "Consultations, rendez-vous et salle d'attente du jour");
+            if (role == Role.SECRETAIRE) {
+                // Les consultations (motifs, diagnostics) relèvent du dossier médical.
+                centre.remove(jSplitPane1);
+                centre.add(jPanel2, BorderLayout.CENTER);
+            }
+            ((JComponent) contenu).setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+        }
         entete.setBorder(BorderFactory.createEmptyBorder(16, 20, 8, 20));
         entete.ajouterBouton("Actualiser", "refresh", this::refresh);
         JPanel page = new JPanel(new BorderLayout());
         page.setBackground(Theme.FOND);
         page.add(entete, BorderLayout.NORTH);
-        Container contenu = getContentPane();
-        ((JComponent) contenu).setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
         page.add(contenu, BorderLayout.CENTER);
 
         MenuLateral menu = new MenuLateral();
-        menu.ajouter("home", "Accueil", true, this::refresh);
-        menu.ajouter("users", "Patients", false, () -> userMenuBtn.doClick());
-        menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null, ctx.getRendezVousService()).setVisible(true));
-        menu.ajouter("message-circle", "Messagerie", false, () -> ChatBtn.doClick());
-        menu.selectionner("Accueil");
+        if (role == Role.ADMIN) {
+            menu.ajouter("users", "Membres", true, this::refresh);
+            menu.selectionner("Membres");
+        } else {
+            menu.ajouter("home", "Accueil", true, this::refresh);
+            menu.ajouter("users", "Patients", false, () -> userMenuBtn.doClick());
+            menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null, ctx.getRendezVousService()).setVisible(true));
+            menu.ajouter("message-circle", "Messagerie", false, () -> ChatBtn.doClick());
+            menu.selectionner("Accueil");
+        }
         menu.setPied("GestiMed<br>Gestion du cabinet médical");
 
         Bandeau bandeau = new Bandeau("GestiMed", "Cabinet médical");
         String date = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH).format(LocalDate.now());
         bandeau.ajouterInfo("calendar", Character.toUpperCase(date.charAt(0)) + date.substring(1));
+        if (ctx.getSession().estOuverte()) {
+            bandeau.ajouterInfo("user", ctx.getSession().getUtilisateur() + " · " + role.getLibelle());
+        }
 
         JPanel racine = new JPanel(new BorderLayout());
         racine.add(bandeau, BorderLayout.NORTH);

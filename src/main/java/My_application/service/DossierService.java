@@ -7,6 +7,7 @@ import My_application.dao.MedecinDao;
 import My_application.dao.PrescriptionDao;
 import My_application.dao.UniteDeTravail;
 import My_application.entities.DossierPatient;
+import My_application.entities.Role;
 import My_application.entities.analyse;
 import My_application.entities.analyseBio;
 import My_application.entities.consultation;
@@ -38,14 +39,21 @@ public class DossierService {
     private final PrescriptionDao prescriptionDao;
     private final DemandeAnalyseDao demandeAnalyseDao;
     private final JournalAcces journal;
+    private final ControleAcces acces;
 
     public DossierService(DAOFactory daos) {
         this(daos, JournalAcces.AUCUN);
     }
 
     public DossierService(DAOFactory daos, JournalAcces journal) {
+        this(daos, journal, ControleAcces.AUCUN);
+    }
+
+    /** @param acces vérifie que l'utilisateur connecté est médecin (secret médical) */
+    public DossierService(DAOFactory daos, JournalAcces journal, ControleAcces acces) {
         this.daos = daos;
         this.journal = journal;
+        this.acces = acces;
         this.consultationDao = daos.getConsultationDao();
         this.medecinDao = daos.getMedecinDao();
         this.prescriptionDao = daos.getPrescriptionDao();
@@ -54,6 +62,7 @@ public class DossierService {
 
     /** Charge le dossier du patient avec toutes ses consultations détaillées. */
     public DossierPatient ouvrirDossier(patient malade, medecin medecinTraitant) {
+        acces.exiger(Role.MEDECIN);
         if (malade == null) {
             throw new MetierException("Aucun patient sélectionné.");
         }
@@ -115,6 +124,7 @@ public class DossierService {
 
     /** Crée une nouvelle consultation (non enregistrée) datée de maintenant. */
     public consultation nouvelleConsultation(DossierPatient dossier) {
+        acces.exiger(Role.MEDECIN);
         if (dossier.getConsultationNonEnregistree() != null) {
             throw new MetierException("Une nouvelle consultation est déjà en cours de saisie.");
         }
@@ -144,6 +154,7 @@ public class DossierService {
      * @return le nombre de consultations écrites
      */
     public int enregistrer(final DossierPatient dossier) {
+        acces.exiger(Role.MEDECIN);
         final List<consultation> aEcrire = new ArrayList<>();
         for (consultation c : dossier.getConsultations()) {
             if (c.estNouvelle()) {
@@ -221,7 +232,9 @@ public class DossierService {
         }
     }
 
+    /** Consultations du jour (motifs et diagnostics compris) : réservé aux médecins. */
     public List<consultation> consultationsDuJour(LocalDate jour) {
+        acces.exiger(Role.MEDECIN);
         return consultationDao.findByDate(jour);
     }
 }

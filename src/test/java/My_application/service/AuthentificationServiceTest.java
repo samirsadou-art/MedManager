@@ -135,6 +135,20 @@ public class AuthentificationServiceTest {
         assertEquals(1, u.getIdent());
         assertTrue(session.estOuverte());
         assertEquals("CONNEXION", derniereAction());
+        assertEquals(java.time.LocalDateTime.ofInstant(horloge.maintenant, ZoneOffset.UTC), base.connexions.get(1));
+    }
+
+    @Test
+    public void nouveauxIdentifiantsVerifiesSansRienEcrire() {
+        creerCompte(1, "medecin", "Cabinet2026");
+        try {
+            service.verifierNouveauxIdentifiants("Medecin", mdp("Cabinet2026"), mdp("Cabinet2026"));
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("déjà utilisé"));
+        }
+        service.verifierNouveauxIdentifiants("secretaire", mdp("Accueil2026"), mdp("Accueil2026"));
+        assertEquals(1, base.logins.size());
     }
 
     @Test
