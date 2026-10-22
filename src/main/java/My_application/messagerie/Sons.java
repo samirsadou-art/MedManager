@@ -1,4 +1,4 @@
-package My_application.Chat;
+package My_application.messagerie;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -15,7 +15,7 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
 /**
- * Sonnerie du chat. Un seul fil (démon) joue les sons, au lieu d'un nouveau
+ * Sonnerie de la messagerie. Un seul fil (démon) joue les sons, au lieu d'un nouveau
  * {@code Thread} à chaque appui, et chaque {@link Clip} est fermé une fois
  * joué. Une erreur va au journal plutôt que sur {@code System.err}.
  */

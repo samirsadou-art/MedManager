@@ -6,8 +6,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import My_application.dao.MessageDao;
 import My_application.entities.Compte;
 import My_application.entities.EntreeJournal;
+import My_application.entities.MessageInterne;
 import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.Role;
@@ -303,6 +305,91 @@ public class JdbcDaoTest {
     @Test
     public void sansEvenementLeDernierVautZero() {
         assertEquals(0L, daos.getEvenementDao().dernier());
+    }
+
+    // ----- messagerie et présence -----
+
+    @Test
+    public void unMessageEstEnregistreAvecSonPatient() {
+        MessageInterne m = new MessageInterne();
+        m.setIdExpediteur(3);
+        m.setTexte("Résultats arrivés");
+        m.setPatient(Donnees.patient(7, "Y"));
+        m.setEnvoyeLe(LocalDateTime.of(2026, 10, 22, 9, 30));
+        daos.getMessageDao().insert(m);
+        assertEquals(Integer.valueOf(1001), m.getIdMessage());
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("INSERT INTO message_interne"));
+        assertEquals(3, e.param(1));
+        assertNull("pour tout le cabinet", e.param(2));
+        assertEquals(7, e.param(4));
+    }
+
+    @Test
+    public void unFilPriveLitLesDeuxSensDuPlusAncienAuPlusRecent() {
+        base.quand("FROM message_interne m",
+                ligne("idMessage", 9, "idExpediteur", 1, "idDestinataire", 3, "texte", "réponse",
+                        "idPatient", null, "envoyeLe", Timestamp.valueOf("2026-10-22 09:31:00"),
+                        "nom", "SAHAB", "prenom", "Said", "nomPatient", null, "prenomPatient", null, "lu", 0),
+                ligne("idMessage", 8, "idExpediteur", 3, "idDestinataire", 1, "texte", "question",
+                        "idPatient", 7, "envoyeLe", Timestamp.valueOf("2026-10-22 09:30:00"),
+                        "nom", "BELKACEM", "prenom", "Lila", "nomPatient", "Y", "prenomPatient", "y", "lu", 1));
+        List<MessageInterne> l = daos.getMessageDao().conversation(3, 1, 200);
+        assertEquals(Integer.valueOf(8), l.get(0).getIdMessage());
+        assertEquals("BELKACEM Lila", l.get(0).getNomExpediteur());
+        assertEquals(7, l.get(0).getPatient().getIdentPat());
+        assertTrue(l.get(0).isLuParDestinataire());
+        assertNull(l.get(1).getPatient());
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.contains("ORDER BY m.idMessage DESC LIMIT ?"));
+        assertEquals(3, e.param(1));
+        assertEquals(1, e.param(2));
+        assertEquals(1, e.param(3));
+        assertEquals(3, e.param(4));
+        assertEquals(200, e.param(5));
+
+        daos.getMessageDao().conversation(3, null, 50);
+        assertTrue(base.derniere().sql.contains("WHERE m.idDestinataire IS NULL"));
+        assertEquals(50, base.derniere().param(1));
+    }
+
+    @Test
+    public void nonLusParFilEtMarquageDesLus() {
+        base.quand("GROUP BY fil", ligne("fil", 0, "n", 2), ligne("fil", 1, "n", 1));
+        Map<Integer, Integer> n = daos.getMessageDao().nonLus(3);
+        assertEquals(Integer.valueOf(2), n.get(MessageDao.TOUT_LE_CABINET));
+        assertEquals(Integer.valueOf(1), n.get(1));
+        assertEquals(3, base.derniere().param(1));
+
+        daos.getMessageDao().marquerLus(3, 1, LocalDateTime.of(2026, 10, 22, 9, 40));
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("INSERT INTO message_lu"));
+        assertTrue(e.sql.contains("m.idExpediteur=? AND m.idDestinataire=?"));
+        assertEquals(3, e.param(1));
+        assertEquals(3, e.param(3));
+        assertEquals(1, e.param(4));
+        assertEquals(3, e.param(5));
+        assertEquals(3, e.param(6));
+        daos.getMessageDao().marquerLus(3, null, LocalDateTime.of(2026, 10, 22, 9, 40));
+        assertTrue(base.derniere().sql.contains("m.idDestinataire IS NULL"));
+    }
+
+    @Test
+    public void dernierMessagePurgeEtPresence() {
+        assertEquals(0L, daos.getMessageDao().dernier());
+        base.quand("MAX(idMessage)", ligne("dernier", 12L));
+        assertEquals(12L, daos.getMessageDao().dernier());
+        daos.getMessageDao().purgerAvant(LocalDateTime.of(2025, 10, 22, 0, 0));
+        assertTrue(base.derniere().sql.startsWith("DELETE FROM message_interne WHERE envoyeLe < ?"));
+
+        daos.getPresenceDao().signaler(3, "ACCUEIL");
+        assertTrue(base.derniere().sql.contains("ON DUPLICATE KEY UPDATE"));
+        assertEquals("ACCUEIL", base.derniere().param(2));
+        daos.getPresenceDao().quitter(3);
+        assertTrue(base.derniere().sql.startsWith("DELETE FROM utilisateur_presence"));
+        base.quand("FROM utilisateur_presence", ligne("idUtilisateur", 2));
+        assertTrue(daos.getPresenceDao().enLigne(60).contains(2));
+        assertEquals(60, base.derniere().param(1));
     }
 
     @Test

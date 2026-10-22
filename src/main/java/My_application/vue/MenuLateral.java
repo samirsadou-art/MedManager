@@ -67,6 +67,16 @@ public class MenuLateral extends JPanel {
         }
     }
 
+    /** Pastille (nombre de messages non lus…) sur l'entrée portant ce libellé ; 0 l'enlève. */
+    public void setBadge(String texte, int nombre) {
+        for (Entree e : liste) {
+            if (e.getText().equals(texte)) {
+                e.badge = nombre;
+                e.repaint();
+            }
+        }
+    }
+
     /** Texte discret en bas du menu (version, éditeur…). */
     public void setPied(String html) {
         JLabel pied = new JLabel("<html>" + html + "</html>", Icones.svg("heartbeat", 28, Theme.PRIMAIRE), JLabel.LEFT);
@@ -85,6 +95,7 @@ public class MenuLateral extends JPanel {
         private final String icone;
         private boolean choisie;
         private boolean survolee;
+        private int badge;
 
         Entree(String icone, String texte, final boolean active, final Runnable action) {
             super(texte);
@@ -142,6 +153,27 @@ public class MenuLateral extends JPanel {
                 g2.dispose();
             }
             super.paintComponent(g);
+            if (badge > 0) {
+                peindreBadge(g);
+            }
+        }
+
+        private void peindreBadge(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            String texte = badge > 99 ? "99+" : String.valueOf(badge);
+            g2.setFont(Theme.police(Font.BOLD, 11));
+            int largeur = Math.max(20, g2.getFontMetrics().stringWidth(texte) + 12);
+            int hauteur = 20;
+            int x = getWidth() - largeur - 10;
+            int y = (getHeight() - hauteur) / 2;
+            g2.setColor(choisie ? Color.WHITE : Theme.DANGER);
+            g2.fillRoundRect(x, y, largeur, hauteur, hauteur, hauteur);
+            g2.setColor(choisie ? Theme.DANGER : Color.WHITE);
+            int tx = x + (largeur - g2.getFontMetrics().stringWidth(texte)) / 2;
+            int ty = y + (hauteur + g2.getFontMetrics().getAscent() - g2.getFontMetrics().getDescent()) / 2;
+            g2.drawString(texte, tx, ty);
+            g2.dispose();
         }
     }
 }

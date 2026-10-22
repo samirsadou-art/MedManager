@@ -12,6 +12,7 @@ import My_application.dao.DAOFactory;
 import My_application.dao.DataAccessException;
 import My_application.entities.DossierPatient;
 import My_application.entities.EntreeJournal;
+import My_application.entities.MessageInterne;
 import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.Role;
@@ -26,6 +27,7 @@ import My_application.service.AuthentificationService;
 import My_application.service.JournalAcces;
 import My_application.service.JournalAccesEnBase;
 import My_application.service.MembresService;
+import My_application.service.MessagerieService;
 import My_application.service.PatientService;
 import My_application.service.MetierException;
 import My_application.service.Session;
@@ -432,6 +434,48 @@ public class MySqlIntegrationTest {
         assertEquals(1, bilan.getEnAttente());
         assertEquals(2, bilan.getSansRendezVous());
         assertEquals(0, salle.purgerEvenements());
+    }
+
+    @Test
+    public void messagerieSurUneVraieBase() throws Exception {
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("UPDATE utilisateur SET login='sahab' WHERE idUtilisateur=1");
+            st.execute("INSERT INTO utilisateur (nom, prenom, qualite, login, role) "
+                    + "VALUES ('BELKACEM', 'Lila', 'Secrétaire', 'lila', 'SECRETAIRE')");
+        }
+        patient p = creerPatient("CITE");
+        MessagerieService medecin = new MessagerieService(daos, () -> 1);
+        MessagerieService secretaire = new MessagerieService(daos, () -> 2);
+        secretaire.envoyer(1, "Les résultats de ce patient sont arrivés.", p);
+        secretaire.envoyer(null, "Réunion à 13 h", null);
+        medecin.envoyer(null, "D'accord", null);
+
+        List<MessagerieService.Conversation> fils = medecin.conversations();
+        assertEquals(2, fils.size());
+        assertEquals("un message à tous non lu", 1, fils.get(0).getNonLus());
+        assertEquals("un message privé non lu", 1, fils.get(1).getNonLus());
+        List<MessageInterne> prive = medecin.lire(2);
+        assertEquals("CITE", prive.get(0).getPatient().getNom());
+        assertEquals("BELKACEM Lila", prive.get(0).getNomExpediteur());
+        assertTrue("accusé de lecture", secretaire.lire(1).get(0).isLuParDestinataire());
+        assertEquals(1, MessagerieService.total(medecin.conversations()));
+        assertEquals(2, medecin.lire(null).size());
+        assertEquals(0, MessagerieService.total(medecin.conversations()));
+        assertEquals("lire deux fois ne duplique rien", 0,
+                daos.getMessageDao().marquerLus(1, null, LocalDateTime.now()));
+
+        secretaire.signalerPresence("ACCUEIL");
+        assertTrue(medecin.conversations().get(1).isEnLigne());
+        secretaire.signalerPresence("ACCUEIL");
+        secretaire.quitter();
+        assertFalse(medecin.conversations().get(1).isEnLigne());
+
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("UPDATE message_interne SET envoyeLe = NOW() - INTERVAL 13 MONTH WHERE idDestinataire = 1");
+        }
+        assertEquals("le message privé et son accusé de lecture sont supprimés", 1, medecin.purger());
+        assertTrue(medecin.lire(2).isEmpty());
+        assertTrue(medecin.dernierMessage() >= 3);
     }
 
     @Test

@@ -12,6 +12,7 @@ import My_application.service.JournalAccesEnBase;
 import My_application.service.MembresService;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
+import My_application.service.MessagerieService;
 import My_application.service.SalleAttenteService;
 import My_application.service.Session;
 import java.time.Clock;
@@ -40,6 +41,7 @@ public final class AppContext implements AutoCloseable {
     private final CatalogueService catalogueService;
     private final RendezVousService rendezVousService;
     private final SalleAttenteService salleAttenteService;
+    private final MessagerieService messagerieService;
     private final RapportService rapportService;
     private final Session session;
     private final JournalAcces journal;
@@ -66,6 +68,8 @@ public final class AppContext implements AutoCloseable {
         this.catalogueService = new CatalogueService(daos);
         this.rendezVousService = new RendezVousService(daos, journal, session::getIdMedecinDuPoste);
         this.salleAttenteService = new SalleAttenteService(daos, rendezVousService, session,
+                Clock.systemDefaultZone());
+        this.messagerieService = new MessagerieService(daos, session::getIdUtilisateurConnecte, session,
                 Clock.systemDefaultZone());
         this.rapportService = new RapportService();
     }
@@ -111,6 +115,10 @@ public final class AppContext implements AutoCloseable {
 
     public SalleAttenteService getSalleAttenteService() {
         return salleAttenteService;
+    }
+
+    public MessagerieService getMessagerieService() {
+        return messagerieService;
     }
 
     public RapportService getRapportService() {

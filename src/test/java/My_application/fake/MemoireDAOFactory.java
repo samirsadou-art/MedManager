@@ -4,23 +4,26 @@ import My_application.dao.AnalyseDao;
 import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
 import My_application.dao.DataAccessException;
+import My_application.dao.DemandeAnalyseDao;
 import My_application.dao.DoublonException;
 import My_application.dao.EvenementDao;
-import My_application.dao.SalleAttenteDao;
-import My_application.dao.DemandeAnalyseDao;
 import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
 import My_application.dao.MedicamentDao;
+import My_application.dao.MessageDao;
 import My_application.dao.PathologieDao;
 import My_application.dao.PatientDao;
 import My_application.dao.PrescriptionDao;
+import My_application.dao.PresenceDao;
 import My_application.dao.RendezVousDao;
+import My_application.dao.SalleAttenteDao;
 import My_application.dao.SymptomeDao;
 import My_application.dao.UniteDeTravail;
 import My_application.dao.UtilisateurDao;
 import My_application.entities.CategAnalyse;
 import My_application.entities.Compte;
 import My_application.entities.EntreeJournal;
+import My_application.entities.MessageInterne;
 import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.User;
@@ -84,6 +87,11 @@ public class MemoireDAOFactory implements DAOFactory {
     public final List<Passage> passages = new ArrayList<>();
     /** Événements publiés : type et identifiant de l'objet. */
     public final List<String> evenements = new ArrayList<>();
+    public final List<MessageInterne> messages = new ArrayList<>();
+    /** Accusés de lecture « idMessage:idUtilisateur ». */
+    public final Set<String> lus = new HashSet<>();
+    /** Membres en ligne, et le poste de chacun. */
+    public final Map<Integer, String> presents = new HashMap<>();
 
     // ----- instrumentation -----
     public int commits;
@@ -152,6 +160,8 @@ public class MemoireDAOFactory implements DAOFactory {
         final List<Rendez_Vous> rv = new ArrayList<>(rendezVous);
         final List<Passage> sa = new ArrayList<>(passages);
         final List<String> ev = new ArrayList<>(evenements);
+        final List<MessageInterne> me = new ArrayList<>(messages);
+        final Set<String> lu = new HashSet<>(lus);
         final List<symptome> sy = new ArrayList<>(symptomes);
         final List<pathologie> pa = new ArrayList<>(pathologies);
         final Map<Integer, String> lo = new HashMap<>(logins);
@@ -170,6 +180,9 @@ public class MemoireDAOFactory implements DAOFactory {
             remplacer(rendezVous, rv);
             remplacer(passages, sa);
             remplacer(evenements, ev);
+            remplacer(messages, me);
+            lus.clear();
+            lus.addAll(lu);
             remplacer(symptomes, sy);
             remplacer(pathologies, pa);
             logins.clear();
@@ -955,6 +968,120 @@ public class MemoireDAOFactory implements DAOFactory {
             public int purgerAvant(LocalDateTime limite) {
                 appel("evenement.purger");
                 return 0;
+            }
+        };
+    }
+
+    @Override
+    public MessageDao getMessageDao() {
+        return new MessageDao() {
+            @Override
+            public void insert(MessageInterne m) {
+                appel("message.insert");
+                m.setIdMessage(nouvelId());
+                messages.add(m);
+            }
+
+            private boolean dansLeFil(MessageInterne m, int moi, Integer autre) {
+                if (autre == null) {
+                    return m.getIdDestinataire() == null;
+                }
+                Integer de = m.getIdExpediteur();
+                Integer a = m.getIdDestinataire();
+                return (Integer.valueOf(moi).equals(de) && autre.equals(a))
+                        || (autre.equals(de) && Integer.valueOf(moi).equals(a));
+            }
+
+            private boolean recuNonLu(MessageInterne m, int moi) {
+                boolean recu = m.getIdDestinataire() == null || m.getIdDestinataire() == moi;
+                boolean pasDeMoi = m.getIdExpediteur() == null || m.getIdExpediteur() != moi;
+                return recu && pasDeMoi && !lus.contains(m.getIdMessage() + ":" + moi);
+            }
+
+            @Override
+            public List<MessageInterne> conversation(int moi, Integer autre, int limite) {
+                appel("message.conversation");
+                List<MessageInterne> l = new ArrayList<>();
+                for (MessageInterne m : messages) {
+                    if (dansLeFil(m, moi, autre)) {
+                        MessageInterne c = new MessageInterne();
+                        c.setIdMessage(m.getIdMessage());
+                        c.setIdExpediteur(m.getIdExpediteur());
+                        c.setIdDestinataire(m.getIdDestinataire());
+                        c.setTexte(m.getTexte());
+                        c.setPatient(m.getPatient());
+                        c.setEnvoyeLe(m.getEnvoyeLe());
+                        User u = m.getIdExpediteur() == null ? null : utilisateurs.get(m.getIdExpediteur());
+                        c.setNomExpediteur(u == null ? null : u.getNom() + " " + u.getPrenom());
+                        c.setLuParDestinataire(m.getIdDestinataire() != null
+                                && lus.contains(m.getIdMessage() + ":" + m.getIdDestinataire()));
+                        l.add(c);
+                    }
+                }
+                return l.size() > limite ? new ArrayList<>(l.subList(l.size() - limite, l.size())) : l;
+            }
+
+            @Override
+            public Map<Integer, Integer> nonLus(int moi) {
+                appel("message.nonLus");
+                Map<Integer, Integer> n = new HashMap<>();
+                for (MessageInterne m : messages) {
+                    if (recuNonLu(m, moi)) {
+                        int fil = m.getIdDestinataire() == null ? TOUT_LE_CABINET : m.getIdExpediteur();
+                        n.merge(fil, 1, Integer::sum);
+                    }
+                }
+                return n;
+            }
+
+            @Override
+            public int marquerLus(int moi, Integer autre, LocalDateTime quand) {
+                appel("message.marquerLus");
+                int n = 0;
+                for (MessageInterne m : messages) {
+                    if (dansLeFil(m, moi, autre) && recuNonLu(m, moi)) {
+                        lus.add(m.getIdMessage() + ":" + moi);
+                        n++;
+                    }
+                }
+                return n;
+            }
+
+            @Override
+            public long dernier() {
+                appel("message.dernier");
+                return messages.isEmpty() ? 0 : messages.get(messages.size() - 1).getIdMessage();
+            }
+
+            @Override
+            public int purgerAvant(LocalDateTime limite) {
+                appel("message.purger");
+                int avant = messages.size();
+                messages.removeIf(m -> m.getEnvoyeLe().isBefore(limite));
+                return avant - messages.size();
+            }
+        };
+    }
+
+    @Override
+    public PresenceDao getPresenceDao() {
+        return new PresenceDao() {
+            @Override
+            public void signaler(int idUtilisateur, String poste) {
+                appel("presence.signaler");
+                presents.put(idUtilisateur, poste);
+            }
+
+            @Override
+            public void quitter(int idUtilisateur) {
+                appel("presence.quitter");
+                presents.remove(idUtilisateur);
+            }
+
+            @Override
+            public Set<Integer> enLigne(int secondes) {
+                appel("presence.enLigne");
+                return new HashSet<>(presents.keySet());
             }
         };
     }
