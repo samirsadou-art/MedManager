@@ -10,7 +10,7 @@ import My_application.vue.Icones;
 import My_application.vue.Theme;
 import My_application.entities.consultation;
 import java.awt.Component;
-import javax.swing.ImageIcon;
+import javax.swing.Icon;
 import javax.swing.JLabel;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -21,7 +21,7 @@ import javax.swing.table.TableCellRenderer;
  * @author GLOBAL INFO LAGA
  */
 public class ConsultJourTableRondu implements TableCellRenderer{
-ImageIcon imageIcon;
+Icon imageIcon;
 
   protected DefaultTableCellRenderer defaultRenderer = new DefaultTableCellRenderer();
 

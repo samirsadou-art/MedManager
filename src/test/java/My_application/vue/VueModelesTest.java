@@ -26,9 +26,12 @@ public class VueModelesTest {
 
     @Test
     public void iconeSelonSexeEtAge() {
-        assertEquals("/res/icons/h64.png", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.of(1970, 1, 1), true), 64));
-        assertEquals("/res/icons/g32.png", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.now().minusYears(8), false), 32));
-        assertEquals("/res/icons/bb16.png", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.now().minusMonths(3), true), 16));
+        assertEquals("res/svg/patients/homme.svg", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.of(1970, 1, 1), true)));
+        assertEquals("res/svg/patients/fille.svg", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.now().minusYears(8), false)));
+        assertEquals("res/svg/patients/bebe-garcon.svg", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.now().minusMonths(3), true)));
+        for (String nom : new String[]{"homme", "femme", "garcon", "fille", "bebe-garcon", "bebe-fille"}) {
+            assertNotNull("avatar " + nom, Icones.class.getResource("/res/svg/patients/" + nom + ".svg"));
+        }
         for (int taille : new int[]{16, 32, 64, 128}) {
             assertNotNull("icône présente pour " + taille, Icones.icone("/res/icons/f" + taille + ".png"));
         }

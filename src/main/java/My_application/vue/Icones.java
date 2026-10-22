@@ -17,7 +17,9 @@ import javax.swing.ImageIcon;
  * Les icônes d'interface sont des SVG (Tabler Icons, licence MIT, dans
  * {@code /res/svg/}) teintés aux couleurs de la charte ({@link Theme}). Les
  * anciennes icônes PNG ont chacune un équivalent SVG (voir
- * {@link #remplacement}). Les avatars des patients restent en PNG.
+ * {@link #remplacement}). Les avatars des patients sont des SVG en couleurs
+ * dessinés dans la même palette ({@code /res/svg/patients/}) : homme, femme,
+ * garçon, fille, bébé garçon, bébé fille.
  */
 public final class Icones {
 
@@ -68,20 +70,20 @@ public final class Icones {
     }
 
     /** Nom du fichier d'icône, sans dépendance Swing (testable). */
-    public static String nomIconePatient(patient p, int taille) {
+    public static String nomIconePatient(patient p) {
         int age = p.getAge();
-        String prefixe;
+        String nom;
         if (p.isMasculin()) {
-            prefixe = age > 18 ? "h" : age > 0 ? "b" : "bb";
+            nom = age > 18 ? "homme" : age > 0 ? "garcon" : "bebe-garcon";
         } else {
-            prefixe = age > 18 ? "f" : age > 0 ? "g" : "bg";
+            nom = age > 18 ? "femme" : age > 0 ? "fille" : "bebe-fille";
         }
-        return "/res/icons/" + prefixe + taille + ".png";
+        return DOSSIER_SVG + "patients/" + nom + ".svg";
     }
 
-    public static ImageIcon patient(patient p, int taille) {
-        URL url = Icones.class.getResource(nomIconePatient(p, taille));
-        return url == null ? null : new ImageIcon(url);
+    /** Avatar du patient (selon sexe et âge), carré, dans ses propres couleurs. */
+    public static Icon patient(patient p, int taille) {
+        return new FlatSVGIcon(nomIconePatient(p), taille, taille);
     }
 
     /**
