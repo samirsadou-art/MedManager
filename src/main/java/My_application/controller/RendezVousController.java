@@ -156,7 +156,7 @@ public class RendezVousController extends ControleurBase {
         }
         Boolean fait = tenter(() -> {
             Map<Integer, medecin> parId = new LinkedHashMap<>();
-            for (medecin m : service.medecins()) {
+            for (medecin m : service.tousLesMedecins()) {
                 parId.put(m.getIdmedecin(), m);
             }
             return rapports.listeRendezVous(jour, service.listeDuJour(jour, medecin), parId, imprimer);

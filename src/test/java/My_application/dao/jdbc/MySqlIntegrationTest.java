@@ -545,4 +545,68 @@ public class MySqlIntegrationTest {
             // ck_utilisateur_role
         }
     }
+
+    @Test
+    public void compteAvecMotDePasseProvisoireEtMedecinQuiQuitteLeCabinet() throws Exception {
+        MembresService membres = new MembresService(daos, JournalAcces.AUCUN,
+                My_application.service.ControleAcces.AUCUN);
+        medecin fiche = new medecin();
+        fiche.setNom("amrani");
+        fiche.setPrenom("lina");
+        fiche.setOrdmedcin("15/987");
+        User lina = membres.creerCompte("amrani", "lina", Role.MEDECIN, null, fiche, "dr.amrani",
+                "Provisoire1".toCharArray(), "Provisoire1".toCharArray());
+        medecin lu = daos.getMedecinDao().findById(lina.getIdMedecin());
+        assertEquals("AMRANI", lu.getNom());
+        assertTrue(lu.isActif());
+        assertTrue(daos.getUtilisateurDao().findById(lina.getIdent()).isDoitChanger());
+
+        // Même numéro d'ordre : refusé par uk_medecin_ordre, sans compte à moitié créé.
+        int avant = daos.getUtilisateurDao().findAll().size();
+        medecin doublon = new medecin();
+        doublon.setNom("autre");
+        doublon.setPrenom("medecin");
+        doublon.setOrdmedcin("15/987");
+        try {
+            membres.creerCompte("autre", "medecin", Role.MEDECIN, null, doublon, "autre",
+                    "Provisoire1".toCharArray(), "Provisoire1".toCharArray());
+            fail();
+        } catch (MetierException attendu) {
+            assertTrue(attendu.getMessage().contains("numéro d'ordre"));
+        }
+        assertEquals(avant, daos.getUtilisateurDao().findAll().size());
+
+        Session session = new Session(daos, 1, idMedecin);
+        AuthentificationService auth = new AuthentificationService(daos, session, JournalAcces.AUCUN);
+        assertTrue(auth.connecter("dr.amrani", "Provisoire1".toCharArray()).isDoitChanger());
+        assertTrue(!session.estOuverte());
+        auth.remplacerMotDePasseProvisoire("Choisi2026".toCharArray(), "Choisi2026".toCharArray());
+        assertTrue(session.estOuverte());
+        User relu = daos.getUtilisateurDao().findById(lina.getIdent());
+        assertTrue(!relu.isDoitChanger());
+        assertNotNull(relu.getDerniereConnexion());
+
+        lu.setSpecialite("Pédiatrie");
+        membres.modifierMedecin(lu);
+        assertEquals("Pédiatrie", daos.getMedecinDao().findById(lu.getIdmedecin()).getSpecialite());
+
+        patient p = creerPatient("RDV");
+        RendezVousService rdv = new RendezVousService(daos, JournalAcces.AUCUN, () -> null);
+        Rendez_Vous r = rdv.proposer(p, Donnees.utilisateur(1), LocalDate.now().plusDays(3), 10, lu.getIdmedecin());
+        rdv.confirmer(r);
+        assertEquals(1, daos.getRendezVousDao().compterPrevus(lu.getIdmedecin(), LocalDate.now()));
+        membres.definirActif(lina.getIdent(), false);
+        try {
+            membres.definirMedecinActif(lu.getIdmedecin(), false);
+            fail();
+        } catch (MetierException attendu) {
+            assertTrue(attendu.getMessage().contains("rendez-vous à venir"));
+        }
+        assertTrue(daos.getRendezVousDao().changerEtat(r.getIdRendezVous(), Rendez_Vous.ETAT_PREVU,
+                Rendez_Vous.ETAT_ANNULE));
+        membres.definirMedecinActif(lu.getIdmedecin(), false);
+        assertTrue(!daos.getMedecinDao().findById(lu.getIdmedecin()).isActif());
+        assertEquals(1, rdv.medecins().size());
+        assertEquals(2, rdv.tousLesMedecins().size());
+    }
 }

@@ -68,6 +68,8 @@ public class MemoireDAOFactory implements DAOFactory {
     public final Map<Integer, String> logins = new HashMap<>();
     public final Map<Integer, String> empreintes = new HashMap<>();
     public final Set<Integer> inactifs = new HashSet<>();
+    /** Comptes dont le mot de passe est provisoire. */
+    public final Set<Integer> aChanger = new HashSet<>();
     /** Dernière connexion par idUtilisateur. */
     public final Map<Integer, java.time.LocalDateTime> connexions = new HashMap<>();
     public final List<EntreeJournal> journal = new ArrayList<>();
@@ -313,6 +315,43 @@ public class MemoireDAOFactory implements DAOFactory {
                 });
                 return r;
             }
+
+            @Override
+            public medecin insert(medecin m) {
+                appel("medecin.insert");
+                verifierOrdreLibre(m);
+                int id = 1;
+                for (Integer k : medecins.keySet()) {
+                    id = Math.max(id, k + 1);
+                }
+                m.setIdmedecin(id);
+                medecins.put(id, m);
+                return m;
+            }
+
+            @Override
+            public void modifier(medecin m) {
+                appel("medecin.modifier");
+                verifierOrdreLibre(m);
+                m.setActif(medecins.get(m.getIdmedecin()).isActif());
+                medecins.put(m.getIdmedecin(), m);
+            }
+
+            @Override
+            public void definirActif(int idMedecin, boolean actif) {
+                appel("medecin.definirActif");
+                medecins.get(idMedecin).setActif(actif);
+            }
+
+            /** Comme la clé unique sur ordreMedecin. */
+            private void verifierOrdreLibre(medecin m) {
+                for (medecin autre : medecins.values()) {
+                    if (autre.getIdmedecin() != m.getIdmedecin() && m.getOrdmedcin() != null
+                            && m.getOrdmedcin().equals(autre.getOrdmedcin())) {
+                        throw new My_application.dao.DoublonException("ordre " + m.getOrdmedcin() + " déjà pris", null);
+                    }
+                }
+            }
         };
     }
 
@@ -367,6 +406,27 @@ public class MemoireDAOFactory implements DAOFactory {
                 }
                 logins.put(idUtilisateur, login);
                 empreintes.put(idUtilisateur, empreinte);
+                aChanger.remove(idUtilisateur);
+            }
+
+            @Override
+            public void definirMotDePasse(int idUtilisateur, String empreinte, boolean doitChanger) {
+                appel("utilisateur.definirMotDePasse");
+                empreintes.put(idUtilisateur, empreinte);
+                if (doitChanger) {
+                    aChanger.add(idUtilisateur);
+                } else {
+                    aChanger.remove(idUtilisateur);
+                }
+            }
+
+            @Override
+            public void modifier(User u) {
+                appel("utilisateur.modifier");
+                User existant = utilisateurs.get(u.getIdent());
+                existant.setNom(u.getNom());
+                existant.setPrenom(u.getPrenom());
+                existant.setQuailite(u.getQuailite());
             }
 
             @Override
@@ -414,6 +474,8 @@ public class MemoireDAOFactory implements DAOFactory {
         if (u != null) {
             u.setLogin(logins.get(u.getIdent()));
             u.setActif(!inactifs.contains(u.getIdent()));
+            u.setDoitChanger(aChanger.contains(u.getIdent()));
+            u.setDerniereConnexion(connexions.get(u.getIdent()));
         }
         return u;
     }
@@ -857,6 +919,19 @@ public class MemoireDAOFactory implements DAOFactory {
                 }
                 r.sort(Comparator.comparing(Rendez_Vous::getDebut).reversed());
                 return r;
+            }
+
+            @Override
+            public int compterPrevus(int idMedecin, LocalDate jour) {
+                appel("rdv.compterPrevus");
+                int n = 0;
+                for (Rendez_Vous x : rendezVous) {
+                    if (x.getEtat() == Rendez_Vous.ETAT_PREVU && !x.getDate().isBefore(jour)
+                            && java.util.Objects.equals(x.getIdMedecin(), idMedecin)) {
+                        n++;
+                    }
+                }
+                return n;
             }
         };
     }

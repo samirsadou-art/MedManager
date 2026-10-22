@@ -26,6 +26,10 @@ import java.util.Map;
  * faut attendre {@code ATTENTE} avant de réessayer ;</li>
  * <li>connexions réussies et échouées inscrites au journal des accès.</li>
  * </ul>
+ * Mot de passe provisoire (donné par l'administrateur) : {@link #connecter}
+ * vérifie les identifiants mais n'ouvre la session qu'après
+ * {@link #remplacerMotDePasseProvisoire}.
+ * <p>
  * Première utilisation : tant qu'aucun compte n'existe, l'utilisateur par
  * défaut ({@code -Dgestimed.utilisateur}, 1) choisit son identifiant et son
  * mot de passe.
@@ -48,6 +52,8 @@ public class AuthentificationService {
     private final JournalAcces journal;
     private final Clock horloge;
     private final Map<String, Echecs> echecs = new HashMap<>();
+    /** Compte authentifié dont le mot de passe provisoire doit être changé avant d'ouvrir la session. */
+    private Compte enAttente;
 
     private static final class Echecs {
         int nombre;
@@ -141,13 +147,83 @@ public class AuthentificationService {
             }
             echecs.remove(identifiant);
             User u = compte.getUtilisateur();
-            utilisateurDao.noterConnexion(u.getIdent(), LocalDateTime.now(horloge));
-            session.ouvrir(u);
-            journal.noter(JournalAcces.Action.CONNEXION, null, null);
+            if (u.isDoitChanger()) {
+                enAttente = compte;
+                return u;
+            }
+            enAttente = null;
+            ouvrirSession(u);
             return u;
         } catch (DataAccessException ex) {
             throw siBaseNonMigree(ex);
         }
+    }
+
+    private void ouvrirSession(User u) {
+        utilisateurDao.noterConnexion(u.getIdent(), LocalDateTime.now(horloge));
+        session.ouvrir(u);
+        journal.noter(JournalAcces.Action.CONNEXION, null, null);
+    }
+
+    /**
+     * Après {@link #connecter} avec un mot de passe provisoire : enregistre
+     * le mot de passe choisi par le membre, puis ouvre la session.
+     */
+    public synchronized User remplacerMotDePasseProvisoire(char[] nouveau, char[] confirmation) {
+        final Compte compte = enAttente;
+        if (compte == null) {
+            throw new MetierException("Connectez-vous d'abord avec le mot de passe provisoire.");
+        }
+        verifierNouveauMotDePasse(nouveau, confirmation);
+        if (MotDePasse.verifier(nouveau, compte.getEmpreinte())) {
+            throw new MetierException("Choisissez un mot de passe différent du mot de passe provisoire.");
+        }
+        final String empreinte = MotDePasse.hacher(nouveau);
+        final User u = compte.getUtilisateur();
+        daos.enTransaction(new UniteDeTravail<Void>() {
+            @Override
+            public Void executer() {
+                utilisateurDao.definirMotDePasse(u.getIdent(), empreinte, false);
+                ouvrirSession(u);
+                journal.noter(JournalAcces.Action.MODIFICATION_COMPTE, null, "mot de passe provisoire remplacé");
+                return null;
+            }
+        });
+        u.setDoitChanger(false);
+        enAttente = null;
+        return u;
+    }
+
+    /** Le membre renonce à changer son mot de passe provisoire : il n'est pas connecté. */
+    public synchronized void abandonnerConnexion() {
+        enAttente = null;
+    }
+
+    /** Le membre connecté change son mot de passe (menu « Changer mon mot de passe »). */
+    public void changerMonMotDePasse(char[] actuel, char[] nouveau, char[] confirmation) {
+        Integer id = session.getIdUtilisateurConnecte();
+        User u = id == null ? null : utilisateurDao.findById(id);
+        Compte compte = u == null || u.getLogin() == null ? null : utilisateurDao.findCompte(u.getLogin());
+        if (compte == null) {
+            throw new MetierException("Aucun compte n'est connecté.");
+        }
+        if (actuel == null || !MotDePasse.verifier(actuel, compte.getEmpreinte())) {
+            throw new MetierException("Le mot de passe actuel est incorrect.");
+        }
+        verifierNouveauMotDePasse(nouveau, confirmation);
+        if (java.util.Arrays.equals(actuel, nouveau)) {
+            throw new MetierException("Le nouveau mot de passe doit être différent de l'actuel.");
+        }
+        final String empreinte = MotDePasse.hacher(nouveau);
+        final int ident = u.getIdent();
+        daos.enTransaction(new UniteDeTravail<Void>() {
+            @Override
+            public Void executer() {
+                utilisateurDao.definirMotDePasse(ident, empreinte, false);
+                journal.noter(JournalAcces.Action.MODIFICATION_COMPTE, null, "mot de passe changé par son titulaire");
+                return null;
+            }
+        });
     }
 
     /** Définit (ou remplace) l'identifiant et le mot de passe d'un utilisateur (outil GestionComptes). */
@@ -217,7 +293,7 @@ public class AuthentificationService {
         return l;
     }
 
-    private static void verifierNouveauMotDePasse(char[] motDePasse, char[] confirmation) {
+    static void verifierNouveauMotDePasse(char[] motDePasse, char[] confirmation) {
         MotDePasse.verifierRobustesse(motDePasse);
         if (confirmation == null || !java.util.Arrays.equals(motDePasse, confirmation)) {
             throw new MetierException("Les deux mots de passe saisis sont différents.");

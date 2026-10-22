@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashSet;
@@ -63,6 +64,9 @@ final class Mappers {
             m.setTelephone2(rs.getString("telephone2"));
             m.setEmail(rs.getString("email"));
             m.setNom_cabinet(rs.getString("nomCabinet"));
+            if (colonnes(rs).contains("actif")) {
+                m.setActif(rs.getBoolean("actif"));
+            }
             return m;
         }
     };
@@ -75,9 +79,17 @@ final class Mappers {
             u.setLogin(rs.getString("login"));
             u.setActif(rs.getBoolean("actif"));
             u.setIdMedecin((Integer) rs.getObject("idMedecin"));
-            String role = chaine(rs, colonnes(rs), "role");
+            Set<String> colonnes = colonnes(rs);
+            String role = chaine(rs, colonnes, "role");
             if (role != null) {
                 u.setRole(Role.depuis(role));
+            }
+            if (colonnes.contains("doitchanger")) {
+                u.setDoitChanger(rs.getBoolean("doitChanger"));
+            }
+            if (colonnes.contains("derniereconnexion")) {
+                Timestamp t = rs.getTimestamp("derniereConnexion");
+                u.setDerniereConnexion(t == null ? null : t.toLocalDateTime());
             }
             return u;
         }

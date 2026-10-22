@@ -34,4 +34,7 @@ public interface RendezVousDao {
 
     /** Rendez-vous de ces patients (tous états), du plus récent au plus ancien. */
     List<Rendez_Vous> findDesPatients(Collection<Integer> idPatients);
+
+    /** Nombre de rendez-vous encore prévus chez ce médecin à partir de {@code jour} inclus. */
+    int compterPrevus(int idMedecin, LocalDate jour);
 }

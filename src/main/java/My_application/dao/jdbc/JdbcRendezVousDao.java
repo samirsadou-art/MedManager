@@ -98,4 +98,11 @@ public class JdbcRendezVousDao implements RendezVousDao {
         return jdbc.query(SELECT + "WHERE r.idPatient IN (" + marques + ") ORDER BY r.date DESC, r.heure DESC",
                 MAPPER, params.toArray());
     }
+
+    @Override
+    public int compterPrevus(int idMedecin, LocalDate jour) {
+        Long n = jdbc.queryOne("SELECT COUNT(*) AS n FROM rendezvous WHERE idMedecin=? AND etat=? AND date >= ?",
+                rs -> rs.getLong("n"), idMedecin, Rendez_Vous.ETAT_PREVU, jour);
+        return n == null ? 0 : n.intValue();
+    }
 }

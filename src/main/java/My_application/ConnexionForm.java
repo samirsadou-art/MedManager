@@ -6,6 +6,7 @@ import My_application.entities.User;
 import My_application.service.AuthentificationService;
 import My_application.service.MotDePasse;
 import My_application.vue.Dialogues;
+import My_application.vue.Formulaire;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import java.awt.BorderLayout;
@@ -166,6 +167,9 @@ public class ConnexionForm extends JDialog implements Vue {
         User u = creation
                 ? controleur.creerPremierCompte(login.getText(), motDePasse.getPassword(), confirmation.getPassword())
                 : controleur.connecter(login.getText(), motDePasse.getPassword());
+        if (u != null && u.isDoitChanger()) {
+            u = choisirMotDePasse(u);
+        }
         if (u != null) {
             connecte = u;
             dispose();
@@ -180,6 +184,31 @@ public class ConnexionForm extends JDialog implements Vue {
                 }
             });
         }
+    }
+
+    /**
+     * Mot de passe provisoire : le membre choisit le sien avant d'entrer.
+     * Renvoie l'utilisateur connecté, ou null s'il a annulé.
+     */
+    private User choisirMotDePasse(User u) {
+        JPasswordField nouveau = new JPasswordField(20);
+        JPasswordField repete = new JPasswordField(20);
+        User[] resultat = new User[1];
+        boolean fait = new Formulaire(this, "Choisissez votre mot de passe", "key",
+                "Bonjour " + echapper(u.toString()) + ". Votre mot de passe est provisoire : choisissez le vôtre "
+                + "pour continuer (au moins " + MotDePasse.LONGUEUR_MIN + " caractères, dont une lettre et un chiffre).",
+                "Enregistrer et continuer")
+                .ligne("Nouveau mot de passe", nouveau)
+                .ligne("Confirmation", repete)
+                .afficher(() -> {
+                    resultat[0] = controleur.remplacerMotDePasseProvisoire(nouveau.getPassword(), repete.getPassword());
+                    return resultat[0] != null;
+                });
+        if (!fait) {
+            controleur.abandonnerConnexion();
+            return null;
+        }
+        return resultat[0];
     }
 
     private static String echapper(String s) {

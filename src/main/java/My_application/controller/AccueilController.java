@@ -102,7 +102,7 @@ public class AccueilController extends ControleurBase {
             a.evenement = salle.dernierEvenement();
             a.file = salle.file(medecinDeLaFile);
             a.medecins = new HashMap<>();
-            for (medecin m : rendezVousService.medecins()) {
+            for (medecin m : rendezVousService.tousLesMedecins()) {
                 a.medecins.put(m.getIdmedecin(), m.toString());
             }
             a.maintenant = salle.getMaintenant();

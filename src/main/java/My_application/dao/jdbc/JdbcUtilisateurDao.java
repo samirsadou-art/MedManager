@@ -11,7 +11,8 @@ import java.util.List;
 
 public class JdbcUtilisateurDao implements UtilisateurDao {
 
-    private static final String COLONNES = "idUtilisateur, nom, prenom, qualite, role, login, actif, idMedecin";
+    private static final String COLONNES = "idUtilisateur, nom, prenom, qualite, role, login, actif, idMedecin, doitChanger, "
+            + "derniereConnexion";
 
     private static final RowMapper<Compte> COMPTE = new RowMapper<Compte>() {
         @Override
@@ -56,8 +57,20 @@ public class JdbcUtilisateurDao implements UtilisateurDao {
 
     @Override
     public void definirIdentifiants(int idUtilisateur, String login, String empreinte) {
-        jdbc.update("UPDATE utilisateur SET login=?, motDePasse=? WHERE idUtilisateur=?",
+        jdbc.update("UPDATE utilisateur SET login=?, motDePasse=?, doitChanger=0 WHERE idUtilisateur=?",
                 login, empreinte, idUtilisateur);
+    }
+
+    @Override
+    public void definirMotDePasse(int idUtilisateur, String empreinte, boolean doitChanger) {
+        jdbc.update("UPDATE utilisateur SET motDePasse=?, doitChanger=? WHERE idUtilisateur=?",
+                empreinte, doitChanger, idUtilisateur);
+    }
+
+    @Override
+    public void modifier(User u) {
+        jdbc.update("UPDATE utilisateur SET nom=?, prenom=?, qualite=? WHERE idUtilisateur=?",
+                u.getNom(), u.getPrenom(), u.getQuailite(), u.getIdent());
     }
 
     @Override

@@ -2,6 +2,7 @@ package My_application.service;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -254,5 +255,82 @@ public class AuthentificationServiceTest {
         }
         assertFalse("désactiver tous les comptes ne rouvre pas la création du premier compte",
                 service.premiereUtilisation());
+    }
+
+    // ----- mot de passe provisoire et changement -----
+
+    @Test
+    public void unMotDePasseProvisoireDoitEtreChangeAvantDOuvrirLaSession() {
+        creerCompte(1, "medecin", "Provisoire1");
+        base.aChanger.add(1);
+        User u = service.connecter("medecin", mdp("Provisoire1"));
+        assertTrue(u.isDoitChanger());
+        assertFalse("pas de session tant que le mot de passe n'est pas choisi", session.estOuverte());
+        assertTrue(base.connexions.isEmpty());
+
+        try {
+            service.remplacerMotDePasseProvisoire(mdp("Provisoire1"), mdp("Provisoire1"));
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("différent"));
+        }
+        try {
+            service.remplacerMotDePasseProvisoire(mdp("Choisi2026"), mdp("Choisi2027"));
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("différents"));
+        }
+        assertFalse(session.estOuverte());
+
+        service.remplacerMotDePasseProvisoire(mdp("Choisi2026"), mdp("Choisi2026"));
+        assertTrue(session.estOuverte());
+        assertFalse(base.aChanger.contains(1));
+        assertTrue(base.connexions.containsKey(1));
+        assertTrue(MotDePasse.verifier(mdp("Choisi2026"), base.empreintes.get(1)));
+        assertEquals("MODIFICATION_COMPTE", derniereAction());
+        assertNotNull(service.connecter("medecin", mdp("Choisi2026")));
+    }
+
+    @Test
+    public void renoncerAuChangementNeConnectePas() {
+        creerCompte(1, "medecin", "Provisoire1");
+        base.aChanger.add(1);
+        service.connecter("medecin", mdp("Provisoire1"));
+        service.abandonnerConnexion();
+        try {
+            service.remplacerMotDePasseProvisoire(mdp("Choisi2026"), mdp("Choisi2026"));
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("Connectez-vous"));
+        }
+        assertFalse(session.estOuverte());
+        assertTrue(base.aChanger.contains(1));
+    }
+
+    @Test
+    public void chaqueMembreChangeSonMotDePasse() {
+        creerCompte(1, "medecin", "Cabinet2026");
+        try {
+            service.changerMonMotDePasse(mdp("Cabinet2026"), mdp("Nouveau2026"), mdp("Nouveau2026"));
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("Aucun compte"));
+        }
+        service.connecter("medecin", mdp("Cabinet2026"));
+        try {
+            service.changerMonMotDePasse(mdp("Mauvais2026"), mdp("Nouveau2026"), mdp("Nouveau2026"));
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("actuel est incorrect"));
+        }
+        try {
+            service.changerMonMotDePasse(mdp("Cabinet2026"), mdp("Cabinet2026"), mdp("Cabinet2026"));
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("différent"));
+        }
+        service.changerMonMotDePasse(mdp("Cabinet2026"), mdp("Nouveau2026"), mdp("Nouveau2026"));
+        assertTrue(MotDePasse.verifier(mdp("Nouveau2026"), base.empreintes.get(1)));
+        assertEquals("MODIFICATION_COMPTE", derniereAction());
     }
 }
