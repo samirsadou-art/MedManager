@@ -37,6 +37,7 @@ import java.awt.Container;
 import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.Toolkit;
+import java.awt.Window;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -143,6 +144,36 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
                             repete.getPassword()));
         });
         jMenu1.add(changer);
+    }
+
+    /**
+     * Menu « Se déconnecter » : ferme toutes les fenêtres de ce membre
+     * (dossiers, agenda, messagerie…) et sa session, puis rouvre l'écran de
+     * connexion pour le membre suivant. Quitter cet écran ferme l'application.
+     */
+    private void seDeconnecter() {
+        if (!Dialogues.confirmer(this, "Fermer la session de " + ctx.getSession().getUtilisateur() + " ?")) {
+            return;
+        }
+        if (surveillance != null) {
+            surveillance.stop();
+        }
+        if (messagerie != null) {
+            messagerie.quitter();
+            messagerie.dispose();
+        }
+        for (Window w : Window.getWindows()) {
+            if (w.isShowing()) {
+                w.dispose();
+            }
+        }
+        dispose();
+        ctx.getAuthentificationService().deconnecter();
+        if (ConnexionForm.demander(ctx.getAuthentificationService()) == null) {
+            ctx.close();
+            System.exit(0);
+        }
+        new PrincipalForm(ctx).setVisible(true);
     }
 
     /** Nom de l'ordinateur, affiché avec la présence des membres. */
@@ -369,6 +400,9 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null, ctx.getRendezVousService(), ctx.getRapportService()).setVisible(true));
             menu.ajouter("message-circle", "Messagerie", false, () -> ChatBtn.doClick());
             menu.selectionner("Accueil");
+        }
+        if (ctx.getSession().estOuverte()) {
+            menu.ajouterEnBas("logout", "Se déconnecter", this::seDeconnecter);
         }
         menu.setPied("GestiMed<br>Gestion du cabinet médical");
 

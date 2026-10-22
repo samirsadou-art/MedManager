@@ -29,6 +29,8 @@ public class Session implements ControleAcces {
     private final DAOFactory daos;
     private final int idUtilisateur;
     private int idMedecin;
+    /** Médecin donné au lancement : celui du poste après une déconnexion. */
+    private final int idMedecinDuLancement;
     private User utilisateur;
     private User connecte;
     private medecin medecinTraitant;
@@ -37,6 +39,7 @@ public class Session implements ControleAcces {
         this.daos = daos;
         this.idUtilisateur = idUtilisateur;
         this.idMedecin = idMedecin;
+        this.idMedecinDuLancement = idMedecin;
     }
 
     /** Médecin du poste : celui de l'utilisateur connecté, sinon celui donné au lancement. */
@@ -65,6 +68,14 @@ public class Session implements ControleAcces {
             idMedecin = u.getIdMedecin();
             medecinTraitant = null;
         }
+    }
+
+    /** Ferme la session : plus personne n'est connecté, le médecin redevient celui du lancement. */
+    public synchronized void fermer() {
+        connecte = null;
+        utilisateur = null;
+        idMedecin = idMedecinDuLancement;
+        medecinTraitant = null;
     }
 
     /** Rôle de l'utilisateur connecté, ou null si personne n'est connecté. */
