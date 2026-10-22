@@ -3,7 +3,6 @@
 package My_application;
 
 import My_application.vue.Theme;
-import My_application.Chat.Tchat;
 import My_application.Patient.ListePatient;
 import My_application.TableModelPrincipale.ConsultJourTableModel;
 import My_application.TableModelPrincipale.ConsultJourTableRondu;
@@ -21,6 +20,7 @@ import My_application.dao.jdbc.DatabaseConfig;
 import My_application.dao.jdbc.Migrations;
 import My_application.entities.consultation;
 import My_application.rendezvous.calandar;
+import My_application.messagerie.FenetreMessagerie;
 import My_application.salle.PanneauSalleAttente;
 import My_application.vue.Bandeau;
 import My_application.vue.Dialogues;
@@ -61,7 +61,11 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     private final Role role;
     /** Page du compte administrateur (null pour les autres rôles). */
     private PageMembres pageMembres;
-    private Tchat disc;
+    /** Messagerie interne (null pour l'administrateur) : créée au démarrage, montrée par le menu. */
+    private FenetreMessagerie messagerie;
+    private MenuLateral menu;
+    /** Tours du minuteur : la présence n'est signalée qu'un tour sur dix (30 s). */
+    private int tours;
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
     private PanneauSalleAttente salle;
@@ -78,7 +82,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         presenterNavigation();
         this.setLocationRelativeTo(null);
         this.setExtendedState(Frame.MAXIMIZED_BOTH);
-        disc = new Tchat(this);
         TableRendezvous.setModel(RJModel);
         TableRendezvous.setDefaultRenderer(Object.class, new RendezJourTableRondu());
         TableConsult.setModel(CJModel);
@@ -86,9 +89,22 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService(),
                 Executeur.SWING, role == Role.MEDECIN);
         if (role != Role.ADMIN) {
+            messagerie = new FenetreMessagerie(ctx.getMessagerieService(), ctx.getPatientService(),
+                    ctx.getSession().getIdUtilisateurConnecte(), n -> menu.setBadge("Messagerie", n));
+            messagerie.demarrer();
+            messagerie.signalerPresence(nomDuPoste());
             installerSalleAttente();
         }
         refresh();
+    }
+
+    /** Nom de l'ordinateur, affiché avec la présence des membres. */
+    private static String nomDuPoste() {
+        String nom = System.getenv("COMPUTERNAME");
+        if (nom == null) {
+            nom = System.getenv("HOSTNAME");
+        }
+        return nom == null ? null : nom.length() > 60 ? nom.substring(0, 60) : nom;
     }
 
     /**
@@ -156,6 +172,10 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         surveillance = new Timer(3000, e -> {
             controleur.verifierEvenements();
             salle.setMaintenant(LocalDateTime.now());
+            messagerie.verifier();
+            if (++tours % 10 == 0) {
+                messagerie.signalerPresence(nomDuPoste());
+            }
         });
         surveillance.start();
         controleur.purgerEvenements();
@@ -283,7 +303,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         page.add(entete, BorderLayout.NORTH);
         page.add(contenu, BorderLayout.CENTER);
 
-        MenuLateral menu = new MenuLateral();
+        menu = new MenuLateral();
         if (role == Role.ADMIN) {
             menu.ajouter("users", "Membres", true, this::refresh);
             menu.selectionner("Membres");
@@ -609,14 +629,19 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     private void ChatBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChatBtnActionPerformed
         
                 
-        disc.montrer();
+        if (messagerie != null) {
+            messagerie.montrer();
+        }
     }//GEN-LAST:event_ChatBtnActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         if (surveillance != null) {
             surveillance.stop();
         }
-        disc.Close();
+        if (messagerie != null) {
+            messagerie.quitter();
+            messagerie.dispose();
+        }
         ctx.close();
     }//GEN-LAST:event_formWindowClosing
 

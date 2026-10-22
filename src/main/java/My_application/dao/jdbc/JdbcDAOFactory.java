@@ -5,6 +5,8 @@ import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
 import My_application.dao.DemandeAnalyseDao;
 import My_application.dao.EvenementDao;
+import My_application.dao.MessageDao;
+import My_application.dao.PresenceDao;
 import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
 import My_application.dao.MedicamentDao;
@@ -38,6 +40,8 @@ public class JdbcDAOFactory implements DAOFactory {
     private final JournalDao journalDao;
     private final SalleAttenteDao salleAttenteDao;
     private final EvenementDao evenementDao;
+    private final MessageDao messageDao;
+    private final PresenceDao presenceDao;
 
     public JdbcDAOFactory(ConnectionProvider provider) {
         // Les DAO passent par le gestionnaire de transactions : pendant une
@@ -58,6 +62,8 @@ public class JdbcDAOFactory implements DAOFactory {
         this.journalDao = new JdbcJournalDao(jdbc);
         this.salleAttenteDao = new JdbcSalleAttenteDao(jdbc);
         this.evenementDao = new JdbcEvenementDao(jdbc);
+        this.messageDao = new JdbcMessageDao(jdbc);
+        this.presenceDao = new JdbcPresenceDao(jdbc);
     }
 
     @Override
@@ -133,5 +139,15 @@ public class JdbcDAOFactory implements DAOFactory {
     @Override
     public EvenementDao getEvenementDao() {
         return evenementDao;
+    }
+
+    @Override
+    public MessageDao getMessageDao() {
+        return messageDao;
+    }
+
+    @Override
+    public PresenceDao getPresenceDao() {
+        return presenceDao;
     }
 }

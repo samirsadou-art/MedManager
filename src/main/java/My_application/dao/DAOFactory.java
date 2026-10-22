@@ -37,6 +37,10 @@ public interface DAOFactory {
 
     EvenementDao getEvenementDao();
 
+    MessageDao getMessageDao();
+
+    PresenceDao getPresenceDao();
+
     /**
      * Exécute un traitement de façon atomique (tout ou rien) sur les DAO de
      * cette fabrique.
