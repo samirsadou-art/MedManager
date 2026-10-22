@@ -167,7 +167,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }
 
     void remplirInfo() {
-        numLabel.setText(String.valueOf(dossier.getMalade().getIdentPat()));
+        numLabel.setText(dossier.getMalade().getNumeroDossier());
         nomLabel.setText(dossier.getMalade().getNom());
         prenomLabel.setText(dossier.getMalade().getPrenom());
         ageLabel.setText(dossier.getMalade().getStringAge());

@@ -38,19 +38,19 @@ DELETE FROM patient      WHERE idPatient BETWEEN 9001 AND 9999;
 -- Patients (sexePatient : 1 = homme, 0 = femme)
 -- ---------------------------------------------------------------------
 INSERT INTO patient
-  (idPatient, nomPatient, prenomPatient, date_Nais_Patient, sexePatient, num_sec_soc_Patient,
+  (idPatient, numeroDossier, nomPatient, prenomPatient, date_Nais_Patient, sexePatient, num_sec_soc_Patient,
    paysPatient, wilayaPatient, villePatient, telPatient, mailPatient, localitePatient, civilePatient)
 VALUES
-  (9001, 'AMRANI',   'Yacine',  '1978-03-14', 1, '178031400101', 'Algérie', 'Tizi Ouzou', 'Tizi Ouzou',   '0550 11 22 01', 'y.amrani@exemple.dz',   'Nouvelle Ville', 'Marié'),
-  (9002, 'BELKACEM', 'Nadia',   '1985-07-22', 0, '285072200202', 'Algérie', 'Tizi Ouzou', 'Azazga',       '0661 22 33 02', 'n.belkacem@exemple.dz', 'Centre',         'Mariée'),
-  (9003, 'CHERIFI',  'Mohamed', '1952-11-05', 1, '152110500303', 'Algérie', 'Béjaïa',     'Akbou',        '0770 33 44 03', NULL,                    'Guendouza',      'Marié'),
-  (9004, 'DJABRI',   'Lina',    '2019-02-10', 0, NULL,           'Algérie', 'Tizi Ouzou', 'Draâ Ben Khedda','0555 44 55 04', NULL,                  'Cité 500 logts', 'Célibataire'),
-  (9005, 'FERHAT',   'Karima',  '1990-09-30', 0, '290093000505', 'Algérie', 'Alger',      'Bab Ezzouar',  '0662 55 66 05', 'k.ferhat@exemple.dz',   'Cité Smail Yefsah','Célibataire'),
-  (9006, 'HADDAD',   'Rachid',  '1965-01-18', 1, '165011800606', 'Algérie', 'Tizi Ouzou', 'Larbaâ Nath Irathen','0771 66 77 06', NULL,              'Centre',         'Marié'),
-  (9007, 'IDIR',     'Sonia',   '1972-05-03', 0, '272050300707', 'Algérie', 'Boumerdès',  'Bordj Menaïel','0556 77 88 07', 'sonia.idir@exemple.dz', 'Village agricole','Divorcée'),
-  (9008, 'KACI',     'Amine',   '2001-12-25', 1, '201122500808', 'Algérie', 'Tizi Ouzou', 'Tizi Ouzou',   '0663 88 99 08', 'amine.kaci@exemple.dz', 'Hasnaoua',       'Célibataire'),
-  (9009, 'MEZIANI',  'Fatima',  '1948-08-08', 0, '148080800909', 'Algérie', 'Tizi Ouzou', 'Ain El Hammam','0772 99 00 09', NULL,                    'Taourirt',       'Veuve'),
-  (9010, 'OUALI',    'Samir',   '1995-04-16', 1, '195041601010', 'Algérie', 'Bouira',     'Lakhdaria',    '0557 00 11 10', NULL,                    'Centre',         'Célibataire');
+  (9001, '9001', 'AMRANI',   'Yacine',  '1978-03-14', 1, '178031400101', 'Algérie', 'Tizi Ouzou', 'Tizi Ouzou',   '0550 11 22 01', 'y.amrani@exemple.dz',   'Nouvelle Ville', 'Marié'),
+  (9002, '9002', 'BELKACEM', 'Nadia',   '1985-07-22', 0, '285072200202', 'Algérie', 'Tizi Ouzou', 'Azazga',       '0661 22 33 02', 'n.belkacem@exemple.dz', 'Centre',         'Mariée'),
+  (9003, '9003', 'CHERIFI',  'Mohamed', '1952-11-05', 1, '152110500303', 'Algérie', 'Béjaïa',     'Akbou',        '0770 33 44 03', NULL,                    'Guendouza',      'Marié'),
+  (9004, '9004', 'DJABRI',   'Lina',    '2019-02-10', 0, NULL,           'Algérie', 'Tizi Ouzou', 'Draâ Ben Khedda','0555 44 55 04', NULL,                  'Cité 500 logts', 'Célibataire'),
+  (9005, '9005', 'FERHAT',   'Karima',  '1990-09-30', 0, '290093000505', 'Algérie', 'Alger',      'Bab Ezzouar',  '0662 55 66 05', 'k.ferhat@exemple.dz',   'Cité Smail Yefsah','Célibataire'),
+  (9006, '9006', 'HADDAD',   'Rachid',  '1965-01-18', 1, '165011800606', 'Algérie', 'Tizi Ouzou', 'Larbaâ Nath Irathen','0771 66 77 06', NULL,              'Centre',         'Marié'),
+  (9007, '9007', 'IDIR',     'Sonia',   '1972-05-03', 0, '272050300707', 'Algérie', 'Boumerdès',  'Bordj Menaïel','0556 77 88 07', 'sonia.idir@exemple.dz', 'Village agricole','Divorcée'),
+  (9008, '9008', 'KACI',     'Amine',   '2001-12-25', 1, '201122500808', 'Algérie', 'Tizi Ouzou', 'Tizi Ouzou',   '0663 88 99 08', 'amine.kaci@exemple.dz', 'Hasnaoua',       'Célibataire'),
+  (9009, '9009', 'MEZIANI',  'Fatima',  '1948-08-08', 0, '148080800909', 'Algérie', 'Tizi Ouzou', 'Ain El Hammam','0772 99 00 09', NULL,                    'Taourirt',       'Veuve'),
+  (9010, '9010', 'OUALI',    'Samir',   '1995-04-16', 1, '195041601010', 'Algérie', 'Bouira',     'Lakhdaria',    '0557 00 11 10', NULL,                    'Centre',         'Célibataire');
 
 -- ---------------------------------------------------------------------
 -- Consultations (médecin n° 1). Constantes non mesurées : NULL.

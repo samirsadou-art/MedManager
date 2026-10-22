@@ -2,12 +2,14 @@ package My_application.dao.jdbc;
 
 import My_application.dao.PatientDao;
 import My_application.entities.patient;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
 public class JdbcPatientDao implements PatientDao {
 
-    static final String COLONNES_ECRITURE = "nomPatient, prenomPatient, date_Nais_Patient, sexePatient, "
+    static final String COLONNES_ECRITURE = "numeroDossier, nomPatient, prenomPatient, date_Nais_Patient, sexePatient, "
             + "num_sec_soc_Patient, paysPatient, wilayaPatient, villePatient, telPatient, mailPatient, "
             + "localitePatient, civilePatient";
 
@@ -17,24 +19,22 @@ public class JdbcPatientDao implements PatientDao {
         this.jdbc = jdbc;
     }
 
+    /**
+     * idPatient est toujours attribué par l'auto-incrément ; le numéro de
+     * dossier saisi (ou attribué) va dans sa propre colonne (V15).
+     */
     @Override
     public patient insert(patient p) {
-        if (p.getIdentPat() > 0) {
-            // Numéro de dossier saisi par l'utilisateur.
-            jdbc.update("INSERT INTO patient (idPatient, " + COLONNES_ECRITURE + ") "
-                    + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", concat(p.getIdentPat(), valeurs(p)));
-        } else {
-            int id = jdbc.insertAndGetKey("INSERT INTO patient (" + COLONNES_ECRITURE + ") "
-                    + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", valeurs(p));
-            p.setIdentPat(id);
-        }
+        int id = jdbc.insertAndGetKey("INSERT INTO patient (" + COLONNES_ECRITURE + ") "
+                + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", valeurs(p));
+        p.setIdentPat(id);
         return p;
     }
 
     @Override
     public void update(patient p) {
-        jdbc.update("UPDATE patient SET nomPatient=?, prenomPatient=?, date_Nais_Patient=?, sexePatient=?, "
-                + "num_sec_soc_Patient=?, paysPatient=?, wilayaPatient=?, villePatient=?, telPatient=?, "
+        jdbc.update("UPDATE patient SET numeroDossier=?, nomPatient=?, prenomPatient=?, date_Nais_Patient=?, "
+                + "sexePatient=?, num_sec_soc_Patient=?, paysPatient=?, wilayaPatient=?, villePatient=?, telPatient=?, "
                 + "mailPatient=?, localitePatient=?, civilePatient=? WHERE idPatient=?",
                 concatFin(valeurs(p), p.getIdentPat()));
     }
@@ -47,6 +47,23 @@ public class JdbcPatientDao implements PatientDao {
     @Override
     public patient findById(Integer id) {
         return jdbc.queryOne("SELECT * FROM patient WHERE idPatient=?", Mappers.PATIENT, id);
+    }
+
+    @Override
+    public patient findByNumeroDossier(String numero) {
+        return jdbc.queryOne("SELECT * FROM patient WHERE numeroDossier=?", Mappers.PATIENT, numero);
+    }
+
+    /** Les numéros qui ne sont pas faits que de chiffres (2019/37, A-12) ne comptent pas. */
+    @Override
+    public String prochainNumeroDossier() {
+        return jdbc.queryOne("SELECT COALESCE(MAX(CAST(numeroDossier AS UNSIGNED)), 0) + 1 AS prochain "
+                + "FROM patient WHERE numeroDossier REGEXP '^[0-9]{1,18}$'", new RowMapper<String>() {
+                    @Override
+                    public String map(ResultSet rs) throws SQLException {
+                        return rs.getString("prochain");
+                    }
+                });
     }
 
     @Override
@@ -80,16 +97,9 @@ public class JdbcPatientDao implements PatientDao {
     }
 
     private static Object[] valeurs(patient p) {
-        return new Object[]{p.getNom(), p.getPrenom(), p.getDat_nais(), p.isMasculin(), p.getNum_soc(),
+        return new Object[]{p.getNumeroDossier(), p.getNom(), p.getPrenom(), p.getDat_nais(), p.isMasculin(), p.getNum_soc(),
             p.getPays(), p.getWilaya(), p.getVille(), p.getTelephone(), p.getEmail(), p.getLocalite(),
             p.getSituatMarit()};
-    }
-
-    private static Object[] concat(Object premier, Object[] reste) {
-        Object[] r = new Object[reste.length + 1];
-        r[0] = premier;
-        System.arraycopy(reste, 0, r, 1, reste.length);
-        return r;
     }
 
     private static Object[] concatFin(Object[] debut, Object dernier) {

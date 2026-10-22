@@ -224,6 +224,8 @@ public class MySqlIntegrationTest {
         }
         assertEquals("Said", daos.getMedecinDao().findById(1).getPrenom());
         assertEquals(1, daos.getMedecinDao().findAll().size());
+        assertEquals("le numéro de dossier reprend idPatient (V15)", "1",
+                daos.getPatientDao().findById(1).getNumeroDossier());
     }
 
     /** Connexion réelle, mais qui peut simuler une panne sur une table donnée. */
@@ -252,7 +254,9 @@ public class MySqlIntegrationTest {
     }
 
     private patient creerPatient(String nom) {
-        return daos.getPatientDao().insert(Donnees.patient(0, nom));
+        patient p = Donnees.patient(0, nom);
+        p.setNumeroDossier(daos.getPatientDao().prochainNumeroDossier());
+        return daos.getPatientDao().insert(p);
     }
 
     @Test
@@ -522,6 +526,62 @@ public class MySqlIntegrationTest {
         p.setVille("Fréha");
         service.modifier(p);
         assertEquals("Fréha", daos.getPatientDao().findById(p.getIdentPat()).getVille());
+    }
+
+    @Test
+    public void numeroDeDossierSepareDeLIdentifiantTechnique() throws Exception {
+        PatientService service = new PatientService(daos);
+        patient papier = Donnees.patient(0, "ANCIEN", "Dossier", LocalDate.of(1960, 3, 1), true);
+        papier.setTelephone("0555000001");
+        papier.setNumeroDossier("500");
+        service.creer(papier);
+        assertEquals("l'auto-incrément ne saute plus au numéro saisi", 1, papier.getIdentPat());
+
+        patient annee = Donnees.patient(0, "ANNEE", "Dossier", LocalDate.of(1970, 3, 1), false);
+        annee.setTelephone("0555000002");
+        annee.setNumeroDossier(" 2019/37 ");
+        service.creer(annee);
+        assertEquals("2019/37", annee.getNumeroDossier());
+
+        patient auto = Donnees.patient(0, "AUTO", "Dossier", LocalDate.of(1980, 3, 1), true);
+        auto.setTelephone("0555000003");
+        service.creer(auto);
+        assertEquals("plus grand numéro numérique + 1", "501", auto.getNumeroDossier());
+        assertEquals(3, auto.getIdentPat());
+        assertEquals("501", daos.getPatientDao().findById(3).getNumeroDossier());
+
+        patient minuscule = Donnees.patient(0, "MINUSCULE", "Dossier", LocalDate.of(1990, 3, 1), true);
+        minuscule.setTelephone("0555000004");
+        minuscule.setNumeroDossier("a-12");
+        service.creer(minuscule);
+        assertEquals("A-12", daos.getPatientDao().findByNumeroDossier("a-12").getNumeroDossier());
+
+        auto.setNumeroDossier("2019/37");
+        try {
+            service.modifier(auto);
+            fail("numéro déjà pris");
+        } catch (MetierException attendu) {
+            assertTrue(attendu.getMessage().contains("déjà utilisé"));
+        }
+        auto.setNumeroDossier("2019/38");
+        service.modifier(auto);
+        assertEquals(auto.getIdentPat(), service.rechercher("2019/38").get(0).getIdentPat());
+        assertEquals(papier.getIdentPat(), service.rechercher("500").get(0).getIdentPat());
+
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO patient (numeroDossier, nomPatient, prenomPatient, date_Nais_Patient, "
+                    + "sexePatient) VALUES ('12#', 'X', 'Y', '1990-01-01', 1)");
+            fail("CHECK ck_patient_numero_dossier");
+        } catch (SQLException attendu) {
+            // caractère refusé
+        }
+        try (Statement st = base.getConnection().createStatement()) {
+            st.execute("INSERT INTO patient (numeroDossier, nomPatient, prenomPatient, date_Nais_Patient, "
+                    + "sexePatient) VALUES ('a-12', 'X', 'Y', '1990-01-01', 1)");
+            fail("unicité insensible à la casse");
+        } catch (SQLException attendu) {
+            // uk_patient_numero_dossier
+        }
     }
 
     @Test

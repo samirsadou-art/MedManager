@@ -16,6 +16,7 @@ public final class Donnees {
     public static patient patient(int id, String nom, String prenom, LocalDate naissance, boolean masculin) {
         patient p = new patient();
         p.setIdentPat(id);
+        p.setNumeroDossier(id > 0 ? String.valueOf(id) : null); // comme la migration V15
         p.setNom(nom);
         p.setPrenom(prenom);
         p.setDat_nais(naissance);
