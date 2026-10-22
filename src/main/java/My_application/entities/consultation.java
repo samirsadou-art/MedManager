@@ -32,7 +32,8 @@ public class consultation {
 
     private double poids = NON_RENSEIGNE;
     private double temperature = NON_RENSEIGNE;
-    private String pressionA = "";
+    private int pressionSystolique = NON_RENSEIGNE;   // mmHg (V16)
+    private int pressionDiastolique = NON_RENSEIGNE;  // mmHg
     private int tauxRespir = NON_RENSEIGNE;
     private int pul_Cardiaque = NON_RENSEIGNE;
 
@@ -189,12 +190,27 @@ public class consultation {
         this.temperature = temperature;
     }
 
+    /** Pression artérielle à afficher, « 120/80 » (mmHg), ou "" si elle n'a pas été mesurée. */
     public String getPressionA() {
-        return pressionA;
+        return pressionSystolique == NON_RENSEIGNE ? "" : pressionSystolique + "/" + pressionDiastolique;
     }
 
-    public void setPressionA(String pressionA) {
-        this.pressionA = pressionA == null ? "" : pressionA;
+    public int getPressionSystolique() {
+        return pressionSystolique;
+    }
+
+    public int getPressionDiastolique() {
+        return pressionDiastolique;
+    }
+
+    /**
+     * Pression en mmHg ; {@link #NON_RENSEIGNE} pour les deux valeurs si elle
+     * n'a pas été mesurée (l'une ne va pas sans l'autre).
+     */
+    public void setPression(int systolique, int diastolique) {
+        boolean mesuree = systolique != NON_RENSEIGNE && diastolique != NON_RENSEIGNE;
+        this.pressionSystolique = mesuree ? systolique : NON_RENSEIGNE;
+        this.pressionDiastolique = mesuree ? diastolique : NON_RENSEIGNE;
     }
 
     public int getTauxRespir() {

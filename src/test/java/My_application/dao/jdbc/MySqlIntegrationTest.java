@@ -192,21 +192,51 @@ public class MySqlIntegrationTest {
             st.execute("INSERT INTO consultation (idConsultation, dateConsultation, heureConsultation, idMedecin, "
                     + "idPatient, temperature, pulsation, pression, respiration, poids) "
                     + "VALUES (2, '2026-10-02', '09:00', 1, 1, 37.5, 80, '12/8', 16, 70)");
+            st.execute("INSERT INTO consultation (idConsultation, dateConsultation, heureConsultation, idMedecin, "
+                    + "idPatient, pression) VALUES (3, '2026-10-03', '09:00', 1, 1, '135/85')");
+            st.execute("INSERT INTO consultation (idConsultation, dateConsultation, heureConsultation, idMedecin, "
+                    + "idPatient, pression) VALUES (4, '2026-10-04', '09:00', 1, 1, '8/12')");
             st.execute("INSERT INTO rondezvous (idUser, idPatient, date, heure) VALUES (1, 1, '2026-10-20', '10:00')");
         }
         flywayDeTest().load().migrate();
         try (Statement st = base.getConnection().createStatement()) {
-            java.sql.ResultSet rs = st.executeQuery("SELECT temperature, pulsation, pression, respiration, poids "
-                    + "FROM consultation ORDER BY idConsultation");
+            java.sql.ResultSet rs = st.executeQuery("SELECT temperature, pulsation, pressionSystolique, "
+                    + "pressionDiastolique, respiration, poids FROM consultation ORDER BY idConsultation");
             assertTrue(rs.next());
-            for (int i = 1; i <= 5; i++) {
+            for (int i = 1; i <= 6; i++) {
                 rs.getObject(i);
                 assertTrue("colonne " + i + " : -1 devenu NULL", rs.wasNull());
             }
             assertTrue(rs.next());
             assertEquals(37.5, rs.getDouble(1), 0);
-            assertEquals("12/8", rs.getString(3));
+            assertEquals("12/8 en cmHg devient 120/80 mmHg", 120, rs.getInt(3));
+            assertEquals(80, rs.getInt(4));
+            assertTrue(rs.next());
+            assertEquals("déjà en mmHg", 135, rs.getInt(3));
+            assertEquals(85, rs.getInt(4));
+            assertTrue(rs.next());
+            rs.getObject(3);
+            assertTrue("8/12 inversée : non convertie", rs.wasNull());
             rs.close();
+            rs = st.executeQuery("SELECT idConsultation, pression FROM consultation_pression_ancienne");
+            assertTrue(rs.next());
+            assertEquals(4, rs.getInt(1));
+            assertEquals("la saisie d'origine est gardée", "8/12", rs.getString(2));
+            assertFalse(rs.next());
+            rs.close();
+            try {
+                st.execute("UPDATE consultation SET pressionSystolique = 80, pressionDiastolique = 120 "
+                        + "WHERE idConsultation = 2");
+                fail("systolique < diastolique doit être refusée");
+            } catch (SQLException attendu) {
+                // CHECK ck_consultation_pression
+            }
+            try {
+                st.execute("UPDATE consultation SET pressionDiastolique = NULL WHERE idConsultation = 2");
+                fail("l'une ne va pas sans l'autre");
+            } catch (SQLException attendu) {
+                // CHECK ck_consultation_pression
+            }
             rs = st.executeQuery("SELECT idRendezVous, idMedecin, etat, prisLe FROM rendezvous");
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
