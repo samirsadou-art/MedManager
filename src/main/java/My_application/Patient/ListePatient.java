@@ -12,26 +12,36 @@ import My_application.DossierPatientForm;
 import My_application.controller.ListePatientController;
 import My_application.controller.ListePatientVue;
 import My_application.entities.DossierPatient;
+import My_application.entities.Role;
 import My_application.entities.patient;
+import My_application.rendezvous.calandar;
 import My_application.vue.Dialogues;
 import java.util.List;
 import javax.swing.JButton;
 
 /**
- * Liste des patients (Vue). La recherche et l'ouverture du dossier sont
- * déléguées à {@link ListePatientController} ; plus de SQL dans la fenêtre.
+ * Liste des patients (Vue). La recherche (nom ou téléphone) et l'ouverture du
+ * dossier sont déléguées à {@link ListePatientController} ; plus de SQL dans
+ * la fenêtre. Inscription et modification passent par {@link FichePatient}.
  */
 public class ListePatient extends javax.swing.JDialog implements ListePatientVue {
 
     private final ListePatientTableModel listeModel = new ListePatientTableModel();
     private final AppContext ctx;
     private final ListePatientController controleur;
+    /** Seul un médecin ouvre le dossier ; la secrétaire ouvre la fiche administrative. */
+    private final boolean medecin;
+    private final JButton modifierBtn = new JButton("Modifier la fiche");
+    private final JButton rendezVousBtn = new JButton("Prendre un rendez-vous");
 
     public ListePatient(AppContext ctx) {
         this.ctx = ctx;
+        this.medecin = ctx.getSession().getRole() == null || ctx.getSession().getRole() == Role.MEDECIN;
         initComponents();
         Theme.harmoniser(this);
-        EnTetePage.installer(this, "users", "Patients", "Recherchez un patient pour ouvrir son dossier, ou créez sa fiche");
+        EnTetePage.installer(this, "users", "Patients", medecin
+                ? "Recherchez un patient (nom ou téléphone) pour ouvrir son dossier, ou inscrivez-le"
+                : "Recherchez un patient (nom ou téléphone), inscrivez-le ou prenez-lui un rendez-vous");
         this.choix.requestFocus();
         this.setLocationRelativeTo(null);
         table.setModel(listeModel);
@@ -39,28 +49,80 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
         table.setRowHeight(42);
         controleur = new ListePatientController(this, ctx.getPatientService(), ctx.getDossierService(),
                 ctx.getSession());
-        ajouterBoutonNouveauPatient();
+        ajouterBoutons();
         controleur.rechercher("");
     }
 
-    /** Le formulaire NewPatient existait mais n'était accessible depuis aucun écran. */
-    private void ajouterBoutonNouveauPatient() {
+    /**
+     * Boutons de la secrétaire comme du médecin : inscrire, modifier la fiche,
+     * prendre un rendez-vous. Le dossier médical ne s'ouvre que pour un médecin.
+     */
+    private void ajouterBoutons() {
         JButton nouveau = new JButton("Nouveau patient");
-        nouveau.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent e) {
-                NewPatient fiche = new NewPatient(ListePatient.this, ctx.getPatientService());
-                fiche.setVisible(true);
-                patient cree = fiche.getPatientCree();
-                if (cree != null) {
-                    choix.setText(cree.getNom());
-                    controleur.rechercher(cree.getNom());
-                }
-            }
+        nouveau.addActionListener(e -> inscrire());
+        modifierBtn.addActionListener(e -> modifierFiche());
+        rendezVousBtn.addActionListener(e -> prendreRendezVous(selection()));
+        modifierBtn.setEnabled(false);
+        rendezVousBtn.setEnabled(false);
+        table.getSelectionModel().addListSelectionListener(e -> {
+            boolean une = table.getSelectedRowCount() == 1;
+            modifierBtn.setEnabled(une);
+            rendezVousBtn.setEnabled(une);
         });
         jPanel2.add(nouveau, 0);
+        jPanel2.add(modifierBtn, 1);
+        jPanel2.add(rendezVousBtn, 2);
+        OuvrirBtn.setVisible(medecin);
         pack();
         setLocationRelativeTo(null);
+    }
+
+    private void inscrire() {
+        FichePatient fiche = new FichePatient(this, ctx.getPatientService());
+        fiche.setVisible(true);
+        patient p = fiche.getPatient();
+        if (p == null) {
+            return;
+        }
+        afficherSeul(p);
+        if (fiche.getSuite() == FichePatient.Suite.RENDEZ_VOUS) {
+            prendreRendezVous(p);
+        }
+    }
+
+    private void modifierFiche() {
+        patient p = selection();
+        if (p == null) {
+            return;
+        }
+        FichePatient fiche = new FichePatient(this, ctx.getPatientService(), p);
+        fiche.setVisible(true);
+        if (fiche.getPatient() != null) {
+            afficherSeul(fiche.getPatient());
+        }
+    }
+
+    private void prendreRendezVous(patient p) {
+        if (p != null) {
+            new calandar(p, ctx.getSession().getUtilisateur(), ctx.getRendezVousService()).setVisible(true);
+        }
+    }
+
+    /** Filtre la liste sur le patient et le sélectionne. */
+    private void afficherSeul(patient p) {
+        choix.setText(p.getNom());
+        controleur.rechercher(p.getNom());
+        for (int i = 0; i < listeModel.getRowCount(); i++) {
+            if (listeModel.getElement(i).getIdentPat() == p.getIdentPat()) {
+                table.setRowSelectionInterval(i, i);
+                table.scrollRectToVisible(table.getCellRect(i, 0, true));
+            }
+        }
+    }
+
+    private patient selection() {
+        int ligne = table.getSelectedRow();
+        return ligne < 0 ? null : listeModel.getElement(table.convertRowIndexToModel(ligne));
     }
 
     // ----- ListePatientVue -----
@@ -247,13 +309,12 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
     }//GEN-LAST:event_tableMousePressed
 
     private void tableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableMouseClicked
-      if(evt.getClickCount()==2){
-          
-        if (ouvrirDossier()) {
-            this.dispose();
-        }
-          
-          
+      if (evt.getClickCount() == 2) {
+          if (!medecin) {
+              modifierFiche();
+          } else if (ouvrirDossier()) {
+              this.dispose();
+          }
       }
     }//GEN-LAST:event_tableMouseClicked
 
@@ -264,7 +325,7 @@ public class ListePatient extends javax.swing.JDialog implements ListePatientVue
         if (ligne < 0) {
             return false;
         }
-        return controleur.ouvrirDossier(listeModel.getElement(ligne));
+        return controleur.ouvrirDossier(listeModel.getElement(table.convertRowIndexToModel(ligne)));
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

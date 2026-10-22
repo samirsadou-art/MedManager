@@ -214,6 +214,25 @@ public class JdbcDaoTest {
     }
 
     @Test
+    public void rechercheParTelephoneEtDoublons() {
+        daos.getPatientDao().findByTelephoneCommencantPar("0661");
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.contains("telPatient LIKE ?"));
+        assertEquals("0661%", e.param(1));
+
+        LocalDate naissance = LocalDate.of(1980, 5, 17);
+        daos.getPatientDao().findDoublons("AMRANI", naissance, "0555123456");
+        e = base.derniere();
+        assertTrue(e.sql.contains("OR telPatient=?"));
+        assertEquals("AMRANI", e.param(1));
+        assertEquals(java.sql.Date.valueOf(naissance), e.param(2));
+        assertEquals("0555123456", e.param(3));
+
+        daos.getPatientDao().findDoublons("AMRANI", naissance, null);
+        assertFalse(base.derniere().sql.contains("telPatient"));
+    }
+
+    @Test
     public void leRoleDuCompteEstLu() {
         base.quand("FROM utilisateur WHERE idUtilisateur=?", ligne("idUtilisateur", 4, "nom", "BENALI",
                 "prenom", "Amina", "qualite", null, "role", "SECRETAIRE", "login", "amina", "actif", 1,

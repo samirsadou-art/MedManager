@@ -120,10 +120,14 @@ public class JournalAccesTest {
 
     @Test
     public void creerUnPatientEstTrace() {
-        patient p = new PatientService(base, journal).creer(
-                Donnees.patient(0, "NOUVEAU", "Ali", LocalDate.of(1980, 1, 1), true));
+        patient nouveau = Donnees.patient(0, "NOUVEAU", "Ali", LocalDate.of(1980, 1, 1), true);
+        nouveau.setTelephone("0555123456");
+        PatientService service = new PatientService(base, journal);
+        patient p = service.creer(nouveau);
         assertEquals("CREATION_PATIENT", derniere().getAction());
         assertEquals(Integer.valueOf(p.getIdentPat()), derniere().getIdPatient());
+        service.modifier(p);
+        assertEquals("MODIFICATION_PATIENT", derniere().getAction());
     }
 
     @Test
