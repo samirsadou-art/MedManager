@@ -562,7 +562,7 @@ public class MemoireDAOFactory implements DAOFactory {
                         copie.setHeure_cons(c.getHeure_cons());
                         copie.setTemperature(c.getTemperature());
                         copie.setPul_Cardiaque(c.getPul_Cardiaque());
-                        copie.setPressionA(c.getPressionA());
+                        copie.setPression(c.getPressionSystolique(), c.getPressionDiastolique());
                         copie.setTauxRespir(c.getTauxRespir());
                         copie.setPoids(c.getPoids());
                         medecin m = new medecin();

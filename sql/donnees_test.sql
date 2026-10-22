@@ -57,24 +57,24 @@ VALUES
 -- ---------------------------------------------------------------------
 INSERT INTO consultation
   (idConsultation, dateConsultation, heureConsultation, idMedecin, idPatient,
-   temperature, pulsation, pression, respiration, poids)
+   temperature, pulsation, pressionSystolique, pressionDiastolique, respiration, poids)
 VALUES
   -- Historique (plusieurs visites pour certains patients)
-  (9001, DATE_SUB(CURDATE(), INTERVAL 120 DAY), '09:15:00', 1, 9001, 37.00, 78, '15/9',  16, 92.50),
-  (9002, DATE_SUB(CURDATE(), INTERVAL 60 DAY),  '10:00:00', 1, 9001, 36.80, 74, '14/8',  16, 91.00),
-  (9003, DATE_SUB(CURDATE(), INTERVAL 45 DAY),  '11:30:00', 1, 9002, 38.90, 96, '12/7',  20, 63.00),
-  (9004, DATE_SUB(CURDATE(), INTERVAL 90 DAY),  '08:45:00', 1, 9003, 36.60, 70, '16/9',  18, 78.00),
-  (9005, DATE_SUB(CURDATE(), INTERVAL 30 DAY),  '09:30:00', 1, 9003, 36.70, 72, '14/8',  18, 77.20),
-  (9006, DATE_SUB(CURDATE(), INTERVAL 20 DAY),  '14:15:00', 1, 9004, 39.20, 120, NULL,  28, 18.40),
-  (9007, DATE_SUB(CURDATE(), INTERVAL 15 DAY),  '15:00:00', 1, 9005, 37.10, 82, '11/7',  16, 58.00),
-  (9008, DATE_SUB(CURDATE(), INTERVAL 10 DAY),  '10:45:00', 1, 9006, 36.90, 88, '13/8',  22, 84.00),
-  (9009, DATE_SUB(CURDATE(), INTERVAL 7 DAY),   '16:00:00', 1, 9007, 36.50, 76, '12/8',  16, 70.50),
-  (9010, DATE_SUB(CURDATE(), INTERVAL 3 DAY),   '11:00:00', 1, 9009, 37.30, 90, '17/10', 20, 66.00),
-  (9011, DATE_SUB(CURDATE(), INTERVAL 1 DAY),   '09:00:00', 1, 9008, NULL,  NULL, NULL,  NULL, NULL),
+  (9001, DATE_SUB(CURDATE(), INTERVAL 120 DAY), '09:15:00', 1, 9001, 37.00, 78, 150, 90,  16, 92.50),
+  (9002, DATE_SUB(CURDATE(), INTERVAL 60 DAY),  '10:00:00', 1, 9001, 36.80, 74, 140, 80,  16, 91.00),
+  (9003, DATE_SUB(CURDATE(), INTERVAL 45 DAY),  '11:30:00', 1, 9002, 38.90, 96, 120, 70,  20, 63.00),
+  (9004, DATE_SUB(CURDATE(), INTERVAL 90 DAY),  '08:45:00', 1, 9003, 36.60, 70, 160, 90,  18, 78.00),
+  (9005, DATE_SUB(CURDATE(), INTERVAL 30 DAY),  '09:30:00', 1, 9003, 36.70, 72, 140, 80,  18, 77.20),
+  (9006, DATE_SUB(CURDATE(), INTERVAL 20 DAY),  '14:15:00', 1, 9004, 39.20, 120, NULL, NULL,  28, 18.40),
+  (9007, DATE_SUB(CURDATE(), INTERVAL 15 DAY),  '15:00:00', 1, 9005, 37.10, 82, 110, 70,  16, 58.00),
+  (9008, DATE_SUB(CURDATE(), INTERVAL 10 DAY),  '10:45:00', 1, 9006, 36.90, 88, 130, 80,  22, 84.00),
+  (9009, DATE_SUB(CURDATE(), INTERVAL 7 DAY),   '16:00:00', 1, 9007, 36.50, 76, 120, 80,  16, 70.50),
+  (9010, DATE_SUB(CURDATE(), INTERVAL 3 DAY),   '11:00:00', 1, 9009, 37.30, 90, 170, 100, 20, 66.00),
+  (9011, DATE_SUB(CURDATE(), INTERVAL 1 DAY),   '09:00:00', 1, 9008, NULL,  NULL, NULL, NULL,  NULL, NULL),
   -- Consultations du jour (écran d'accueil)
-  (9012, CURDATE(), '08:30:00', 1, 9002, 37.60, 84, '12/7',  18, 62.50),
-  (9013, CURDATE(), '09:45:00', 1, 9010, 38.40, 92, '12/8',  18, 74.00),
-  (9014, CURDATE(), '11:15:00', 1, 9006, 36.80, 80, '13/8',  20, 83.50);
+  (9012, CURDATE(), '08:30:00', 1, 9002, 37.60, 84, 120, 70,  18, 62.50),
+  (9013, CURDATE(), '09:45:00', 1, 9010, 38.40, 92, 120, 80,  18, 74.00),
+  (9014, CURDATE(), '11:15:00', 1, 9006, 36.80, 80, 130, 80,  20, 83.50);
 
 -- Symptômes relevés
 INSERT INTO consultsymptome (idconsultation, idsymptome) VALUES

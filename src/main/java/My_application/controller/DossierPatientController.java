@@ -90,7 +90,8 @@ public class DossierPatientController extends ControleurBase {
                     c.setPul_Cardiaque(ConstantesVitales.pulsation(saisie));
                     break;
                 case PRESSION:
-                    c.setPressionA(ConstantesVitales.pression(saisie));
+                    int[] p = ConstantesVitales.pression(saisie);
+                    c.setPression(p[0], p[1]);
                     break;
                 case RESPIRATION:
                     c.setTauxRespir(ConstantesVitales.respiration(saisie));

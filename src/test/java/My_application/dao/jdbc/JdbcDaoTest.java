@@ -146,6 +146,25 @@ public class JdbcDaoTest {
     }
 
     @Test
+    public void pressionEcriteEtRelueEnDeuxColonnes() {
+        consultation c = new consultation(Donnees.patient(3, "X"), Donnees.medecin(1));
+        c.setDate_cons(LocalDate.parse("2026-10-08"));
+        c.setHeure_cons(LocalTime.parse("10:30:00"));
+        c.setPression(130, 85);
+        daos.getConsultationDao().insert(c);
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.contains("pressionSystolique, pressionDiastolique"));
+        assertEquals(130, e.param(7));
+        assertEquals(85, e.param(8));
+
+        base.quand("FROM consultation", ligne("idConsultation", 4, "dateConsultation",
+                java.sql.Date.valueOf("2026-10-08"), "heureConsultation", java.sql.Time.valueOf("10:30:00"),
+                "idMedecin", 1, "idPatient", 3, "temperature", null, "pulsation", null,
+                "pressionSystolique", 140, "pressionDiastolique", 90, "respiration", null, "poids", null));
+        assertEquals("140/90", daos.getConsultationDao().findByPatient(3).get(0).getPressionA());
+    }
+
+    @Test
     public void constantesNonMesureesEcritesEnNull() {
         consultation c = new consultation(Donnees.patient(3, "X"), Donnees.medecin(1));
         c.setDate_cons(LocalDate.parse("2026-10-08"));
@@ -155,16 +174,17 @@ public class JdbcDaoTest {
         FauxJdbc.Execution e = base.derniere();
         assertNull("température", e.param(5));
         assertNull("pulsation", e.param(6));
-        assertNull("pression vide", e.param(7));
-        assertNull("respiration", e.param(8));
-        assertEquals(72.5, e.param(9));
+        assertNull("systolique", e.param(7));
+        assertNull("diastolique", e.param(8));
+        assertNull("respiration", e.param(9));
+        assertEquals(72.5, e.param(10));
     }
 
     @Test
     public void constantesNullReluesCommeNonRenseignees() {
         base.quand("FROM consultation", ligne("idConsultation", 4, "dateConsultation",
                 java.sql.Date.valueOf("2026-10-08"), "heureConsultation", java.sql.Time.valueOf("10:30:00"),
-                "idMedecin", 1, "idPatient", 3, "temperature", null, "pulsation", 80, "pression", null,
+                "idMedecin", 1, "idPatient", 3, "temperature", null, "pulsation", 80, "pressionSystolique", null, "pressionDiastolique", null,
                 "respiration", null, "poids", 70.0));
         consultation c = daos.getConsultationDao().findByPatient(3).get(0);
         assertEquals(consultation.NON_RENSEIGNE, c.getTemperature(), 0);

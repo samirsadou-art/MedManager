@@ -57,16 +57,40 @@ public final class ConstantesVitales {
         return r;
     }
 
-    /** Pression artérielle au format « systolique/diastolique », ex. 12/8 ou 120/80. */
-    public static String pression(String saisie) {
+    /** Au-delà, une valeur de pression est en mmHg ; jusque-là, en cmHg (12/8). */
+    static final double LIMITE_CMHG = 30;
+
+    /**
+     * Pression artérielle « systolique/diastolique », en cmHg (12/8, 13,5/8)
+     * ou en mmHg (120/80) : chaque valeur de 30 ou moins est en cmHg.
+     *
+     * @return {systolique, diastolique} en mmHg, ou deux
+     *         {@link My_application.entities.consultation#NON_RENSEIGNE} si rien n'est saisi
+     */
+    public static int[] pression(String saisie) {
         if (vide(saisie)) {
-            return "";
+            return new int[]{-1, -1};
         }
-        String s = saisie.trim();
-        if (!s.matches("\\d{1,3}/\\d{1,3}")) {
-            throw new MetierException("La valeur du champ [Pression Artérielle] est invalide (ex. 12/8).");
+        String s = saisie.trim().replace(',', '.');
+        if (!s.matches("\\d{1,3}(\\.\\d)?/\\d{1,3}(\\.\\d)?")) {
+            throw new MetierException("La valeur du champ [Pression Artérielle] est invalide (ex. 12/8 ou 120/80).");
         }
-        return s;
+        String[] parties = s.split("/");
+        int systolique = enMmHg(Double.parseDouble(parties[0]));
+        int diastolique = enMmHg(Double.parseDouble(parties[1]));
+        if (systolique < 40 || systolique > 300 || diastolique < 20 || diastolique > 200) {
+            throw new MetierException("La valeur du champ [Pression Artérielle] est invraisemblable "
+                    + "(systolique 40 à 300 mmHg, diastolique 20 à 200 mmHg).");
+        }
+        if (systolique <= diastolique) {
+            throw new MetierException("La pression systolique (première valeur) doit être supérieure "
+                    + "à la diastolique (ex. 12/8).");
+        }
+        return new int[]{systolique, diastolique};
+    }
+
+    private static int enMmHg(double valeur) {
+        return (int) Math.round(valeur <= LIMITE_CMHG ? valeur * 10 : valeur);
     }
 
     private static boolean vide(String s) {

@@ -113,7 +113,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     private void installerFiltres() {
         FiltreSaisie.installer(TempTxt, FiltreSaisie.decimal(6));
         FiltreSaisie.installer(pulsationTxt, FiltreSaisie.entier(3));
-        FiltreSaisie.installer(pressionTxt, new FiltreSaisie("0-9/", 7)); // 120/80, 100/60...
+        FiltreSaisie.installer(pressionTxt, new FiltreSaisie("0-9/.,", 9)); // 12/8, 13,5/8, 120/80...
+        pressionTxt.setToolTipText("12/8 (cmHg) ou 120/80 (mmHg) ; enregistrée et affichée en mmHg");
         FiltreSaisie.installer(respirationTxt, FiltreSaisie.entier(3));
         FiltreSaisie.installer(poidsTxt, FiltreSaisie.decimal(6));
     }

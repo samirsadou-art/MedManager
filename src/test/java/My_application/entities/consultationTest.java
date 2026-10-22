@@ -59,7 +59,10 @@ public class consultationTest {
     public void constantesNonRenseigneesParDefaut() {
         assertEquals(consultation.NON_RENSEIGNE, c.getTemperature(), 0);
         assertEquals("", c.getPressionA());
-        c.setPressionA(null);
+        c.setPression(120, 80);
+        assertEquals("120/80", c.getPressionA());
+        c.setPression(120, consultation.NON_RENSEIGNE); // l'une ne va pas sans l'autre
         assertEquals("", c.getPressionA());
+        assertEquals(consultation.NON_RENSEIGNE, c.getPressionSystolique());
     }
 }

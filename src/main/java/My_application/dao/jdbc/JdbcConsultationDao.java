@@ -31,7 +31,7 @@ public class JdbcConsultationDao implements ConsultationDao {
             c.setHeure_cons(Mappers.heure(rs, "heureConsultation"));
             c.setTemperature(mesure(rs, "temperature"));
             c.setPul_Cardiaque((int) mesure(rs, "pulsation"));
-            c.setPressionA(rs.getString("pression"));
+            c.setPression((int) mesure(rs, "pressionSystolique"), (int) mesure(rs, "pressionDiastolique"));
             c.setTauxRespir((int) mesure(rs, "respiration"));
             c.setPoids(mesure(rs, "poids"));
             medecin m = new medecin();
@@ -47,10 +47,11 @@ public class JdbcConsultationDao implements ConsultationDao {
     @Override
     public consultation insert(consultation c) {
         int id = jdbc.insertAndGetKey("INSERT INTO consultation (dateConsultation, heureConsultation, idMedecin, "
-                + "idPatient, temperature, pulsation, pression, respiration, poids) VALUES (?,?,?,?,?,?,?,?,?)",
+                + "idPatient, temperature, pulsation, pressionSystolique, pressionDiastolique, respiration, poids) "
+                + "VALUES (?,?,?,?,?,?,?,?,?,?)",
                 c.getDate_cons(), c.getHeure_cons(), c.getMedecin().getIdmedecin(), c.getPatient().getIdentPat(),
                 mesure(c.getTemperature()), mesure(c.getPul_Cardiaque()),
-                c.getPressionA().trim().isEmpty() ? null : c.getPressionA(),
+                mesure(c.getPressionSystolique()), mesure(c.getPressionDiastolique()),
                 mesure(c.getTauxRespir()), mesure(c.getPoids()));
         c.setIdConsul(id);
         return c;
