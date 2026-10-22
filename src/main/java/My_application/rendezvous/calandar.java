@@ -206,8 +206,6 @@ public class calandar extends javax.swing.JFrame implements Vue {
         JPanel barre = new JPanel(new BorderLayout(12, 0));
         barre.setOpaque(false);
         barre.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
-        JPanel navigation = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        navigation.setOpaque(false);
         JButton precedente = new JButton(Icones.svg("chevron-left", 18, Theme.TEXTE));
         precedente.setToolTipText("Semaine précédente");
         precedente.addActionListener(e -> afficherSemaine(dimanche.minusWeeks(1)));
@@ -216,11 +214,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         suivante.addActionListener(e -> afficherSemaine(dimanche.plusWeeks(1)));
         libelleSemaine.setFont(Theme.police(Font.BOLD, 16));
         libelleSemaine.setForeground(Theme.TEXTE);
-        libelleSemaine.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
-        navigation.add(precedente);
-        navigation.add(suivante);
-        navigation.add(libelleSemaine);
-        barre.add(navigation, BorderLayout.WEST);
+        libelleSemaine.setHorizontalAlignment(JLabel.CENTER);
 
         recherche.putClientProperty("JTextField.placeholderText", "Rechercher un patient… (Entrée : tout l'agenda)");
         recherche.setToolTipText("Filtre la semaine affichée ; Entrée cherche les rendez-vous du patient "
@@ -266,13 +260,33 @@ public class calandar extends javax.swing.JFrame implements Vue {
         defilement.getVerticalScrollBar().setUnitIncrement(AgendaSemaine.HAUTEUR_CRENEAU / 2);
         carte.add(defilement, BorderLayout.CENTER);
 
+        // En bas : semaine précédente à gauche, libellé de la semaine et
+        // compteur au centre, semaine suivante à droite.
         compteur.setIcon(Icones.svg("calendar", 16, Theme.TEXTE_SECONDAIRE));
         compteur.setFont(Theme.police(Font.PLAIN, 12));
         compteur.setForeground(Theme.TEXTE_SECONDAIRE);
-        compteur.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+        compteur.setHorizontalAlignment(JLabel.CENTER);
         compteur.setIconTextGap(8);
-        carte.add(compteur, BorderLayout.SOUTH);
+        JPanel semaine = new JPanel(new BorderLayout(0, 2));
+        semaine.setOpaque(false);
+        semaine.add(libelleSemaine, BorderLayout.CENTER);
+        semaine.add(compteur, BorderLayout.SOUTH);
+        JPanel bas = new JPanel(new BorderLayout(12, 0));
+        bas.setOpaque(false);
+        bas.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+        bas.add(centrerVerticalement(precedente), BorderLayout.WEST);
+        bas.add(semaine, BorderLayout.CENTER);
+        bas.add(centrerVerticalement(suivante), BorderLayout.EAST);
+        carte.add(bas, BorderLayout.SOUTH);
         return carte;
+    }
+
+    /** Le bouton garde sa taille et reste au milieu de la hauteur de la barre. */
+    private static JComponent centrerVerticalement(JComponent c) {
+        JPanel p = new JPanel(new java.awt.GridBagLayout());
+        p.setOpaque(false);
+        p.add(c);
+        return p;
     }
 
     private JComponent colonneDroite() {
