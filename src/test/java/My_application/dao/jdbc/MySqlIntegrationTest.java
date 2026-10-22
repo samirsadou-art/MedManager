@@ -24,6 +24,7 @@ import My_application.service.AuthentificationService;
 import My_application.service.JournalAcces;
 import My_application.service.JournalAccesEnBase;
 import My_application.service.MembresService;
+import My_application.service.PatientService;
 import My_application.service.MetierException;
 import My_application.service.Session;
 import My_application.service.CatalogueService;
@@ -361,6 +362,21 @@ public class MySqlIntegrationTest {
         } catch (SQLException attendu) {
             // uk_rendezvous_creneau
         }
+    }
+
+    @Test
+    public void inscriptionAvecTelephoneEtDetectionDesDoublons() {
+        PatientService service = new PatientService(daos);
+        patient p = Donnees.patient(0, "ziani", "Nadia", LocalDate.of(1992, 2, 29), false);
+        p.setTelephone("0555 12 34 56");
+        service.creer(p);
+        patient memeTel = Donnees.patient(0, "AUTRE", "Personne", LocalDate.of(2000, 1, 1), true);
+        memeTel.setTelephone("+213 555 12 34 56");
+        assertEquals(1, service.doublonsPossibles(memeTel).size());
+        assertEquals(p.getIdentPat(), service.rechercher("0555 12").get(0).getIdentPat());
+        p.setVille("Fréha");
+        service.modifier(p);
+        assertEquals("Fréha", daos.getPatientDao().findById(p.getIdentPat()).getVille());
     }
 
     @Test

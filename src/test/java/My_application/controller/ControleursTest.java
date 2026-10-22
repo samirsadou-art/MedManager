@@ -411,45 +411,114 @@ public class ControleursTest {
         assertTrue(autre.erreurs.get(0).contains("administrateur"));
     }
 
-    // ----- nouveau patient -----
+    // ----- fiche patient (inscription, modification) -----
+
+    /** Fausse fiche : répond aux doublons proposés comme demandé. */
+    private static final class FausseFiche extends FausseVue implements FichePatientVue {
+        int reponse = FichePatientVue.CREER_QUAND_MEME;
+        List<patient> proposes;
+
+        @Override
+        public int proposerDoublons(List<patient> doublons) {
+            proposes = doublons;
+            return reponse;
+        }
+    }
+
+    private static FichePatientController.Saisie saisie(String nom, String prenom, String naissance, String tel) {
+        FichePatientController.Saisie s = new FichePatientController.Saisie();
+        s.nom = nom;
+        s.prenom = prenom;
+        s.dateNaissance = naissance;
+        s.telephone = tel;
+        return s;
+    }
 
     @Test
-    public void nouveauPatientDepuisLaSaisie() {
-        FausseVue vue = new FausseVue();
-        NouveauPatientController ctrl = new NouveauPatientController(vue, new PatientService(base));
-        NouveauPatientController.Saisie s = new NouveauPatientController.Saisie();
-        s.nom = "ziani";
-        s.prenom = "nadia";
-        s.dateNaissance = "29/02/1992";
+    public void inscriptionDUnNouveauPatient() {
+        FausseFiche vue = new FausseFiche();
+        FichePatientController.Saisie s = saisie("ziani", "nadia", "29/02/1992", "0555 12 34 56");
         s.masculin = false;
-        patient p = ctrl.enregistrer(s);
-        assertNotNull(p);
-        assertEquals("ZIANI", p.getNom());
-        assertEquals(LocalDate.of(1992, 2, 29), p.getDat_nais());
-        assertTrue(vue.informations.get(0).contains("enregistré"));
+        s.email = " Nadia.Ziani@Exemple.DZ ";
+        s.adresse = "12 rue des Oliviers";
+        s.wilaya = "Tizi Ouzou";
+        FichePatientController.Resultat r = new FichePatientController(vue, new PatientService(base)).inscrire(s);
+        assertNotNull(r);
+        assertFalse(r.existant);
+        assertEquals("ZIANI", r.patient.getNom());
+        assertEquals(LocalDate.of(1992, 2, 29), r.patient.getDat_nais());
+        assertEquals("0555123456", r.patient.getTelephone());
+        assertEquals("nadia.ziani@exemple.dz", r.patient.getEmail());
+        assertEquals("12 rue des Oliviers", r.patient.getLocalite());
+        assertNull("aucun doublon à proposer", vue.proposes);
+        assertTrue(vue.erreurs.isEmpty());
+    }
+
+    @Test
+    public void unDoublonProposeEstChoisiAuLieuDeCreer() {
+        patient existant = base.patients.get(1);
+        existant.setTelephone("0661000000");
+        int avant = base.patients.size();
+        FausseFiche vue = new FausseFiche();
+        vue.reponse = 0;
+        FichePatientController.Resultat r = new FichePatientController(vue, new PatientService(base))
+                .inscrire(saisie("Inconnu", "x", "01/01/2000", "+213 661 00 00 00"));
+        assertTrue(r.existant);
+        assertEquals(existant, r.patient);
+        assertEquals(avant, base.patients.size());
+    }
+
+    @Test
+    public void doublonIgnoreOuInscriptionAnnulee() {
+        patient existant = base.patients.get(1);
+        String naissance = existant.getDat_nais().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        int avant = base.patients.size();
+        FausseFiche vue = new FausseFiche();
+        vue.reponse = FichePatientVue.ANNULER;
+        PatientService service = new PatientService(base);
+        assertNull(new FichePatientController(vue, service).inscrire(
+                saisie(existant.getNom(), "Autre", naissance, "0770112233")));
+        assertEquals(1, vue.proposes.size());
+        assertEquals(avant, base.patients.size());
+
+        vue.reponse = FichePatientVue.CREER_QUAND_MEME;
+        FichePatientController.Resultat r = new FichePatientController(vue, service).inscrire(
+                saisie(existant.getNom(), "Autre", naissance, "0770112233"));
+        assertFalse(r.existant);
+        assertEquals(avant + 1, base.patients.size());
+    }
+
+    @Test
+    public void modificationDeLaFiche() {
+        patient p = base.patients.get(2);
+        FichePatientController.Saisie s = FichePatientController.Saisie.depuis(p);
+        s.telephone = "026 12 34 56";
+        s.ville = "Fréha";
+        FausseFiche vue = new FausseFiche();
+        patient modifie = new FichePatientController(vue, new PatientService(base)).modifier(p, s);
+        assertEquals("026123456", modifie.getTelephone());
+        assertEquals("Fréha", base.patients.get(2).getVille());
+        assertEquals(2, modifie.getIdentPat());
+        assertTrue(vue.informations.get(0).contains("enregistrée"));
     }
 
     @Test
     public void dateDeNaissanceInvalide() {
-        FausseVue vue = new FausseVue();
-        NouveauPatientController ctrl = new NouveauPatientController(vue, new PatientService(base));
-        NouveauPatientController.Saisie s = new NouveauPatientController.Saisie();
-        s.nom = "X";
-        s.prenom = "Y";
-        s.dateNaissance = "31/02/1990"; // n'existe pas
-        assertNull(ctrl.enregistrer(s));
+        FausseFiche vue = new FausseFiche();
+        assertNull(new FichePatientController(vue, new PatientService(base))
+                .inscrire(saisie("X", "Y", "31/02/1990", "0555123456")));
         assertTrue(vue.erreurs.get(0).contains("jj/mm/aaaa"));
     }
 
     @Test
-    public void numeroDeDossierNonNumerique() {
-        FausseVue vue = new FausseVue();
-        NouveauPatientController.Saisie s = new NouveauPatientController.Saisie();
+    public void numeroDeDossierNonNumeriqueEtTelephoneManquant() {
+        FausseFiche vue = new FausseFiche();
+        FichePatientController.Saisie s = saisie("X", "Y", "01/01/1990", "0555123456");
         s.numero = "A12";
-        s.nom = "X";
-        s.prenom = "Y";
-        s.dateNaissance = "01/01/1990";
-        assertNull(new NouveauPatientController(vue, new PatientService(base)).enregistrer(s));
+        FichePatientController ctrl = new FichePatientController(vue, new PatientService(base));
+        assertNull(ctrl.inscrire(s));
         assertTrue(vue.erreurs.get(0).contains("nombre"));
+        assertNull(ctrl.inscrire(saisie("X", "Y", "01/01/1990", " ")));
+        assertTrue(vue.erreurs.get(1).contains("téléphone"));
     }
 }

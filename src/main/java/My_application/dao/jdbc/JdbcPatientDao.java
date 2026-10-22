@@ -2,6 +2,7 @@ package My_application.dao.jdbc;
 
 import My_application.dao.PatientDao;
 import My_application.entities.patient;
+import java.time.LocalDate;
 import java.util.List;
 
 public class JdbcPatientDao implements PatientDao {
@@ -60,6 +61,22 @@ public class JdbcPatientDao implements PatientDao {
         }
         return jdbc.query("SELECT * FROM patient WHERE nomPatient LIKE ? ORDER BY nomPatient, prenomPatient",
                 Mappers.PATIENT, JdbcHelper.commencePar(prefixe.trim()));
+    }
+
+    @Override
+    public List<patient> findByTelephoneCommencantPar(String prefixe) {
+        return jdbc.query("SELECT * FROM patient WHERE telPatient LIKE ? ORDER BY nomPatient, prenomPatient",
+                Mappers.PATIENT, JdbcHelper.commencePar(prefixe));
+    }
+
+    @Override
+    public List<patient> findDoublons(String nom, LocalDate naissance, String telephone) {
+        if (telephone == null) {
+            return jdbc.query("SELECT * FROM patient WHERE nomPatient=? AND date_Nais_Patient=? "
+                    + "ORDER BY nomPatient, prenomPatient", Mappers.PATIENT, nom, naissance);
+        }
+        return jdbc.query("SELECT * FROM patient WHERE (nomPatient=? AND date_Nais_Patient=?) OR telPatient=? "
+                + "ORDER BY nomPatient, prenomPatient", Mappers.PATIENT, nom, naissance, telephone);
     }
 
     private static Object[] valeurs(patient p) {

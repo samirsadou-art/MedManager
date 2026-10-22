@@ -236,6 +236,31 @@ public class MemoireDAOFactory implements DAOFactory {
                 });
                 return r;
             }
+
+            @Override
+            public List<patient> findByTelephoneCommencantPar(String prefixe) {
+                appel("patient.findByTelephone");
+                List<patient> r = new ArrayList<>();
+                for (patient p : patients.values()) {
+                    if (p.getTelephone() != null && p.getTelephone().startsWith(prefixe)) {
+                        r.add(p);
+                    }
+                }
+                return r;
+            }
+
+            @Override
+            public List<patient> findDoublons(String nom, java.time.LocalDate naissance, String telephone) {
+                appel("patient.findDoublons");
+                List<patient> r = new ArrayList<>();
+                for (patient p : patients.values()) {
+                    if ((p.getNom().equals(nom) && naissance.equals(p.getDat_nais()))
+                            || (telephone != null && telephone.equals(p.getTelephone()))) {
+                        r.add(p);
+                    }
+                }
+                return r;
+            }
         };
     }
 

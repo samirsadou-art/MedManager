@@ -6,7 +6,7 @@ retirées de `src/main/java` pour ne plus être compilées ni livrées dans le j
 
 | Classe | Rôle d'origine |
 |---|---|
-| `AddPatient`, `AjouterPat`, `AjouterPatFrame` | anciens formulaires d'ajout de patient, remplacés par `Patient/NewPatient` |
+| `AddPatient`, `AjouterPat`, `AjouterPatFrame` | anciens formulaires d'ajout de patient, remplacés par `Patient/FichePatient` |
 | `Password` | ancien écran de mot de passe, remplacé par `ConnexionForm` |
 | `ImagerieForms/Imagerie` | maquette de demande d'imagerie (NetBeans AbsoluteLayout) |
 | `Chat/ServiceReseau` | première version du serveur de chat (écoutait sur toutes les interfaces) |
