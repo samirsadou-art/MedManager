@@ -54,7 +54,9 @@ import java.util.regex.Pattern;
  * produit en mémoire, ce qui permet de le tester.</li>
  * <li>Chaque document est enregistré dans un dossier d'archives (par défaut
  * {@code ~/GestiMed/Documents}, modifiable par {@code -Dgestimed.documents=...})
- * puis ouvert dans la visionneuse PDF du système, ou envoyé à l'imprimante.</li>
+ * puis affiché dans la fenêtre d'aperçu de l'application ({@link ApercuPdf} :
+ * zoom, « Imprimer », « Enregistrer sous… »), ou dans la visionneuse PDF du
+ * système si l'aperçu échoue.</li>
  * <li>Ces PDF nominatifs ne s'accumulent pas : ceux produits par GestiMed il y a
  * plus de {@code -Dgestimed.documents.conservation} jours (30 par défaut, 0 pour
  * tout garder) sont supprimés à chaque nouveau document. Rien n'est perdu : un
@@ -65,7 +67,7 @@ import java.util.regex.Pattern;
  */
 public class RapportService {
 
-    /** Ouvre ou imprime un fichier PDF (par défaut via {@link java.awt.Desktop}). */
+    /** Ouvre ou imprime un fichier PDF (par défaut dans l'aperçu, {@link AfficheurApercu}). */
     public interface Afficheur {
 
         void ouvrir(File pdf) throws IOException;
@@ -104,7 +106,7 @@ public class RapportService {
     public RapportService() {
         this(new File(System.getProperty("gestimed.documents",
                 System.getProperty("user.home") + File.separator + "GestiMed" + File.separator + "Documents")),
-                new AfficheurSysteme());
+                new AfficheurApercu());
     }
 
     public RapportService(File dossier, Afficheur afficheur) {

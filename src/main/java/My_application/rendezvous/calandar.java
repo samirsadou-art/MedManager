@@ -956,7 +956,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         p.add(new JLabel("<html>Rendez-vous " + (medecin == null ? "de tous les médecins" : "de <b>" + medecin + "</b>")
                 + ", une page par médecin, avec le téléphone des patients.</html>"), BorderLayout.NORTH);
         p.add(jours, BorderLayout.CENTER);
-        Object[] options = {"Imprimer", "Ouvrir le PDF", "Annuler"};
+        Object[] options = {"Imprimer", "Aperçu", "Annuler"};
         int choix = JOptionPane.showOptionDialog(this, p, "Liste du jour", JOptionPane.DEFAULT_OPTION,
                 JOptionPane.PLAIN_MESSAGE, Icones.svg("printer", 28, Theme.PRIMAIRE), options, options[1]);
         if ((choix == 0 || choix == 1) && jours.getSelectedItem() != null) {
