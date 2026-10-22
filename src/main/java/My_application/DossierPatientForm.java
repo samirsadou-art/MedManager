@@ -1180,7 +1180,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
     private void NewRendezVousBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NewRendezVousBtnActionPerformed
         User util = ctx.getSession().getUtilisateur();
-        new calandar(this.dossier.getMalade(), util, ctx.getRendezVousService()).setVisible(true);
+        new calandar(this.dossier.getMalade(), util, ctx.getRendezVousService(), ctx.getRapportService()).setVisible(true);
     }//GEN-LAST:event_NewRendezVousBtnActionPerformed
     // ----- onglets ordonnance / analyses -----
 

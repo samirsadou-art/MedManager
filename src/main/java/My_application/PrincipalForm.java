@@ -157,7 +157,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         } else {
             menu.ajouter("home", "Accueil", true, this::refresh);
             menu.ajouter("users", "Patients", false, () -> userMenuBtn.doClick());
-            menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null, ctx.getRendezVousService()).setVisible(true));
+            menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null, ctx.getRendezVousService(), ctx.getRapportService()).setVisible(true));
             menu.ajouter("message-circle", "Messagerie", false, () -> ChatBtn.doClick());
             menu.selectionner("Accueil");
         }

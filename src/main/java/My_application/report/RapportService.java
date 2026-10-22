@@ -1,5 +1,6 @@
 package My_application.report;
 
+import My_application.entities.Rendez_Vous;
 import My_application.entities.analyse;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
@@ -32,7 +33,10 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -77,9 +81,10 @@ public class RapportService {
     static final int CONSERVATION_PAR_DEFAUT = 30;
 
     /** Noms des fichiers produits par {@link #nomFichier} : seuls ceux-là sont purgés. */
-    private static final Pattern NOM_DOCUMENT = Pattern.compile("(Ordonnance|Analyses)_[A-Za-z0-9_\\-]*\\.pdf");
+    private static final Pattern NOM_DOCUMENT = Pattern.compile("(Ordonnance|Analyses|RendezVous)_[A-Za-z0-9_\\-]*\\.pdf");
 
     static final DateTimeFormatter FORMAT_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter FORMAT_JOUR = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
 
     private static final Font TITRE = new Font(Font.HELVETICA, 20, Font.BOLD, new Color(0, 51, 102));
     private static final Font CABINET = new Font(Font.HELVETICA, 14, Font.BOLD);
@@ -131,6 +136,21 @@ public class RapportService {
             throw new MetierException("Cette consultation ne comporte pas de demande d'analyses.");
         }
         return publier(nomFichier("Analyses", c), pdfAnalyses(c), imprimer);
+    }
+
+    /**
+     * Liste des rendez-vous d'un jour, une page par médecin, pour appeler
+     * les patients la veille ou pointer les arrivées.
+     *
+     * @param rdvs     rendez-vous du jour, triés par médecin puis par heure
+     * @param medecins médecins du cabinet par identifiant (nom en tête de page)
+     */
+    public boolean listeRendezVous(LocalDate jour, List<Rendez_Vous> rdvs, Map<Integer, medecin> medecins,
+            boolean imprimer) {
+        if (rdvs.isEmpty()) {
+            throw new MetierException("Aucun rendez-vous le " + FORMAT_DATE.format(jour) + ".");
+        }
+        return publier("RendezVous_" + jour + ".pdf", pdfListeRendezVous(jour, rdvs, medecins), imprimer);
     }
 
     private boolean publier(String nom, byte[] pdf, boolean imprimer) {
@@ -221,6 +241,55 @@ public class RapportService {
         return document(c, "ANALYSES BIOLOGIQUES",
                 new String[]{"N°", "Analyse", "Observation"},
                 new float[]{0.6f, 4.5f, 4.5f}, lignes);
+    }
+
+    public byte[] pdfListeRendezVous(LocalDate jour, List<Rendez_Vous> rdvs, Map<Integer, medecin> medecins) {
+        Map<Integer, List<String[]>> parMedecin = lignesRendezVous(rdvs);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document doc = new Document(PageSize.A4, 40, 40, 40, 70);
+        try {
+            PdfWriter writer = PdfWriter.getInstance(doc, out);
+            medecin cabinet = medecins.isEmpty() ? new medecin() : medecins.values().iterator().next();
+            writer.setPageEvent(new PiedDePage(cabinet));
+            doc.addTitle("Rendez-vous du " + FORMAT_DATE.format(jour));
+            doc.addCreator("GestiMed");
+            doc.open();
+            boolean premiere = true;
+            for (Map.Entry<Integer, List<String[]>> e : parMedecin.entrySet()) {
+                if (!premiere) {
+                    doc.newPage();
+                }
+                premiere = false;
+                medecin m = e.getKey() == null ? null : medecins.get(e.getKey());
+                PdfPTable entete = new PdfPTable(new float[]{3, 1.4f});
+                entete.setWidthPercentage(100);
+                PdfPCell gauche = sansBordure();
+                gauche.addElement(new Paragraph(m == null ? texte(cabinet.getNom_cabinet())
+                        : texte(m.getNom_cabinet()), CABINET));
+                gauche.addElement(new Paragraph(m == null ? "Médecin non renseigné" : coordonneesMedecin(m).get(0),
+                        NORMAL));
+                entete.addCell(gauche);
+                PdfPCell droite = sansBordure();
+                Paragraph nombre = new Paragraph(e.getValue().size() + " rendez-vous", GRAS);
+                nombre.setAlignment(Element.ALIGN_RIGHT);
+                droite.addElement(nombre);
+                entete.addCell(droite);
+                doc.add(entete);
+                doc.add(new Chunk(new LineSeparator(1f, 100f, BLEU, Element.ALIGN_CENTER, -4)));
+                Paragraph t = new Paragraph("RENDEZ-VOUS DU " + FORMAT_JOUR.format(jour).toUpperCase(Locale.FRENCH),
+                        TITRE);
+                t.setAlignment(Element.ALIGN_CENTER);
+                t.setSpacingBefore(18);
+                t.setSpacingAfter(14);
+                doc.add(t);
+                doc.add(tableau(new String[]{"Heure", "Patient", "Téléphone", "Motif", "Observation"},
+                        new float[]{0.9f, 3.2f, 1.8f, 2.4f, 2.2f}, e.getValue()));
+            }
+            doc.close();
+        } catch (DocumentException e) {
+            throw new RapportException("Impossible de générer le document.", e);
+        }
+        return out.toByteArray();
     }
 
     private byte[] document(consultation c, String titre, String[] colonnes, float[] largeurs, List<String[]> lignes) {
@@ -406,6 +475,26 @@ public class RapportService {
             lignes.add(new String[]{i++ + ")", texte(a.getDesign()), texte(a.getObserv())});
         }
         return lignes;
+    }
+
+    /** Lignes du tableau par médecin (ordre de la liste) : heure, patient, téléphone, motif, case vide. */
+    static Map<Integer, List<String[]>> lignesRendezVous(List<Rendez_Vous> rdvs) {
+        Map<Integer, List<String[]>> l = new LinkedHashMap<>();
+        for (Rendez_Vous r : rdvs) {
+            List<String[]> lignes = l.get(r.getIdMedecin());
+            if (lignes == null) {
+                lignes = new ArrayList<>();
+                l.put(r.getIdMedecin(), lignes);
+            }
+            patient p = r.getPatient();
+            lignes.add(new String[]{
+                r.getHeureString(),
+                (texte(p.getNom()).toUpperCase(Locale.FRENCH) + " " + texte(p.getPrenom())).trim(),
+                texte(p.getTelephone()),
+                texte(r.getMotif()),
+                ""});
+        }
+        return l;
     }
 
     private static String texte(String s) {

@@ -44,6 +44,19 @@ public class Session implements ControleAcces {
         return idMedecin;
     }
 
+    /**
+     * Médecin avec lequel ce poste prend les rendez-vous : celui du compte
+     * connecté s'il est médecin, null pour un autre compte (secrétaire,
+     * administrateur), qui doit choisir le médecin. Sans session ouverte
+     * (outils), le médecin donné au lancement.
+     */
+    public synchronized Integer getIdMedecinDuPoste() {
+        if (connecte != null && connecte.getRole() != Role.MEDECIN) {
+            return null;
+        }
+        return idMedecin;
+    }
+
     /** Ouvre la session de l'utilisateur authentifié. */
     public synchronized void ouvrir(User u) {
         connecte = u;

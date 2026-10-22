@@ -88,6 +88,8 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     private List<Rendez_Vous> rendezVous = new ArrayList<>();
     private Rendez_Vous selection;
     private Rendez_Vous propose;
+    /** Rendez-vous en cours de déplacement : un clic sur une heure libre choisit sa nouvelle place. */
+    private Rendez_Vous enDeplacement;
     private String filtre = "";
     private Integer filtreMedecin;
     private Integer medecinReservation;
@@ -148,10 +150,14 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         repaint();
     }
 
-    /** Le rendez-vous affiché qui désigne le même patient au même créneau, ou null. */
+    /**
+     * Le rendez-vous affiché qui est le même (même identifiant, sinon même
+     * patient au même créneau), ou null.
+     */
     public Rendez_Vous trouver(Rendez_Vous r) {
         for (Rendez_Vous x : rendezVous) {
-            if (x.memeCreneauEtPatient(r)) {
+            if (r.getIdRendezVous() != null ? r.getIdRendezVous().equals(x.getIdRendezVous())
+                    : x.memeCreneauEtPatient(r)) {
                 return x;
             }
         }
@@ -205,6 +211,24 @@ public class AgendaSemaine extends JComponent implements Scrollable {
 
     public Rendez_Vous getPropose() {
         return propose;
+    }
+
+    /**
+     * Passe en mode déplacement de ce rendez-vous (null pour en sortir) :
+     * les heures libres deviennent cliquables même sans patient du dossier.
+     */
+    public void setEnDeplacement(Rendez_Vous r) {
+        enDeplacement = r;
+        repaint();
+    }
+
+    public Rendez_Vous getEnDeplacement() {
+        return enDeplacement;
+    }
+
+    /** Un clic sur une heure libre a un sens : prise de rendez-vous pour le patient, ou déplacement. */
+    private boolean creneauxCliquables() {
+        return courant != null || enDeplacement != null;
     }
 
     /** Recherche d'un patient : les autres cartes sont estompées. */
@@ -446,18 +470,18 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         }
         LocalDate jour = jourA(p.x);
         int heure = heureA(p.y);
-        return courant != null && jour != null && heure >= 0 && heureFuture(jour, heure);
+        return creneauxCliquables() && jour != null && heure >= 0 && heureFuture(jour, heure);
     }
 
     /**
      * Places prises dans l'heure chez le médecin des prochains rendez-vous
      * (comme {@code RendezVousService} : un rendez-vous sans médecin compte
-     * pour tous).
+     * pour tous). Un rendez-vous absent ne prend plus de place, ni celui qu'on déplace.
      */
     int nombreDansLHeure(LocalDate jour, int heure) {
         int n = 0;
         for (Rendez_Vous r : rendezVous) {
-            if (r.getDate().equals(jour) && r.getHeure().getHour() == heure
+            if (r.isOccupant() && r != enDeplacement && r.getDate().equals(jour) && r.getHeure().getHour() == heure
                     && (medecinReservation == null || r.getIdMedecin() == null
                     || medecinReservation.equals(r.getIdMedecin()))) {
                 n++;
@@ -504,6 +528,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
                     + DATE_LONGUE.format(r.getDate()) + "<br>"
                     + HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(pas))
                     + (medecin == null ? "" : "<br>Avec " + medecin)
+                    + (r.getMotif() == null ? "" : "<br>Motif : " + r.getMotif())
                     + "<br>" + statut(r).getLibelle() + "</html>";
         }
         LocalDate jour = jourA(e.getX());
@@ -519,8 +544,13 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         if (!heureFuture(jour, heure)) {
             return places;
         }
-        return "<html>" + places + (n < maxParHeure && courant != null
-                ? "<br>Cliquez pour proposer un créneau, double-cliquez pour le réserver." : "") + "</html>";
+        String aide = "";
+        if (n < maxParHeure && enDeplacement != null) {
+            aide = "<br>Cliquez pour y déplacer le rendez-vous.";
+        } else if (n < maxParHeure && courant != null) {
+            aide = "<br>Cliquez pour proposer un créneau, double-cliquez pour le réserver.";
+        }
+        return "<html>" + places + aide + "</html>";
     }
 
     // ----- Scrollable -----
@@ -612,7 +642,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         }
 
         // Survol d'une heure libre où l'on peut prendre rendez-vous.
-        if (survol != null && courant != null && rendezVousA(survol) == null) {
+        if (survol != null && creneauxCliquables() && rendezVousA(survol) == null) {
             LocalDate jour = jourA(survol.x);
             int heure = heureA(survol.y);
             if (jour != null && heure >= 0 && heureFuture(jour, heure)
@@ -623,7 +653,8 @@ public class AgendaSemaine extends JComponent implements Scrollable {
                 int i = survol.y / HAUTEUR_CRENEAU;
                 g2.setFont(Theme.police(Font.PLAIN, 11));
                 g2.setColor(Theme.PRIMAIRE);
-                g2.drawString(couper("+ Proposer un créneau", g2.getFontMetrics(), h.width - 14),
+                g2.drawString(couper(enDeplacement != null ? "→ Déplacer ici" : "+ Proposer un créneau",
+                        g2.getFontMetrics(), h.width - 14),
                         h.x + 8, i * HAUTEUR_CRENEAU + 24);
             }
         }
@@ -670,7 +701,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
 
     private void dessinerCarte(Graphics2D g, Rendez_Vous r, Rectangle c) {
         Graphics2D g2 = (Graphics2D) g.create();
-        if (!correspond(r, filtre)) {
+        if (!correspond(r, filtre) || r == enDeplacement) {
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
         }
         StatutRendezVous s = statut(r);
@@ -700,7 +731,8 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         medecin m = nomMedecinSurLesCartes() ? medecinDe(r.getIdMedecin()) : null;
         String horaire;
         if (m == null) {
-            horaire = etroite ? HEURE.format(debut) : HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(pas));
+            horaire = etroite ? HEURE.format(debut) : HEURE.format(debut) + " – " + HEURE.format(debut.plusMinutes(pas))
+                    + (r.getMotif() == null ? "" : " · " + r.getMotif());
         } else {
             horaire = etroite ? nomSeul(m) : HEURE.format(debut) + " · " + nomCourt(m);
         }
@@ -708,7 +740,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
         g2.drawString(couper(horaire, fm, x + l - xTexte - marge), xTexte, y + 14);
         g2.setFont(Theme.police(Font.BOLD, 12));
         fm = g2.getFontMetrics();
-        g2.setColor(s == StatutRendezVous.PASSE ? Theme.TEXTE_SECONDAIRE : Theme.TEXTE);
+        g2.setColor(s == StatutRendezVous.PASSE || s == StatutRendezVous.ABSENT ? Theme.TEXTE_SECONDAIRE : Theme.TEXTE);
         String nom = r.getPatient().getNom().toUpperCase(Locale.FRENCH)
                 + (etroite ? "" : " " + r.getPatient().getPrenom());
         g2.drawString(couper(nom, fm, l - 2 * marge), x + marge, y + h - 7);

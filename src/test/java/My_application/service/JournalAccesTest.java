@@ -138,7 +138,13 @@ public class JournalAccesTest {
         rdv.confirmer(r);
         assertEquals("RENDEZ_VOUS_PRIS", derniere().getAction());
         assertEquals(demain + " 10:00", derniere().getDetail());
-        rdv.annuler(r, base.patients.get(1));
+        Rendez_Vous n = rdv.proposerDeplacement(r, demain, 11, null);
+        rdv.deplacer(r, n);
+        assertEquals("RENDEZ_VOUS_DEPLACE", derniere().getAction());
+        assertEquals(demain + " 10:00 -> " + demain + " 11:00", derniere().getDetail());
+        r.setDate(demain);
+        r.setHeure(java.time.LocalTime.of(11, 0));
+        rdv.annuler(r);
         assertEquals("RENDEZ_VOUS_ANNULE", derniere().getAction());
         assertEquals(Integer.valueOf(1), derniere().getIdPatient());
     }

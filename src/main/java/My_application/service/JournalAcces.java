@@ -21,7 +21,9 @@ public interface JournalAcces {
         ENREGISTREMENT_CONSULTATION,
         SAISIE_RESULTATS,
         RENDEZ_VOUS_PRIS,
-        RENDEZ_VOUS_ANNULE
+        RENDEZ_VOUS_ANNULE,
+        RENDEZ_VOUS_DEPLACE,
+        RENDEZ_VOUS_ABSENT
     }
 
     /**
