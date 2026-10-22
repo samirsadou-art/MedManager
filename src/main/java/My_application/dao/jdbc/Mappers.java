@@ -37,6 +37,7 @@ final class Mappers {
             p.setDat_nais(jour(rs, "date_Nais_Patient"));
             p.setSexe(rs.getBoolean("sexePatient"));
             Set<String> colonnes = colonnes(rs);
+            p.setNumeroDossier(chaine(rs, colonnes, "numeroDossier"));
             p.setNum_soc(chaine(rs, colonnes, "num_sec_soc_Patient"));
             p.setPays(chaine(rs, colonnes, "paysPatient"));
             p.setWilaya(chaine(rs, colonnes, "wilayaPatient"));

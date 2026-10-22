@@ -11,7 +11,8 @@ import java.time.Period;
  */
 public class patient {
 
-    private int identPat;
+    private int identPat;          // identifiant technique (auto-incrément)
+    private String numeroDossier;  // numéro de dossier du cabinet (V15), saisi ou attribué
     private String nom;
     private String prenom;
     private LocalDate dat_nais;
@@ -120,6 +121,15 @@ public class patient {
 
     public void setIdentPat(int identPat) {
         this.identPat = identPat;
+    }
+
+    /** Numéro de dossier connu du cabinet, distinct de l'identifiant technique. */
+    public String getNumeroDossier() {
+        return numeroDossier;
+    }
+
+    public void setNumeroDossier(String numeroDossier) {
+        this.numeroDossier = numeroDossier;
     }
 
     public String getNom() {

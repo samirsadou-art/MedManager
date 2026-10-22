@@ -2,6 +2,7 @@ package My_application.service;
 
 import java.util.Locale;
 import My_application.dao.DAOFactory;
+import My_application.dao.DoublonException;
 import My_application.dao.PatientDao;
 import My_application.dao.UniteDeTravail;
 import My_application.entities.patient;
@@ -26,16 +27,35 @@ public class PatientService {
         this.journal = journal;
     }
 
+    /** Nombre d'essais quand un autre poste prend le même numéro attribué au même moment. */
+    static final int ESSAIS_NUMERO_AUTOMATIQUE = 3;
+
     /**
      * Patients dont le nom commence par le texte saisi, ou, si le texte est un
      * début de numéro (au moins 3 chiffres), dont le téléphone commence ainsi.
+     * Le dossier dont le numéro est exactement le texte saisi vient en tête.
      */
     public List<patient> rechercher(String texte) {
         String t = texte == null ? "" : texte.trim();
+        List<patient> r;
         if (t.matches("[+0-9 .\\-]+") && chiffres(t).length() >= 3) {
-            return patientDao.findByTelephoneCommencantPar(versNational(chiffres(t), t.startsWith("+")));
+            r = patientDao.findByTelephoneCommencantPar(versNational(chiffres(t), t.startsWith("+")));
+        } else {
+            r = patientDao.findByNomCommencantPar(t);
         }
-        return patientDao.findByNomCommencantPar(t);
+        patient parNumero = t.toUpperCase(Locale.ROOT).matches(FORMAT_NUMERO)
+                ? patientDao.findByNumeroDossier(t.toUpperCase(Locale.ROOT)) : null;
+        if (parNumero != null) {
+            List<patient> avecNumero = new ArrayList<>();
+            avecNumero.add(parNumero);
+            for (patient p : r) {
+                if (p.getIdentPat() != parNumero.getIdentPat()) {
+                    avecNumero.add(p);
+                }
+            }
+            return avecNumero;
+        }
+        return r;
     }
 
     public patient trouver(int id) {
@@ -54,9 +74,31 @@ public class PatientService {
         if (p.getTelephone() == null) {
             throw new MetierException("Le numéro de téléphone du patient est obligatoire.");
         }
-        if (p.getIdentPat() > 0 && patientDao.findById(p.getIdentPat()) != null) {
-            throw new MetierException("Le numéro de dossier " + p.getIdentPat() + " est déjà utilisé.");
+        if (p.getNumeroDossier() != null) {
+            verifierNumeroLibre(p);
+            try {
+                return inserer(p);
+            } catch (DoublonException e) {
+                throw numeroDejaUtilise(p.getNumeroDossier());
+            }
         }
+        // Numéro attribué : si un autre poste inscrit un patient au même
+        // instant, il peut avoir pris le même ; on en demande un autre.
+        for (int essai = 1; ; essai++) {
+            p.setNumeroDossier(patientDao.prochainNumeroDossier());
+            try {
+                return inserer(p);
+            } catch (DoublonException e) {
+                if (essai == ESSAIS_NUMERO_AUTOMATIQUE) {
+                    p.setNumeroDossier(null);
+                    throw new MetierException("Aucun numéro de dossier libre n'a pu être attribué : "
+                            + "réessayez ou saisissez un numéro.");
+                }
+            }
+        }
+    }
+
+    private patient inserer(final patient p) {
         return daos.enTransaction(new UniteDeTravail<patient>() {
             @Override
             public patient executer() {
@@ -65,6 +107,18 @@ public class PatientService {
                 return cree;
             }
         });
+    }
+
+    /** Le numéro de dossier du patient n'appartient à aucune autre fiche. */
+    private void verifierNumeroLibre(patient p) {
+        patient porteur = patientDao.findByNumeroDossier(p.getNumeroDossier());
+        if (porteur != null && porteur.getIdentPat() != p.getIdentPat()) {
+            throw numeroDejaUtilise(p.getNumeroDossier());
+        }
+    }
+
+    private static MetierException numeroDejaUtilise(String numero) {
+        return new MetierException("Le numéro de dossier " + numero + " est déjà utilisé.");
     }
 
     /**
@@ -91,18 +145,52 @@ public class PatientService {
             throw new MetierException("Ce patient n'existe pas (ou plus) dans la base.");
         }
         normaliser(p);
-        return daos.enTransaction(new UniteDeTravail<patient>() {
-            @Override
-            public patient executer() {
-                patientDao.update(p);
-                journal.noter(JournalAcces.Action.MODIFICATION_PATIENT, p.getIdentPat(), null);
-                return p;
-            }
-        });
+        if (p.getNumeroDossier() == null) {
+            throw new MetierException("Le numéro de dossier est obligatoire.");
+        }
+        verifierNumeroLibre(p);
+        try {
+            return daos.enTransaction(new UniteDeTravail<patient>() {
+                @Override
+                public patient executer() {
+                    patientDao.update(p);
+                    journal.noter(JournalAcces.Action.MODIFICATION_PATIENT, p.getIdentPat(), null);
+                    return p;
+                }
+            });
+        } catch (DoublonException e) {
+            throw numeroDejaUtilise(p.getNumeroDossier());
+        }
     }
 
-    /** Nom en majuscules, prénom capitalisé, téléphone au format national, champs vides à null. */
+    /** Numéro de dossier : chiffres, lettres et / - . (20 caractères au plus), en majuscules. */
+    private static final String FORMAT_NUMERO = "[0-9A-Z/.\\-]{1,20}";
+
+    /**
+     * Numéro de dossier en majuscules, sans espaces autour ; null si rien
+     * n'est saisi (un numéro sera attribué à l'inscription).
+     *
+     * @throws MetierException si le numéro contient d'autres caractères
+     */
+    public static String normaliserNumeroDossier(String saisie) {
+        String n = vide(saisie);
+        if (n == null) {
+            return null;
+        }
+        n = n.toUpperCase(Locale.ROOT);
+        if (!n.matches(FORMAT_NUMERO)) {
+            throw new MetierException("Le numéro de dossier ne peut contenir que des chiffres, des lettres "
+                    + "et les signes / - . (20 caractères au plus), par exemple 1254 ou 2019/37.");
+        }
+        return n;
+    }
+
+    /**
+     * Numéro de dossier et nom en majuscules, prénom capitalisé, téléphone au
+     * format national, champs vides à null.
+     */
     static void normaliser(patient p) {
+        p.setNumeroDossier(normaliserNumeroDossier(p.getNumeroDossier()));
         p.setNom(p.getNom().trim().toUpperCase(Locale.FRENCH));
         p.setPrenom(capitaliser(p.getPrenom().trim()));
         p.setTelephone(normaliserTelephone(p.getTelephone()));
