@@ -207,6 +207,50 @@ public class SalleAttenteControllerTest {
     }
 
     @Test
+    public void laSecretaireEncaisseEtLibereLePatientConsulte() {
+        ControleursTest.FausseAccueil secretaire = vue();
+        AccueilController c = new AccueilController(secretaire, dossiers, rendezVous, Executeur.IMMEDIAT, false)
+                .brancherSalleAttente(salle, null, () -> base.medecins.get(1), true, true);
+        salle.arriveeSansRendezVous(base.patients.get(1), 1);
+        c.rafraichir();
+        ControleursTest.FausseAccueil medecin = vue();
+        AccueilController accueilMedecin = accueil(medecin, 1, false);
+        accueilMedecin.appelerSuivant();
+        dossiers.nouvelleConsultation(medecin.dossiers.get(0));
+        dossiers.enregistrer(medecin.dossiers.get(0), 2000);
+
+        accueilMedecin.rafraichir();
+        assertTrue("le médecin ne le voit plus", medecin.file.isEmpty());
+        c.verifierEvenements();
+        assertEquals(1, secretaire.file.size());
+        Passage p = secretaire.file.get(0);
+        assertEquals(Passage.A_REGLER, p.getEtat());
+        String annonce = secretaire.annonces.get(secretaire.annonces.size() - 1);
+        assertTrue(annonce, annonce.contains("a terminé sa consultation : 2 000 DA à régler"));
+
+        assertFalse("montant invalide", c.liberer(p, "beaucoup"));
+        assertEquals(1, secretaire.erreurs.size());
+        assertEquals(Passage.A_REGLER, base.passages.get(0).getEtat());
+        assertTrue(c.liberer(p, "2000"));
+        assertTrue(secretaire.file.isEmpty());
+        assertEquals(Integer.valueOf(2000), base.passages.get(0).getMontantRegle());
+        assertFalse(c.liberer(null, "0"));
+
+        c.finDeJournee();
+        String bilan = secretaire.informations.get(0);
+        assertTrue(bilan, bilan.contains("encaissé : 2 000 DA"));
+        assertFalse(bilan, bilan.contains("pas encore libérés"));
+    }
+
+    @Test
+    public void lesFraisAffiches() {
+        assertEquals("frais à demander au médecin", AccueilController.texteFrais(null));
+        assertEquals("consultation gratuite", AccueilController.texteFrais(0));
+        assertEquals("12 500 DA à régler", AccueilController.texteFrais(12500));
+        assertEquals("800 DA", AccueilController.montant(800));
+    }
+
+    @Test
     public void laFinDeJourneeMarqueLesAbsentsEtDonneLeBilan() {
         ControleursTest.FausseAccueil vue = vue();
         AccueilController c = accueil(vue, null, true);

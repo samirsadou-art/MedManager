@@ -1,5 +1,6 @@
 package My_application.salle;
 
+import My_application.controller.AccueilController;
 import My_application.entities.Passage;
 import My_application.service.SalleAttenteService;
 import My_application.vue.Icones;
@@ -37,6 +38,8 @@ import javax.swing.SwingConstants;
 /**
  * Salle d'attente de l'accueil : une carte par patient, dans l'ordre
  * d'appel (en consultation, urgences, rendez-vous par heure, puis arrivées).
+ * À l'accueil, les patients dont la consultation est terminée viennent en
+ * tête avec les frais à régler, jusqu'à ce que la secrétaire les libère.
  * <p>
  * Chaque carte donne le rang, le patient, « RDV 09:00 » ou « Sans RDV »,
  * le médecin, l'heure d'arrivée et les minutes d'attente (en orange au-delà
@@ -227,14 +230,17 @@ public class PanneauSalleAttente extends JPanel {
         public Component getListCellRendererComponent(JList<? extends Passage> l, Passage p, int index,
                 boolean selectionne, boolean focus) {
             boolean enConsultation = p.getEtat() == Passage.EN_CONSULTATION;
-            Color accent = enConsultation ? Theme.ACCENT : p.isUrgence() ? Theme.DANGER : Theme.INFO;
+            boolean aRegler = p.getEtat() == Passage.A_REGLER;
+            Color accent = aRegler ? Theme.SUCCES : enConsultation ? Theme.ACCENT
+                    : p.isUrgence() ? Theme.DANGER : Theme.INFO;
             setBackground(selectionne ? Theme.PRIMAIRE_CLAIR : Theme.SURFACE);
             setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createMatteBorder(0, 4, 1, 0, accent),
                     BorderFactory.createEmptyBorder(8, 8, 8, 10)));
 
-            rang.setText(enConsultation ? "" : String.valueOf(index + 1 - enConsultationAvant(index)));
-            rang.setIcon(enConsultation ? Icones.svg("stethoscope", 22, Theme.ACCENT) : null);
+            rang.setText(enConsultation || aRegler ? "" : String.valueOf(index + 1 - horsFileAvant(index)));
+            rang.setIcon(aRegler ? Icones.svg("check", 22, Theme.SUCCES)
+                    : enConsultation ? Icones.svg("stethoscope", 22, Theme.ACCENT) : null);
             rang.setForeground(accent);
 
             nom.setText(p.getPatient().getNom().toUpperCase(Locale.FRENCH) + " " + p.getPatient().getPrenom());
@@ -249,7 +255,15 @@ public class PanneauSalleAttente extends JPanel {
             detail.setText(d.toString());
             detail.setForeground(Theme.TEXTE_SECONDAIRE);
 
-            if (enConsultation) {
+            if (aRegler) {
+                badge.setText(p.getFrais() == null ? "Consultation terminée"
+                        : p.getFrais() == 0 ? "Gratuit" : "À régler : " + AccueilController.montant(p.getFrais()));
+                badge.setForeground(Theme.SUCCES);
+                badge.setBackground(Theme.SUCCES_CLAIR);
+                badge.setVisible(true);
+                attente.setText("consultation terminée");
+                attente.setForeground(Theme.TEXTE_SECONDAIRE);
+            } else if (enConsultation) {
                 badge.setText("En consultation");
                 badge.setForeground(Theme.ACCENT);
                 badge.setBackground(Theme.ACCENT_CLAIR);
@@ -269,11 +283,11 @@ public class PanneauSalleAttente extends JPanel {
             return this;
         }
 
-        /** Les patients en consultation sont en tête et ne comptent pas dans le rang d'attente. */
-        private int enConsultationAvant(int index) {
+        /** Les patients à régler ou en consultation sont en tête et ne comptent pas dans le rang d'attente. */
+        private int horsFileAvant(int index) {
             int n = 0;
             for (int i = 0; i < index; i++) {
-                if (modele.get(i).getEtat() == Passage.EN_CONSULTATION) {
+                if (modele.get(i).getEtat() != Passage.EN_ATTENTE) {
                     n++;
                 }
             }

@@ -26,8 +26,11 @@ import java.util.List;
  * médecin choisi ({@link #arriveeSansRendezVous}). Elle peut remonter une
  * urgence ou noter qu'un patient est reparti sans être vu.</li>
  * <li>Le médecin appelle le patient suivant ({@link #appelerSuivant}) ;
- * l'enregistrement de la consultation clôt le passage
- * ({@link #cloreConsultation}, appelé par {@code DossierService}).</li>
+ * l'enregistrement de la consultation, avec les frais qu'il a fixés, fait
+ * passer le patient « à régler » ({@link #cloreConsultation}, appelé par
+ * {@code DossierService}) : il quitte la file du médecin.</li>
+ * <li>La secrétaire encaisse les frais et libère le patient, qui quitte le
+ * cabinet ({@link #liberer}).</li>
  * <li>Ordre de la file : urgences, puis patients avec rendez-vous selon
  * l'heure prévue, puis patients sans rendez-vous selon l'heure d'arrivée.</li>
  * </ul>
@@ -47,11 +50,16 @@ public class SalleAttenteService {
     static final String MODIFIE_AILLEURS = "La salle d'attente vient d'être modifiée sur un autre poste. "
             + "Actualisez l'affichage.";
 
-    /** Ordre de la file d'un médecin (voir la description de la classe). */
+    /** Montant maximal accepté pour des frais ou un paiement, en dinars. */
+    public static final int MONTANT_MAX = 1000000;
+
+    /**
+     * Ordre de la file d'un médecin (voir la description de la classe) ; à
+     * l'accueil, les patients à régler viennent en tête.
+     */
     public static final Comparator<Passage> ORDRE = (a, b) -> {
-        if (a.getEtat() != b.getEtat()) {
-            return Integer.compare(a.getEtat() == Passage.EN_CONSULTATION ? 0 : 1,
-                    b.getEtat() == Passage.EN_CONSULTATION ? 0 : 1);
+        if (rang(a) != rang(b)) {
+            return Integer.compare(rang(a), rang(b));
         }
         if (a.isUrgence() != b.isUrgence()) {
             return a.isUrgence() ? -1 : 1;
@@ -66,6 +74,17 @@ public class SalleAttenteService {
         return a.getArriveeLe().compareTo(b.getArriveeLe());
     };
 
+    private static int rang(Passage p) {
+        switch (p.getEtat()) {
+            case Passage.A_REGLER:
+                return 0;
+            case Passage.EN_CONSULTATION:
+                return 1;
+            default:
+                return 2;
+        }
+    }
+
     /** Bilan d'une journée. */
     public static final class Bilan {
         private int vus;
@@ -73,6 +92,8 @@ public class SalleAttenteService {
         private int sansRendezVous;
         private int partis;
         private int absents;
+        private int aRegler;
+        private long encaisse;
         private long attenteMoyenne;
 
         public int getVus() {
@@ -93,6 +114,16 @@ public class SalleAttenteService {
 
         public int getAbsents() {
             return absents;
+        }
+
+        /** Patients consultés pas encore libérés par la secrétaire. */
+        public int getARegler() {
+            return aRegler;
+        }
+
+        /** Total encaissé dans la journée, en dinars. */
+        public long getEncaisse() {
+            return encaisse;
         }
 
         /** Attente moyenne avant l'appel, en minutes (0 si personne n'a été appelé). */
@@ -141,18 +172,27 @@ public class SalleAttenteService {
     }
 
     /**
-     * Patients encore dans la salle (en attente ou en consultation), chez ce
+     * File des médecins : patients en attente ou en consultation, chez ce
      * médecin ou chez tous si null, dans l'ordre de la file.
      */
     public List<Passage> file(Integer idMedecin) {
-        return file(passagesDuJour(), idMedecin);
+        return file(passagesDuJour(), idMedecin, false);
+    }
+
+    /**
+     * Accueil de la secrétaire : la file, plus les patients dont la
+     * consultation est terminée et qui restent à régler (en tête).
+     */
+    public List<Passage> presents(Integer idMedecin) {
+        return file(passagesDuJour(), idMedecin, true);
     }
 
     /** Même chose sur des passages déjà lus. */
-    public static List<Passage> file(List<Passage> passages, Integer idMedecin) {
+    public static List<Passage> file(List<Passage> passages, Integer idMedecin, boolean avecARegler) {
         List<Passage> l = new ArrayList<>();
         for (Passage p : passages) {
-            if (p.isPresent() && (idMedecin == null || idMedecin == p.getIdMedecin())) {
+            boolean garde = avecARegler ? p.isPresent() : p.isDansLaFile();
+            if (garde && (idMedecin == null || idMedecin == p.getIdMedecin())) {
                 l.add(p);
             }
         }
@@ -290,6 +330,59 @@ public class SalleAttenteService {
     }
 
     /**
+     * Le patient a réglé (ou rien, si {@code montantRegle} est null) et quitte
+     * le cabinet : il sort de la salle d'attente.
+     */
+    public void liberer(Passage p, Integer montantRegle) {
+        acces.exiger(Role.SECRETAIRE, Role.MEDECIN);
+        if (p.getEtat() != Passage.A_REGLER) {
+            throw new MetierException("Seul un patient dont la consultation est terminée peut être libéré.");
+        }
+        verifierMontant(montantRegle);
+        p.setEtat(Passage.TERMINE);
+        p.setSortieLe(maintenant());
+        p.setMontantRegle(montantRegle);
+        p.setRegleLe(montantRegle == null ? null : p.getSortieLe());
+        try {
+            enregistrer(p, Passage.A_REGLER, EVENEMENT_SALLE);
+        } catch (RuntimeException e) {
+            p.setEtat(Passage.A_REGLER);
+            p.setSortieLe(null);
+            p.setMontantRegle(null);
+            p.setRegleLe(null);
+            throw e;
+        }
+    }
+
+    /**
+     * Lit un montant saisi en dinars : « 2000 », « 2 000 », « 2000 DA ».
+     * Vide : null (non précisé).
+     */
+    public static Integer montant(String saisie) {
+        String t = saisie == null ? "" : saisie.replaceAll("(?i)\\s|\u00a0|\u202f|da|dzd", "");
+        if (t.isEmpty()) {
+            return null;
+        }
+        if (!t.matches("\\d{1,7}")) {
+            throw new MetierException("Montant invalide : saisissez un nombre entier de dinars (ex. 2000).");
+        }
+        Integer m = Integer.valueOf(t);
+        verifierMontant(m);
+        return m;
+    }
+
+    static void verifierMontant(Integer m) {
+        if (m != null && (m < 0 || m > MONTANT_MAX)) {
+            throw new MetierException("Le montant doit être compris entre 0 et " + MONTANT_MAX + " DA.");
+        }
+    }
+
+    /** Derniers frais fixés par ce médecin, proposés pour la consultation suivante ; null sinon. */
+    public static Integer dernierFrais(DAOFactory daos, int idMedecin) {
+        return daos.getSalleAttenteDao().dernierFrais(idMedecin);
+    }
+
+    /**
      * Fin de journée : les rendez-vous du jour encore « prévus » dont l'heure
      * est passée sont marqués absents. Renvoie leur nombre.
      */
@@ -315,6 +408,10 @@ public class SalleAttenteService {
                 case Passage.TERMINE:
                     b.vus++;
                     break;
+                case Passage.A_REGLER:
+                    b.vus++;
+                    b.aRegler++;
+                    break;
                 case Passage.PARTI:
                     b.partis++;
                     break;
@@ -326,6 +423,9 @@ public class SalleAttenteService {
             }
             if (p.isSansRendezVous()) {
                 b.sansRendezVous++;
+            }
+            if (p.getMontantRegle() != null) {
+                b.encaisse += p.getMontantRegle();
             }
             if (p.getAppeleLe() != null) {
                 totalAttente += p.minutesDAttente(p.getAppeleLe());
@@ -399,31 +499,48 @@ public class SalleAttenteService {
         });
     }
 
+    /** Vrai si ce patient est aujourd'hui dans la file d'un médecin (ses frais seront à régler). */
+    public static boolean estDansLaFile(DAOFactory daos, int idPatient, LocalDate jour) {
+        return passageDansLaFile(daos, idPatient, jour) != null;
+    }
+
+    private static Passage passageDansLaFile(DAOFactory daos, int idPatient, LocalDate jour) {
+        for (Passage p : daos.getSalleAttenteDao().findDuJour(jour)) {
+            if (p.getPatient().getIdentPat() == idPatient && p.isDansLaFile()) {
+                return p;
+            }
+        }
+        return null;
+    }
+
     /**
      * Fin de consultation, appelé dans la transaction qui enregistre la
-     * consultation : le passage du jour de ce patient (appelé ou non) est
-     * terminé, ainsi que son rendez-vous. Sans passage, rien n'est fait.
+     * consultation : le passage du jour de ce patient (appelé ou non) passe
+     * « à régler » avec les frais fixés par le médecin (null : non précisés),
+     * et son rendez-vous est terminé. La secrétaire le libère ensuite
+     * ({@link #liberer}). Sans passage, rien n'est fait.
      *
      * @return true si un passage a été clos
      */
-    public static boolean cloreConsultation(DAOFactory daos, int idPatient, LocalDateTime maintenant) {
-        for (Passage p : daos.getSalleAttenteDao().findDuJour(maintenant.toLocalDate())) {
-            if (p.getPatient().getIdentPat() == idPatient && p.isPresent()) {
-                int avant = p.getEtat();
-                if (p.getAppeleLe() == null) {
-                    p.setAppeleLe(maintenant);
-                }
-                p.setSortieLe(maintenant);
-                p.setEtat(Passage.TERMINE);
-                if (daos.getSalleAttenteDao().mettreAJour(p, avant) && p.getIdRendezVous() != null) {
-                    int etatRdv = avant == Passage.EN_CONSULTATION
-                            ? Rendez_Vous.ETAT_EN_CONSULTATION : Rendez_Vous.ETAT_ARRIVE;
-                    daos.getRendezVousDao().changerEtat(p.getIdRendezVous(), etatRdv, Rendez_Vous.ETAT_TERMINE);
-                }
-                daos.getEvenementDao().publier(EVENEMENT_SALLE, p.getIdPassage());
-                return true;
-            }
+    public static boolean cloreConsultation(DAOFactory daos, int idPatient, LocalDateTime maintenant,
+            Integer frais) {
+        verifierMontant(frais);
+        Passage p = passageDansLaFile(daos, idPatient, maintenant.toLocalDate());
+        if (p == null) {
+            return false;
         }
-        return false;
+        int avant = p.getEtat();
+        if (p.getAppeleLe() == null) {
+            p.setAppeleLe(maintenant);
+        }
+        p.setFrais(frais);
+        p.setEtat(Passage.A_REGLER);
+        if (daos.getSalleAttenteDao().mettreAJour(p, avant) && p.getIdRendezVous() != null) {
+            int etatRdv = avant == Passage.EN_CONSULTATION
+                    ? Rendez_Vous.ETAT_EN_CONSULTATION : Rendez_Vous.ETAT_ARRIVE;
+            daos.getRendezVousDao().changerEtat(p.getIdRendezVous(), etatRdv, Rendez_Vous.ETAT_TERMINE);
+        }
+        daos.getEvenementDao().publier(EVENEMENT_SALLE, p.getIdPassage());
+        return true;
     }
 }

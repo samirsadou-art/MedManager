@@ -1032,10 +1032,25 @@ public class MemoireDAOFactory implements DAOFactory {
                         x.setAppeleLe(p.getAppeleLe());
                         x.setSortieLe(p.getSortieLe());
                         x.setUrgence(p.isUrgence());
+                        x.setFrais(p.getFrais());
+                        x.setMontantRegle(p.getMontantRegle());
+                        x.setRegleLe(p.getRegleLe());
                         return true;
                     }
                 }
                 return false;
+            }
+
+            @Override
+            public Integer dernierFrais(int idMedecin) {
+                appel("salle.dernierFrais");
+                Integer dernier = null;
+                for (Passage x : passages) {
+                    if (x.getIdMedecin() == idMedecin && x.getFrais() != null) {
+                        dernier = x.getFrais();
+                    }
+                }
+                return dernier;
             }
         };
     }
@@ -1055,6 +1070,9 @@ public class MemoireDAOFactory implements DAOFactory {
         c.setSortieLe(x.getSortieLe());
         c.setUrgence(x.isUrgence());
         c.setEtat(x.getEtat());
+        c.setFrais(x.getFrais());
+        c.setMontantRegle(x.getMontantRegle());
+        c.setRegleLe(x.getRegleLe());
         return c;
     }
 

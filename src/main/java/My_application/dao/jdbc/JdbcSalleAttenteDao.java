@@ -37,6 +37,9 @@ public class JdbcSalleAttenteDao implements SalleAttenteDao {
             p.setSortieLe(moment(rs, "sortieLe"));
             p.setUrgence(rs.getInt("priorite") > 0);
             p.setEtat(rs.getInt("etat"));
+            p.setFrais((Integer) rs.getObject("frais"));
+            p.setMontantRegle((Integer) rs.getObject("montantRegle"));
+            p.setRegleLe(moment(rs, "regleLe"));
             return p;
         }
     };
@@ -54,7 +57,7 @@ public class JdbcSalleAttenteDao implements SalleAttenteDao {
     @Override
     public List<Passage> findDuJour(LocalDate jour) {
         return jdbc.query("SELECT s.idPassage, s.idPatient, s.idMedecin, s.idRendezVous, s.jour, s.arriveeLe, "
-                + "s.appeleLe, s.sortieLe, s.priorite, s.etat, r.heure, p.* "
+                + "s.appeleLe, s.sortieLe, s.priorite, s.etat, s.frais, s.montantRegle, s.regleLe, r.heure, p.* "
                 + "FROM salle_attente s JOIN patient p ON p.idPatient = s.idPatient "
                 + "LEFT JOIN rendezvous r ON r.idRendezVous = s.idRendezVous "
                 + "WHERE s.jour = ? ORDER BY s.arriveeLe", MAPPER, jour);
@@ -62,9 +65,15 @@ public class JdbcSalleAttenteDao implements SalleAttenteDao {
 
     @Override
     public boolean mettreAJour(Passage p, int etatAttendu) {
-        return jdbc.update("UPDATE salle_attente SET etat=?, appeleLe=?, sortieLe=?, priorite=? "
-                + "WHERE idPassage=? AND etat=?",
-                p.getEtat(), p.getAppeleLe(), p.getSortieLe(), p.isUrgence() ? 1 : 0, p.getIdPassage(),
-                etatAttendu) > 0;
+        return jdbc.update("UPDATE salle_attente SET etat=?, appeleLe=?, sortieLe=?, priorite=?, frais=?, "
+                + "montantRegle=?, regleLe=? WHERE idPassage=? AND etat=?",
+                p.getEtat(), p.getAppeleLe(), p.getSortieLe(), p.isUrgence() ? 1 : 0, p.getFrais(),
+                p.getMontantRegle(), p.getRegleLe(), p.getIdPassage(), etatAttendu) > 0;
+    }
+
+    @Override
+    public Integer dernierFrais(int idMedecin) {
+        return jdbc.queryOne("SELECT frais FROM salle_attente WHERE idMedecin=? AND frais IS NOT NULL "
+                + "ORDER BY idPassage DESC LIMIT 1", (ResultSet rs) -> rs.getInt("frais"), idMedecin);
     }
 }

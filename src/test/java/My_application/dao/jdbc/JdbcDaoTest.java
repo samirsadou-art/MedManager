@@ -301,7 +301,8 @@ public class JdbcDaoTest {
 
         base.quand("FROM salle_attente", ligne("idPassage", 3, "idPatient", 4, "idMedecin", 2, "idRendezVous", null,
                 "jour", java.sql.Date.valueOf("2026-10-09"), "arriveeLe", Timestamp.valueOf("2026-10-09 08:50:00"),
-                "appeleLe", null, "sortieLe", null, "priorite", 0, "etat", 1, "heure", null,
+                "appeleLe", null, "sortieLe", null, "priorite", 0, "etat", 1, "frais", null, "montantRegle", null,
+                "regleLe", null, "heure", null,
                 "nomPatient", "Y", "prenomPatient", "y", "date_Nais_Patient", java.sql.Date.valueOf("2000-01-01"),
                 "sexePatient", 1, "villePatient", "Tizi-Ouzou"));
         List<Passage> l = daos.getSalleAttenteDao().findDuJour(LocalDate.of(2026, 10, 9));
@@ -312,6 +313,8 @@ public class JdbcDaoTest {
         assertNull(lu.getAppeleLe());
         assertFalse(lu.isUrgence());
         assertEquals(Passage.EN_CONSULTATION, lu.getEtat());
+        assertNull(lu.getFrais());
+        assertNull(lu.getRegleLe());
         assertEquals(LocalTime.of(8, 50), lu.getArriveeLe().toLocalTime());
         assertEquals("fiche complète pour ouvrir le dossier", "Tizi-Ouzou", lu.getPatient().getVille());
         assertTrue(base.derniere().sql.contains("LEFT JOIN rendezvous"));
@@ -329,8 +332,29 @@ public class JdbcDaoTest {
         assertEquals(Passage.EN_CONSULTATION, e.param(1));
         assertNull(e.param(3));
         assertEquals(0, e.param(4));
-        assertEquals(3, e.param(5));
-        assertEquals(Passage.EN_ATTENTE, e.param(6));
+        assertNull("pas de frais", e.param(5));
+        assertEquals(3, e.param(8));
+        assertEquals(Passage.EN_ATTENTE, e.param(9));
+
+        p.setEtat(Passage.TERMINE);
+        p.setFrais(2000);
+        p.setMontantRegle(1500);
+        p.setRegleLe(LocalDateTime.of(2026, 10, 9, 9, 30));
+        daos.getSalleAttenteDao().mettreAJour(p, Passage.A_REGLER);
+        e = base.derniere();
+        assertEquals(2000, e.param(5));
+        assertEquals(1500, e.param(6));
+        assertEquals(Passage.A_REGLER, e.param(9));
+    }
+
+    @Test
+    public void lesDerniersFraisDuMedecin() {
+        assertNull(daos.getSalleAttenteDao().dernierFrais(2));
+        base.quand("SELECT frais FROM salle_attente", ligne("frais", 1800));
+        assertEquals(Integer.valueOf(1800), daos.getSalleAttenteDao().dernierFrais(2));
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.contains("ORDER BY idPassage DESC LIMIT 1"));
+        assertEquals(2, e.param(1));
     }
 
     @Test

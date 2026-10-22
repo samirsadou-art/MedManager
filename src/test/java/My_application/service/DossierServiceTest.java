@@ -3,6 +3,7 @@ package My_application.service;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -60,15 +61,34 @@ public class DossierServiceTest {
     }
 
     @Test
-    public void laConsultationEnregistreeFaitSortirLePatientDeLaSalleDAttente() {
+    public void laConsultationEnregistreeLaissePatientARegler() {
         SalleAttenteService salle = new SalleAttenteService(base, new RendezVousService(base));
         Passage p = salle.arriveeSansRendezVous(base.patients.get(1), 1);
         assertEquals(1, salle.file(null).size());
-        service.enregistrer(dossierAvecNouvelleConsultation());
-        assertTrue(salle.file(null).isEmpty());
-        assertEquals(Passage.TERMINE, base.passages.get(0).getEtat());
-        assertNotNull(base.passages.get(0).getSortieLe());
+        DossierPatient d = dossierAvecNouvelleConsultation();
+        assertTrue("le médecin indique les frais", service.fraisADemander(d));
+        assertNull(service.fraisProposes(d));
+        service.enregistrer(d, 2000);
+        assertFalse(service.fraisADemander(d));
+        assertTrue("il quitte la file du médecin", salle.file(null).isEmpty());
+        assertEquals(Passage.A_REGLER, base.passages.get(0).getEtat());
+        assertEquals(Integer.valueOf(2000), base.passages.get(0).getFrais());
+        assertNull("la secrétaire le libérera", base.passages.get(0).getSortieLe());
         assertEquals(p.getIdPassage(), base.passages.get(0).getIdPassage());
+        assertEquals(Integer.valueOf(2000), service.fraisProposes(dossierAvecNouvelleConsultation()));
+    }
+
+    @Test
+    public void sansSalleDAttentePasDeFraisADemander() {
+        DossierPatient d = dossierAvecNouvelleConsultation();
+        assertFalse(service.fraisADemander(d));
+        try {
+            service.enregistrer(d, -10);
+            fail();
+        } catch (MetierException attendue) {
+            assertTrue(base.consultations.isEmpty());
+        }
+        assertEquals(1, service.enregistrer(d, 1000));
     }
 
     @Test
