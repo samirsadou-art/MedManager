@@ -72,7 +72,7 @@ public final class InstallationPoste {
             out.println("Connexion : réussie en " + ms + " ms");
             out.println("Version du serveur : " + version(c));
             Map<Role, Integer> comptes = comptesParRole(c);
-            out.println("Comptes GestiMed actifs : " + comptes.get(Role.SECRETAIRE) + " secrétaire(s), "
+            out.println("Comptes MedManager actifs : " + comptes.get(Role.SECRETAIRE) + " secrétaire(s), "
                     + comptes.get(Role.MEDECIN) + " médecin(s), " + comptes.get(Role.ADMIN) + " administrateur(s)");
             if (comptes.get(Role.ADMIN) == 0) {
                 out.println("  À faire : créer le compte administrateur "

@@ -1,31 +1,47 @@
 package My_application.vue;
 
-import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Insets;
 import java.awt.RenderingHints;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+import javax.swing.Timer;
 
 /**
  * Bandeau supérieur de la fenêtre principale : logo et nom de
- * l'application à gauche, informations (utilisateur, date) à droite.
+ * l'application à gauche, heure et date au milieu (mises à jour en
+ * direct), informations (utilisateur) à droite.
  */
 public class Bandeau extends JPanel {
 
     private static final long serialVersionUID = 1L;
+    private static final DateTimeFormatter HEURE = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.FRENCH);
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
 
+    private final JPanel gauche = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
     private final JPanel droite = new JPanel(new FlowLayout(FlowLayout.RIGHT, 18, 0));
+    private final JPanel centre = new JPanel();
+    private final JLabel heure = new JLabel("", SwingConstants.CENTER);
+    private final JLabel date = new JLabel("", SwingConstants.CENTER);
+    /** Remet l'heure à jour chaque seconde, seulement tant que le bandeau est affiché. */
+    private final Timer horloge = new Timer(1000, e -> actualiserHorloge());
 
     public Bandeau(String nom, String sousTitre) {
-        super(new BorderLayout());
+        setLayout(null);
         setBackground(Theme.PRIMAIRE_FONCE);
         setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 22));
 
@@ -41,13 +57,85 @@ public class Bandeau extends JPanel {
         textes.setLayout(new BoxLayout(textes, BoxLayout.Y_AXIS));
         textes.add(titre);
         textes.add(sous);
-        JPanel gauche = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         gauche.setOpaque(false);
         gauche.add(logo);
         gauche.add(textes);
-        add(gauche, BorderLayout.WEST);
+        add(gauche);
+
+        heure.setFont(Theme.police(Font.BOLD, 22));
+        heure.setForeground(Color.WHITE);
+        heure.setAlignmentX(CENTER_ALIGNMENT);
+        date.setFont(Theme.police(Font.PLAIN, 13));
+        date.setForeground(Theme.PRIMAIRE_CLAIR);
+        date.setAlignmentX(CENTER_ALIGNMENT);
+        centre.setOpaque(false);
+        centre.setLayout(new BoxLayout(centre, BoxLayout.Y_AXIS));
+        centre.add(heure);
+        centre.add(date);
+        add(centre);
+        actualiserHorloge();
+
         droite.setOpaque(false);
-        add(droite, BorderLayout.EAST);
+        add(droite);
+    }
+
+    /** « 14:05:09 » */
+    static String texteHeure(LocalTime t) {
+        return HEURE.format(t);
+    }
+
+    /** « Jeudi 22 octobre 2026 » */
+    static String texteDate(LocalDate d) {
+        String s = DATE.format(d);
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
+
+    private void actualiserHorloge() {
+        heure.setText(texteHeure(LocalTime.now()));
+        date.setText(texteDate(LocalDate.now()));
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        actualiserHorloge();
+        horloge.start();
+    }
+
+    @Override
+    public void removeNotify() {
+        horloge.stop();
+        super.removeNotify();
+    }
+
+    /**
+     * Logo à gauche, informations à droite, et l'heure centrée sur la largeur
+     * du bandeau (et non entre les deux blocs), décalée seulement si elle
+     * devait les chevaucher.
+     */
+    @Override
+    public void doLayout() {
+        Insets in = getInsets();
+        int h = getHeight() - in.top - in.bottom;
+        Dimension g = gauche.getPreferredSize();
+        Dimension d = droite.getPreferredSize();
+        Dimension c = centre.getPreferredSize();
+        gauche.setBounds(in.left, in.top + (h - g.height) / 2, g.width, g.height);
+        droite.setBounds(getWidth() - in.right - d.width, in.top + (h - d.height) / 2, d.width, d.height);
+        int x = (getWidth() - c.width) / 2;
+        x = Math.max(x, in.left + g.width + 12);
+        x = Math.min(x, getWidth() - in.right - d.width - 12 - c.width);
+        centre.setBounds(x, in.top + (h - c.height) / 2, c.width, c.height);
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+        Insets in = getInsets();
+        Dimension g = gauche.getPreferredSize();
+        Dimension d = droite.getPreferredSize();
+        Dimension c = centre.getPreferredSize();
+        int hauteur = Math.max(c.height, Math.max(g.height, d.height));
+        return new Dimension(in.left + g.width + c.width + d.width + 24 + in.right, in.top + hauteur + in.bottom);
     }
 
     /** Information affichée à droite du bandeau, en blanc, avec son pictogramme. */

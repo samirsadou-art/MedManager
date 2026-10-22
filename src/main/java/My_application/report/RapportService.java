@@ -259,7 +259,7 @@ public class RapportService {
             medecin cabinet = medecins.isEmpty() ? new medecin() : medecins.values().iterator().next();
             writer.setPageEvent(new PiedDePage(cabinet));
             doc.addTitle("Rendez-vous du " + FORMAT_DATE.format(jour));
-            doc.addCreator("GestiMed");
+            doc.addCreator("MedManager");
             doc.open();
             boolean premiere = true;
             for (Map.Entry<Integer, List<String[]>> e : parMedecin.entrySet()) {
@@ -307,7 +307,7 @@ public class RapportService {
             medecin cabinet = medecins.isEmpty() ? new medecin() : medecins.values().iterator().next();
             writer.setPageEvent(new PiedDePage(cabinet));
             doc.addTitle("Activité du cabinet " + StatistiquesService.libellePeriode(s));
-            doc.addCreator("GestiMed");
+            doc.addCreator("MedManager");
             doc.open();
             doc.add(new Paragraph(texte(cabinet.getNom_cabinet()), CABINET));
             medecin choisi = s.getIdMedecin() == null ? null : medecins.get(s.getIdMedecin());
@@ -369,7 +369,7 @@ public class RapportService {
             PdfWriter writer = PdfWriter.getInstance(doc, out);
             writer.setPageEvent(new PiedDePage(c.getMedecin()));
             doc.addTitle(titre + " - " + c.getPatient().getNom() + " " + c.getPatient().getPrenom());
-            doc.addCreator("GestiMed");
+            doc.addCreator("MedManager");
             doc.open();
             entete(doc, c);
             Paragraph t = new Paragraph(titre, TITRE);

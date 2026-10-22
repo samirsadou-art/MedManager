@@ -30,8 +30,9 @@ public class MenuLateral extends JPanel {
     private static final int LARGEUR = 220;
 
     private final JPanel entrees = new JPanel();
-    /** Bas du menu : entrée « Se déconnecter » au-dessus du pied. */
+    /** Bas du menu : entrées « Mot de passe », « Se déconnecter » au-dessus du pied. */
     private final JPanel bas = new JPanel(new BorderLayout(0, 12));
+    private final JPanel entreesBas = new JPanel();
     private final List<Entree> liste = new ArrayList<>();
 
     public MenuLateral() {
@@ -44,6 +45,9 @@ public class MenuLateral extends JPanel {
         entrees.setLayout(new BoxLayout(entrees, BoxLayout.Y_AXIS));
         add(entrees, BorderLayout.NORTH);
         bas.setOpaque(false);
+        entreesBas.setOpaque(false);
+        entreesBas.setLayout(new BoxLayout(entreesBas, BoxLayout.Y_AXIS));
+        bas.add(entreesBas, BorderLayout.NORTH);
         add(bas, BorderLayout.SOUTH);
     }
 
@@ -64,13 +68,17 @@ public class MenuLateral extends JPanel {
     }
 
     /**
-     * Entrée posée en bas du menu, à l'écart des pages (« Se déconnecter ») :
-     * même présentation que les autres, sans jamais rester sélectionnée.
+     * Entrée posée en bas du menu, à l'écart des pages (« Mot de passe »,
+     * « Se déconnecter ») : même présentation que les autres, sans
+     * jamais rester sélectionnée. Les entrées s'empilent dans l'ordre d'ajout.
      */
     public void ajouterEnBas(String icone, String texte, Runnable action) {
         Entree e = new Entree(icone, texte, false, action);
         liste.add(e);
-        bas.add(e, BorderLayout.NORTH);
+        if (entreesBas.getComponentCount() > 0) {
+            entreesBas.add(Box.createVerticalStrut(4));
+        }
+        entreesBas.add(e);
     }
 
     /** Sélectionne l'entrée portant ce libellé. */

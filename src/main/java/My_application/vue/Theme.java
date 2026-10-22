@@ -62,6 +62,9 @@ import javax.swing.text.JTextComponent;
  */
 public final class Theme {
 
+    /** Nom du logiciel tel que l'utilisateur le voit (fenêtres, bandeau, connexion). */
+    public static final String NOM_LOGICIEL = "MedManager";
+
     // ----- palette -----
     public static final Color PRIMAIRE = new Color(0x0E7C86);
     public static final Color PRIMAIRE_FONCE = new Color(0x0A5C63);

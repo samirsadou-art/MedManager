@@ -39,9 +39,7 @@ import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.Toolkit;
 import java.awt.Window;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,7 +49,6 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
-import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
@@ -94,9 +91,9 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         this.ctx = ctx;
         this.role = ctx.getSession().getRole() == null ? Role.MEDECIN : ctx.getSession().getRole();
         initComponents();
+        setTitle(Theme.NOM_LOGICIEL);
         Theme.harmoniser(this);
         presenterNavigation();
-        ajouterChangementMotDePasse();
         this.setLocationRelativeTo(null);
         this.setExtendedState(Frame.MAXIMIZED_BOTH);
         TableRendezvous.setModel(RJModel);
@@ -129,24 +126,19 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         }
     }
 
-    /** Menu Fichier : « Changer mon mot de passe… », pour chaque membre connecté. */
-    private void ajouterChangementMotDePasse() {
-        JMenuItem changer = new JMenuItem("Changer mon mot de passe…", Icones.svg("key", 16, Theme.PRIMAIRE));
-        changer.setEnabled(ctx.getSession().estOuverte());
-        changer.addActionListener(e -> {
-            JPasswordField actuel = new JPasswordField(20);
-            JPasswordField nouveau = new JPasswordField(20);
-            JPasswordField repete = new JPasswordField(20);
-            ConnexionController c = new ConnexionController(this, ctx.getAuthentificationService());
-            new Formulaire(this, "Changer mon mot de passe", "key", "Au moins " + MotDePasse.LONGUEUR_MIN
-                    + " caractères, dont une lettre et un chiffre.", "Changer")
-                    .ligne("Mot de passe actuel", actuel)
-                    .ligne("Nouveau mot de passe", nouveau)
-                    .ligne("Confirmation", repete)
-                    .afficher(() -> c.changerMonMotDePasse(actuel.getPassword(), nouveau.getPassword(),
-                            repete.getPassword()));
-        });
-        jMenu1.add(changer);
+    /** Menu latéral « Mot de passe » : chaque membre connecté change le sien. */
+    private void changerMotDePasse() {
+        JPasswordField actuel = new JPasswordField(20);
+        JPasswordField nouveau = new JPasswordField(20);
+        JPasswordField repete = new JPasswordField(20);
+        ConnexionController c = new ConnexionController(this, ctx.getAuthentificationService());
+        new Formulaire(this, "Changer mon mot de passe", "key", "Au moins " + MotDePasse.LONGUEUR_MIN
+                + " caractères, dont une lettre et un chiffre.", "Changer")
+                .ligne("Mot de passe actuel", actuel)
+                .ligne("Nouveau mot de passe", nouveau)
+                .ligne("Confirmation", repete)
+                .afficher(() -> c.changerMonMotDePasse(actuel.getPassword(), nouveau.getPassword(),
+                        repete.getPassword()));
     }
 
     /**
@@ -400,7 +392,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             pagesAdmin.add(pageMembres, "Membres");
             pagesAdmin.add(pageStatistiques, "Statistiques");
             contenu = pagesAdmin;
-            jMenu2.setVisible(false);
         } else {
             entete = new EnTetePage("home", "Accueil", role == Role.SECRETAIRE
                     ? "Rendez-vous et salle d'attente du jour"
@@ -432,13 +423,12 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             menu.selectionner("Accueil");
         }
         if (ctx.getSession().estOuverte()) {
+            menu.ajouterEnBas("key", "Mot de passe", this::changerMotDePasse);
             menu.ajouterEnBas("logout", "Se déconnecter", this::seDeconnecter);
         }
-        menu.setPied("GestiMed<br>Gestion du cabinet médical");
+        menu.setPied(Theme.NOM_LOGICIEL + "<br>Gestion du cabinet médical");
 
-        Bandeau bandeau = new Bandeau("GestiMed", "Cabinet médical");
-        String date = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH).format(LocalDate.now());
-        bandeau.ajouterInfo("calendar", Character.toUpperCase(date.charAt(0)) + date.substring(1));
+        Bandeau bandeau = new Bandeau(Theme.NOM_LOGICIEL, "Cabinet médical");
         if (ctx.getSession().estOuverte()) {
             bandeau.ajouterInfo("user", ctx.getSession().getUtilisateur() + " · " + role.getLibelle());
         }
@@ -490,11 +480,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         userMenuBtn = new javax.swing.JButton();
         ChatBtn = new javax.swing.JButton();
         Fsud = new javax.swing.JPanel();
-        jMenuBar1 = new javax.swing.JMenuBar();
-        jMenu1 = new javax.swing.JMenu();
-        jMenuItem1 = new javax.swing.JMenuItem();
-        jMenu2 = new javax.swing.JMenu();
-        jMenuItem2 = new javax.swing.JMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -716,22 +701,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         Fsud.setPreferredSize(new java.awt.Dimension(10, 30));
         getContentPane().add(Fsud, java.awt.BorderLayout.SOUTH);
 
-        jMenu1.setText("Fichier");
-
-        jMenuItem1.setText("Ouvrir Session");
-        jMenu1.add(jMenuItem1);
-
-        jMenuBar1.add(jMenu1);
-
-        jMenu2.setText("Patient");
-
-        jMenuItem2.setText("Liste des patients");
-        jMenu2.add(jMenuItem2);
-
-        jMenuBar1.add(jMenu2);
-
-        setJMenuBar(jMenuBar1);
-
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
@@ -771,7 +740,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     
  
-    static final String BASE_EN_RETARD = "La base de données est plus ancienne que cette version de GestiMed.\n"
+    static final String BASE_EN_RETARD = "La base de données est plus ancienne que cette version de " + Theme.NOM_LOGICIEL + ".\n"
             + "Faites une sauvegarde, puis mettez-la à jour avec la commande :\n"
             + "  java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.MigrationBase migrer\n\n";
 
@@ -839,11 +808,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
-    private javax.swing.JMenu jMenu1;
-    private javax.swing.JMenu jMenu2;
-    private javax.swing.JMenuBar jMenuBar1;
-    private javax.swing.JMenuItem jMenuItem1;
-    private javax.swing.JMenuItem jMenuItem2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel10;
     private javax.swing.JPanel jPanel11;
