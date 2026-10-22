@@ -16,4 +16,10 @@ public final class Dialogues {
     public static void information(Component parent, String message) {
         JOptionPane.showMessageDialog(parent, message, "Information", JOptionPane.INFORMATION_MESSAGE);
     }
+
+    /** Question oui/non ; vrai si l'utilisateur répond oui. */
+    public static boolean confirmer(Component parent, String question) {
+        return JOptionPane.showConfirmDialog(parent, question, "Confirmation", JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION;
+    }
 }

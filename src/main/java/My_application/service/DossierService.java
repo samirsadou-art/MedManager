@@ -182,6 +182,9 @@ public class DossierService {
                             inserer(c);
                             journal.noter(JournalAcces.Action.ENREGISTREMENT_CONSULTATION,
                                     c.getPatient().getIdentPat(), "consultation n° " + c.getIdConsul());
+                            // Le patient sort de la salle d'attente (et son rendez-vous est terminé).
+                            SalleAttenteService.cloreConsultation(daos, c.getPatient().getIdentPat(),
+                                    LocalDateTime.now());
                         } else {
                             demandeAnalyseDao.updateResultats(c.getIdConsul(), c.getAnaPat().getListeAnaly());
                             journal.noter(JournalAcces.Action.SAISIE_RESULTATS,

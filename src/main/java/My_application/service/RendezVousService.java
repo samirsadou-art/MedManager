@@ -52,6 +52,8 @@ public class RendezVousService {
     /** Médecin utilisé quand aucun n'est fourni (même valeur que le médecin par défaut de la session). */
     public static final int MEDECIN_PAR_DEFAUT = 1;
     public static final int LONGUEUR_MOTIF = 80;
+    /** Événement publié pour les autres postes à chaque changement de l'agenda. */
+    public static final String EVENEMENT_RENDEZ_VOUS = "RENDEZ_VOUS";
 
     static final String CRENEAU_PRIS = "Ce créneau vient d'être attribué à un autre patient. "
             + "Veuillez en choisir un autre.";
@@ -367,6 +369,7 @@ public class RendezVousService {
                 }
                 journal.noter(JournalAcces.Action.RENDEZ_VOUS_PRIS, rdv.getPatient().getIdentPat(),
                         rdv.getDate() + " " + rdv.getHeure());
+                daos.getEvenementDao().publier(EVENEMENT_RENDEZ_VOUS, rdv.getIdRendezVous());
                 return null;
             }
         });
@@ -414,6 +417,7 @@ public class RendezVousService {
                     throw new MetierException(MODIFIE_AILLEURS);
                 }
                 journal.noter(action, rdv.getPatient().getIdentPat(), rdv.getDate() + " " + rdv.getHeure());
+                daos.getEvenementDao().publier(EVENEMENT_RENDEZ_VOUS, rdv.getIdRendezVous());
                 return null;
             }
         });
@@ -471,6 +475,7 @@ public class RendezVousService {
                     throw new MetierException(MODIFIE_AILLEURS);
                 }
                 journal.noter(JournalAcces.Action.RENDEZ_VOUS_DEPLACE, ancien.getPatient().getIdentPat(), detail);
+                daos.getEvenementDao().publier(EVENEMENT_RENDEZ_VOUS, nouveau.getIdRendezVous());
                 return null;
             }
         });

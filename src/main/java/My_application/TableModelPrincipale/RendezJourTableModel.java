@@ -9,6 +9,6 @@ public class RendezJourTableModel extends ListeTableModel<Rendez_Vous> {
     private static final long serialVersionUID = 1L;
 
     public RendezJourTableModel() {
-        super("Genre", "Nom", "Prénom", "Age", "Horaire");
+        super("Genre", "Nom", "Prénom", "Age", "Horaire", "Statut");
     }
 }

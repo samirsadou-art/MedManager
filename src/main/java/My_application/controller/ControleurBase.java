@@ -79,6 +79,34 @@ abstract class ControleurBase {
         });
     }
 
+    /**
+     * Comme {@link #enArrierePlan}, mais une erreur est seulement journalisée :
+     * pour une vérification périodique, qui ne doit pas ouvrir un dialogue
+     * toutes les 3 secondes quand le serveur est injoignable.
+     */
+    protected <T> void enArrierePlanSilencieux(Supplier<T> lecture, Consumer<T> affichage, Runnable toujours) {
+        Object[] resultat = new Object[1];
+        boolean[] lu = new boolean[1];
+        executeur.executer(() -> {
+            try {
+                resultat[0] = lecture.get();
+                lu[0] = true;
+            } catch (RuntimeException e) {
+                LOG.log(Level.FINE, "Vérification périodique impossible", e);
+            }
+        }, () -> {
+            try {
+                if (lu[0]) {
+                    @SuppressWarnings("unchecked")
+                    T valeur = (T) resultat[0];
+                    tenter(() -> affichage.accept(valeur));
+                }
+            } finally {
+                toujours.run();
+            }
+        });
+    }
+
     private void signaler(RuntimeException e) {
         if (e instanceof MetierException) {
             vue.afficherErreur(e.getMessage());

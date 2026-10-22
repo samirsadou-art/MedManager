@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 
 import My_application.entities.Compte;
 import My_application.entities.EntreeJournal;
+import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.Role;
 import My_application.entities.User;
@@ -229,6 +230,79 @@ public class JdbcDaoTest {
         assertEquals("SAHAB", l.get(0).getUtilisateur().getNom());
         assertEquals(LocalDate.parse("2026-10-01"), l.get(0).getDateFix());
         assertEquals(LocalTime.parse("08:00:00"), l.get(0).getHeureFix());
+    }
+
+    // ----- salle d'attente et événements -----
+
+    @Test
+    public void unPassageEstInsereEtLuAvecLaFicheEtLHeureDuRendezVous() {
+        Passage p = new Passage();
+        p.setPatient(Donnees.patient(4, "Y"));
+        p.setIdMedecin(2);
+        p.setIdRendezVous(12);
+        p.setJour(LocalDate.of(2026, 10, 9));
+        p.setArriveeLe(LocalDateTime.of(2026, 10, 9, 8, 50));
+        p.setUrgence(true);
+        daos.getSalleAttenteDao().insert(p);
+        assertEquals(Integer.valueOf(1001), p.getIdPassage());
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("INSERT INTO salle_attente"));
+        assertEquals(4, e.param(1));
+        assertEquals(12, e.param(3));
+        assertEquals(1, e.param(6));
+        assertEquals(Passage.EN_ATTENTE, e.param(7));
+
+        base.quand("FROM salle_attente", ligne("idPassage", 3, "idPatient", 4, "idMedecin", 2, "idRendezVous", null,
+                "jour", java.sql.Date.valueOf("2026-10-09"), "arriveeLe", Timestamp.valueOf("2026-10-09 08:50:00"),
+                "appeleLe", null, "sortieLe", null, "priorite", 0, "etat", 1, "heure", null,
+                "nomPatient", "Y", "prenomPatient", "y", "date_Nais_Patient", java.sql.Date.valueOf("2000-01-01"),
+                "sexePatient", 1, "villePatient", "Tizi-Ouzou"));
+        List<Passage> l = daos.getSalleAttenteDao().findDuJour(LocalDate.of(2026, 10, 9));
+        assertEquals(1, l.size());
+        Passage lu = l.get(0);
+        assertTrue(lu.isSansRendezVous());
+        assertNull(lu.getHeurePrevue());
+        assertNull(lu.getAppeleLe());
+        assertFalse(lu.isUrgence());
+        assertEquals(Passage.EN_CONSULTATION, lu.getEtat());
+        assertEquals(LocalTime.of(8, 50), lu.getArriveeLe().toLocalTime());
+        assertEquals("fiche complète pour ouvrir le dossier", "Tizi-Ouzou", lu.getPatient().getVille());
+        assertTrue(base.derniere().sql.contains("LEFT JOIN rendezvous"));
+    }
+
+    @Test
+    public void unPassageNeChangeQueSIlEstToujoursDansLEtatAttendu() {
+        Passage p = new Passage();
+        p.setIdPassage(3);
+        p.setEtat(Passage.EN_CONSULTATION);
+        p.setAppeleLe(LocalDateTime.of(2026, 10, 9, 9, 5));
+        assertTrue(daos.getSalleAttenteDao().mettreAJour(p, Passage.EN_ATTENTE));
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.endsWith("WHERE idPassage=? AND etat=?"));
+        assertEquals(Passage.EN_CONSULTATION, e.param(1));
+        assertNull(e.param(3));
+        assertEquals(0, e.param(4));
+        assertEquals(3, e.param(5));
+        assertEquals(Passage.EN_ATTENTE, e.param(6));
+    }
+
+    @Test
+    public void evenementsPubliesLusEtPurges() {
+        daos.getEvenementDao().publier("SALLE", 3);
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("INSERT INTO evenement"));
+        assertEquals("SALLE", e.param(1));
+        assertEquals(3, e.param(2));
+
+        base.quand("FROM evenement", ligne("dernier", 42L));
+        assertEquals(42L, daos.getEvenementDao().dernier());
+        daos.getEvenementDao().purgerAvant(LocalDateTime.of(2026, 10, 1, 0, 0));
+        assertTrue(base.derniere().sql.startsWith("DELETE FROM evenement WHERE creeLe < ?"));
+    }
+
+    @Test
+    public void sansEvenementLeDernierVautZero() {
+        assertEquals(0L, daos.getEvenementDao().dernier());
     }
 
     @Test

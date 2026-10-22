@@ -8,6 +8,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import My_application.entities.DossierPatient;
+import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.Role;
 import My_application.entities.User;
@@ -27,10 +28,12 @@ import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.Session;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -373,6 +376,28 @@ public class ControleursTest {
     static class FausseAccueil extends FausseVue implements AccueilVue {
         List<Rendez_Vous> rdv;
         List<consultation> consultations;
+        List<Passage> file;
+        Map<Integer, String> medecins;
+        final List<String> annonces = new ArrayList<>();
+        final List<DossierPatient> dossiers = new ArrayList<>();
+        int affichagesSalle;
+
+        @Override
+        public void afficherSalleAttente(List<Passage> f, Map<Integer, String> m, LocalDateTime maintenant) {
+            file = f;
+            medecins = m;
+            affichagesSalle++;
+        }
+
+        @Override
+        public void annoncerAppel(String annonce) {
+            annonces.add(annonce);
+        }
+
+        @Override
+        public void ouvrirDossier(DossierPatient dossier) {
+            dossiers.add(dossier);
+        }
 
         @Override
         public void afficherRendezVousDuJour(List<Rendez_Vous> rendezVous) {
