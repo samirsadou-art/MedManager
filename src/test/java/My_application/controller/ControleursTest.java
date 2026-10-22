@@ -9,6 +9,8 @@ import static org.junit.Assert.assertTrue;
 
 import My_application.entities.DossierPatient;
 import My_application.entities.Rendez_Vous;
+import My_application.entities.Role;
+import My_application.entities.User;
 import My_application.entities.consultation;
 import My_application.entities.patient;
 import My_application.entities.symptome;
@@ -20,6 +22,7 @@ import My_application.service.AuthentificationService;
 import My_application.service.CatalogueService;
 import My_application.service.DossierService;
 import My_application.service.JournalAcces;
+import My_application.service.MembresService;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.Session;
@@ -360,6 +363,52 @@ public class ControleursTest {
                 .rafraichir();
         assertEquals(Arrays.asList(ControleurBase.ERREUR_BASE), vue.erreurs);
         assertNull(vue.consultations);
+    }
+
+    @Test
+    public void accueilDeLaSecretaireSansConsultations() {
+        Session session = new Session(base, 1, 1);
+        User secretaire = Donnees.utilisateur(5);
+        secretaire.setRole(Role.SECRETAIRE);
+        session.ouvrir(secretaire);
+        // Si les consultations étaient lues, cette panne serait signalée.
+        base.echouerSur("consultation.findByDate");
+        FausseAccueil vue = new FausseAccueil();
+        new AccueilController(vue, new DossierService(base, JournalAcces.AUCUN, session), new RendezVousService(base),
+                Executeur.IMMEDIAT, false).rafraichir();
+        assertTrue(vue.erreurs.isEmpty());
+        assertTrue(vue.consultations.isEmpty());
+        assertNotNull(vue.rdv);
+    }
+
+    // ----- membres du cabinet -----
+
+    private static final class FausseMembres extends FausseVue implements MembresVue {
+        List<User> membres;
+
+        @Override
+        public void afficherMembres(List<User> m) {
+            membres = m;
+        }
+    }
+
+    @Test
+    public void membresListesPourLAdministrateurSeulement() {
+        Session session = new Session(base, 1, 1);
+        MembresService service = new MembresService(base, JournalAcces.AUCUN, session);
+        FausseMembres vue = new FausseMembres();
+        User admin = Donnees.utilisateur(6);
+        admin.setRole(Role.ADMIN);
+        session.ouvrir(admin);
+        new MembresController(vue, service).rafraichir();
+        assertEquals(1, vue.membres.size());
+
+        FausseMembres autre = new FausseMembres();
+        session.ouvrir(Donnees.utilisateur(1));
+        new MembresController(autre, service).rafraichir();
+        assertNull(autre.membres);
+        assertEquals(1, autre.erreurs.size());
+        assertTrue(autre.erreurs.get(0).contains("administrateur"));
     }
 
     // ----- nouveau patient -----

@@ -9,6 +9,8 @@ import static org.junit.Assert.assertTrue;
 import My_application.entities.Compte;
 import My_application.entities.EntreeJournal;
 import My_application.entities.Rendez_Vous;
+import My_application.entities.Role;
+import My_application.entities.User;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
 import My_application.entities.medicament;
@@ -209,6 +211,38 @@ public class JdbcDaoTest {
         assertEquals(Integer.valueOf(2), c.getUtilisateur().getIdMedecin());
         assertEquals("pbkdf2-sha256$1$c2Vs$ZW1w", c.getEmpreinte());
         assertEquals("medecin", base.derniere().param(1));
+    }
+
+    @Test
+    public void leRoleDuCompteEstLu() {
+        base.quand("FROM utilisateur WHERE idUtilisateur=?", ligne("idUtilisateur", 4, "nom", "BENALI",
+                "prenom", "Amina", "qualite", null, "role", "SECRETAIRE", "login", "amina", "actif", 1,
+                "idMedecin", null));
+        assertEquals(Role.SECRETAIRE, daos.getUtilisateurDao().findById(4).getRole());
+        assertTrue(base.derniere().sql.contains("role"));
+    }
+
+    @Test
+    public void ajoutDUnMembreEtChangementDeRole() {
+        User u = new User(0, "BENALI", "Amina", "Secrétaire");
+        u.setRole(Role.SECRETAIRE);
+        assertEquals(1001, daos.getUtilisateurDao().insert(u).getIdent());
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("INSERT INTO utilisateur"));
+        assertEquals("SECRETAIRE", e.param(4));
+        assertNull(e.param(6));
+
+        daos.getUtilisateurDao().definirRole(4, Role.MEDECIN, 2);
+        e = base.derniere();
+        assertEquals("UPDATE utilisateur SET role=?, idMedecin=? WHERE idUtilisateur=?", e.sql);
+        assertEquals("MEDECIN", e.param(1));
+        assertEquals(2, e.param(2));
+
+        LocalDateTime t = LocalDateTime.of(2026, 10, 22, 8, 15);
+        daos.getUtilisateurDao().noterConnexion(4, t);
+        e = base.derniere();
+        assertTrue(e.sql.contains("derniereConnexion"));
+        assertEquals(Timestamp.valueOf(t), e.param(1));
     }
 
     @Test

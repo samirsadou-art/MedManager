@@ -5,11 +5,13 @@ import My_application.dao.DataAccessException;
 import My_application.dao.UniteDeTravail;
 import My_application.dao.UtilisateurDao;
 import My_application.entities.Compte;
+import My_application.entities.Role;
 import My_application.entities.User;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -139,6 +141,7 @@ public class AuthentificationService {
             }
             echecs.remove(identifiant);
             User u = compte.getUtilisateur();
+            utilisateurDao.noterConnexion(u.getIdent(), LocalDateTime.now(horloge));
             session.ouvrir(u);
             journal.noter(JournalAcces.Action.CONNEXION, null, null);
             return u;
@@ -172,10 +175,26 @@ public class AuthentificationService {
         });
     }
 
+    /**
+     * Vérifie, sans rien écrire, qu'un nouvel identifiant est libre et que le
+     * mot de passe est acceptable (avant de créer le membre qui le portera).
+     */
+    public void verifierNouveauxIdentifiants(String login, char[] motDePasse, char[] confirmation) {
+        String identifiant = normaliserLogin(login);
+        if (utilisateurDao.findCompte(identifiant) != null) {
+            throw new MetierException("L'identifiant « " + identifiant + " » est déjà utilisé.");
+        }
+        verifierNouveauMotDePasse(motDePasse, confirmation);
+    }
+
     /** Active ou désactive un compte (un compte désactivé ne peut plus se connecter). */
     public void definirActif(final int idUtilisateur, final boolean actif) {
-        if (utilisateurDao.findById(idUtilisateur) == null) {
+        User u = utilisateurDao.findById(idUtilisateur);
+        if (u == null) {
             throw new MetierException("L'utilisateur n° " + idUtilisateur + " est introuvable.");
+        }
+        if (!actif && u.getRole() == Role.ADMIN) {
+            MembresService.verifierQuIlResteUnAdministrateur(utilisateurDao, idUtilisateur);
         }
         daos.enTransaction(new UniteDeTravail<Void>() {
             @Override

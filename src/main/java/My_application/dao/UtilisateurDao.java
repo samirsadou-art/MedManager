@@ -1,7 +1,9 @@
 package My_application.dao;
 
 import My_application.entities.Compte;
+import My_application.entities.Role;
 import My_application.entities.User;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface UtilisateurDao {
@@ -23,4 +25,13 @@ public interface UtilisateurDao {
     void definirIdentifiants(int idUtilisateur, String login, String empreinte);
 
     void definirActif(int idUtilisateur, boolean actif);
+
+    /** Ajoute un membre (sans identifiants) ; renvoie l'utilisateur avec son identifiant. */
+    User insert(User u);
+
+    /** Change le rôle et le médecin rattaché (null pour une secrétaire ou un administrateur). */
+    void definirRole(int idUtilisateur, Role role, Integer idMedecin);
+
+    /** Date et heure de la dernière connexion réussie. */
+    void noterConnexion(int idUtilisateur, LocalDateTime quand);
 }

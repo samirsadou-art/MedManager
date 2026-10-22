@@ -1,5 +1,6 @@
 package My_application.dao.jdbc;
 
+import My_application.entities.Role;
 import My_application.entities.User;
 import My_application.entities.medecin;
 import My_application.entities.patient;
@@ -74,6 +75,10 @@ final class Mappers {
             u.setLogin(rs.getString("login"));
             u.setActif(rs.getBoolean("actif"));
             u.setIdMedecin((Integer) rs.getObject("idMedecin"));
+            String role = chaine(rs, colonnes(rs), "role");
+            if (role != null) {
+                u.setRole(Role.depuis(role));
+            }
             return u;
         }
     };

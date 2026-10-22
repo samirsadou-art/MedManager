@@ -15,13 +15,9 @@
 -- du schéma passent donc par MigrationBase, lancé avec le compte root.
 -- Il n'est utilisable que depuis le poste du serveur (localhost).
 --
--- Base sur un autre poste du cabinet : créer plutôt un compte par poste
--- client, jamais 'gestimed'@'%', en exigeant le chiffrement, et passer
--- sslMode=REQUIRED dans gestimed.properties :
---     CREATE USER 'gestimed'@'192.168.1.20' IDENTIFIED BY '...' REQUIRE SSL;
---     GRANT SELECT, INSERT, UPDATE, DELETE ON medicale.* TO 'gestimed'@'192.168.1.20';
--- (REQUIRE SSL suppose un serveur configuré pour TLS : c'est automatique
--- avec MySQL 8, à configurer à la main avec MariaDB.)
+-- Postes médecins qui se connectent à cette base par le réseau local :
+-- un compte par poste, créé avec sql/ouvrir_reseau_local.sql (jamais
+-- 'gestimed'@'%'). Voir docs/installation-reseau.md.
 -- =====================================================================
 
 CREATE USER IF NOT EXISTS 'gestimed'@'localhost'
