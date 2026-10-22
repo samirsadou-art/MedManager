@@ -12,6 +12,7 @@ import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.Role;
 import My_application.entities.User;
+import My_application.entities.medecin;
 import My_application.entities.consultation;
 import My_application.entities.patient;
 import My_application.entities.symptome;
@@ -255,6 +256,36 @@ public class ControleursTest {
         assertNotNull(ctrl.connecter("medecin", "Cabinet2026".toCharArray()));
     }
 
+    @Test
+    public void motDePasseProvisoireRemplacePuisChangeParLeMembre() {
+        FausseVue vue = new FausseVue();
+        Session session = new Session(base, 1, 1);
+        ConnexionController ctrl = new ConnexionController(vue,
+                new AuthentificationService(base, session, JournalAcces.AUCUN));
+        base.logins.put(1, "medecin");
+        base.empreintes.put(1, My_application.service.MotDePasse.hacher("Provisoire1".toCharArray()));
+        base.aChanger.add(1);
+        User u = ctrl.connecter("medecin", "Provisoire1".toCharArray());
+        assertTrue(u.isDoitChanger());
+        char[] court = "abc".toCharArray();
+        assertNull(ctrl.remplacerMotDePasseProvisoire(court, "abc".toCharArray()));
+        assertEquals(1, vue.erreurs.size());
+        assertArrayEquals(new char[3], court);
+        assertNotNull(ctrl.remplacerMotDePasseProvisoire("Choisi2026".toCharArray(), "Choisi2026".toCharArray()));
+        assertTrue(session.estOuverte());
+
+        char[] actuel = "Choisi2026".toCharArray();
+        assertTrue(ctrl.changerMonMotDePasse(actuel, "Nouveau2026".toCharArray(), "Nouveau2026".toCharArray()));
+        assertArrayEquals(new char[actuel.length], actuel);
+        assertTrue(vue.informations.get(0).contains("changé"));
+        assertFalse(ctrl.changerMonMotDePasse("Faux20266".toCharArray(), "Autre2026".toCharArray(),
+                "Autre2026".toCharArray()));
+        assertEquals(2, vue.erreurs.size());
+
+        ctrl.connecter("medecin", "Nouveau2026".toCharArray());
+        ctrl.abandonnerConnexion();
+    }
+
     // ----- rendez-vous -----
 
     @Test
@@ -471,7 +502,7 @@ public class ControleursTest {
         List<User> membres;
 
         @Override
-        public void afficherMembres(List<User> m) {
+        public void afficherMembres(List<User> m, List<medecin> medecins) {
             membres = m;
         }
     }
@@ -493,6 +524,49 @@ public class ControleursTest {
         assertNull(autre.membres);
         assertEquals(1, autre.erreurs.size());
         assertTrue(autre.erreurs.get(0).contains("administrateur"));
+    }
+
+    @Test
+    public void lAdministrateurGereLesComptesEtLesFichesDepuisLaPage() {
+        Session session = new Session(base, 1, 1);
+        MembresService service = new MembresService(base, JournalAcces.AUCUN, session);
+        User admin = Donnees.utilisateur(6);
+        admin.setRole(Role.ADMIN);
+        base.utilisateurs.put(6, admin);
+        session.ouvrir(admin);
+        FausseMembres vue = new FausseMembres();
+        MembresController ctrl = new MembresController(vue, service);
+
+        char[] mdp = "Provisoire1".toCharArray();
+        assertTrue(ctrl.creerCompte("benali", "amina", Role.SECRETAIRE, null, null, "amina", mdp,
+                "Provisoire1".toCharArray()));
+        assertArrayEquals(new char[mdp.length], mdp);
+        assertTrue(vue.informations.get(0).contains("amina"));
+        assertEquals("la liste est relue après chaque changement", 3, vue.membres.size());
+        User amina = null;
+        for (User u : vue.membres) {
+            if ("amina".equals(u.getLogin())) {
+                amina = u;
+            }
+        }
+        assertTrue(amina.isDoitChanger());
+
+        assertFalse(ctrl.creerCompte("x", "y", Role.SECRETAIRE, null, null, "amina",
+                "Provisoire1".toCharArray(), "Provisoire1".toCharArray()));
+        assertTrue(vue.erreurs.get(0).contains("déjà utilisé"));
+
+        assertTrue(ctrl.modifier(amina.getIdent(), "benali", "amina", Role.SECRETAIRE, null));
+        assertTrue(ctrl.motDePasseProvisoire(amina, "Nouveau2026".toCharArray(), "Nouveau2026".toCharArray()));
+        assertTrue(ctrl.definirActif(amina, false));
+        assertTrue(base.inactifs.contains(amina.getIdent()));
+        assertFalse(ctrl.definirActif(admin, false));
+
+        medecin fiche = Donnees.medecin(1);
+        fiche.setSpecialite("Cardiologie");
+        assertTrue(ctrl.modifierMedecin(fiche));
+        assertEquals("Cardiologie", base.medecins.get(1).getSpecialite());
+        assertTrue(ctrl.definirMedecinActif(fiche, false));
+        assertFalse(base.medecins.get(1).isActif());
     }
 
     // ----- fiche patient (inscription, modification) -----

@@ -2,35 +2,38 @@
 
 package My_application;
 
-import My_application.vue.Theme;
 import My_application.Patient.ListePatient;
 import My_application.TableModelPrincipale.ConsultJourTableModel;
 import My_application.TableModelPrincipale.ConsultJourTableRondu;
 import My_application.TableModelPrincipale.RendezJourTableModel;
 import My_application.TableModelPrincipale.RendezJourTableRondu;
+import My_application.admin.PageMembres;
 import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
+import My_application.controller.ConnexionController;
 import My_application.controller.Executeur;
-import My_application.admin.PageMembres;
-import My_application.entities.DossierPatient;
-import My_application.entities.Passage;
-import My_application.entities.Role;
-import My_application.entities.Rendez_Vous;
 import My_application.dao.jdbc.DatabaseConfig;
 import My_application.dao.jdbc.Migrations;
+import My_application.entities.DossierPatient;
+import My_application.entities.Passage;
+import My_application.entities.Rendez_Vous;
+import My_application.entities.Role;
 import My_application.entities.consultation;
-import My_application.rendezvous.calandar;
 import My_application.messagerie.FenetreMessagerie;
+import My_application.rendezvous.calandar;
 import My_application.salle.PanneauSalleAttente;
+import My_application.service.MotDePasse;
 import My_application.vue.Bandeau;
 import My_application.vue.Dialogues;
 import My_application.vue.EnTetePage;
+import My_application.vue.Formulaire;
 import My_application.vue.Icones;
 import My_application.vue.MenuLateral;
+import My_application.vue.Theme;
 import java.awt.BorderLayout;
 import java.awt.Container;
-import java.awt.Frame;
 import java.awt.FlowLayout;
+import java.awt.Frame;
 import java.awt.Toolkit;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,13 +41,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.Timer;
-import javax.swing.JComponent;
-import javax.swing.JPanel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JMenuItem;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.Timer;
 
 /**
  * Fenêtre principale (Vue) : rendez-vous et consultations du jour.
@@ -80,6 +85,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         initComponents();
         Theme.harmoniser(this);
         presenterNavigation();
+        ajouterChangementMotDePasse();
         this.setLocationRelativeTo(null);
         this.setExtendedState(Frame.MAXIMIZED_BOTH);
         TableRendezvous.setModel(RJModel);
@@ -96,6 +102,26 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             installerSalleAttente();
         }
         refresh();
+    }
+
+    /** Menu Fichier : « Changer mon mot de passe… », pour chaque membre connecté. */
+    private void ajouterChangementMotDePasse() {
+        JMenuItem changer = new JMenuItem("Changer mon mot de passe…", Icones.svg("key", 16, Theme.PRIMAIRE));
+        changer.setEnabled(ctx.getSession().estOuverte());
+        changer.addActionListener(e -> {
+            JPasswordField actuel = new JPasswordField(20);
+            JPasswordField nouveau = new JPasswordField(20);
+            JPasswordField repete = new JPasswordField(20);
+            ConnexionController c = new ConnexionController(this, ctx.getAuthentificationService());
+            new Formulaire(this, "Changer mon mot de passe", "key", "Au moins " + MotDePasse.LONGUEUR_MIN
+                    + " caractères, dont une lettre et un chiffre.", "Changer")
+                    .ligne("Mot de passe actuel", actuel)
+                    .ligne("Nouveau mot de passe", nouveau)
+                    .ligne("Confirmation", repete)
+                    .afficher(() -> c.changerMonMotDePasse(actuel.getPassword(), nouveau.getPassword(),
+                            repete.getPassword()));
+        });
+        jMenu1.add(changer);
     }
 
     /** Nom de l'ordinateur, affiché avec la présence des membres. */

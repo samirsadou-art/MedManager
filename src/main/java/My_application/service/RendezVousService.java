@@ -133,8 +133,19 @@ public class RendezVousService {
         return medecinDuPoste.get();
     }
 
-    /** Médecins du cabinet, pour filtrer l'agenda (triés par nom). */
+    /** Médecins actifs du cabinet, pour filtrer l'agenda et prendre rendez-vous (triés par nom). */
     public List<medecin> medecins() {
+        List<medecin> actifs = new ArrayList<>();
+        for (medecin m : daos.getMedecinDao().findAll()) {
+            if (m.isActif()) {
+                actifs.add(m);
+            }
+        }
+        return actifs;
+    }
+
+    /** Tous les médecins, même désactivés : pour nommer le médecin d'un rendez-vous passé. */
+    public List<medecin> tousLesMedecins() {
         return daos.getMedecinDao().findAll();
     }
 
@@ -222,6 +233,10 @@ public class RendezVousService {
      */
     public int medecinPour(Integer choisi) {
         if (choisi != null) {
+            medecin m = daos.getMedecinDao().findById(choisi);
+            if (m != null && !m.isActif()) {
+                throw new MetierException(m + " ne fait plus partie du cabinet : choisissez un autre médecin.");
+            }
             return choisi;
         }
         Integer duPoste = medecinDuPoste.get();

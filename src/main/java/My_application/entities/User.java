@@ -1,5 +1,7 @@
 package My_application.entities;
 
+import java.time.LocalDateTime;
+
 /**
  * Utilisateur de l'application (médecin, secrétaire…).
  * <p>
@@ -18,6 +20,9 @@ public class User {
     private Role role = Role.MEDECIN;
     /** Médecin traitant de la session quand cet utilisateur se connecte (null : celui par défaut). */
     private Integer idMedecin;
+    /** Mot de passe provisoire : à changer à la prochaine connexion. */
+    private boolean doitChanger;
+    private LocalDateTime derniereConnexion;
 
     public User() {
     }
@@ -91,6 +96,23 @@ public class User {
 
     public void setIdMedecin(Integer idMedecin) {
         this.idMedecin = idMedecin;
+    }
+
+    public boolean isDoitChanger() {
+        return doitChanger;
+    }
+
+    public void setDoitChanger(boolean doitChanger) {
+        this.doitChanger = doitChanger;
+    }
+
+    /** Dernière connexion réussie, ou null. */
+    public LocalDateTime getDerniereConnexion() {
+        return derniereConnexion;
+    }
+
+    public void setDerniereConnexion(LocalDateTime derniereConnexion) {
+        this.derniereConnexion = derniereConnexion;
     }
 
     @Override

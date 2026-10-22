@@ -402,9 +402,12 @@ public class JdbcDaoTest {
     @Test
     public void lectureDUnCompteParSonIdentifiant() {
         base.quand("FROM utilisateur WHERE login=?", ligne("idUtilisateur", 3, "nom", "SAHAB", "prenom", "Said",
-                "qualite", "Médecin", "login", "medecin", "actif", 1, "idMedecin", 2,
+                "qualite", "Médecin", "login", "medecin", "actif", 1, "idMedecin", 2, "doitChanger", 1,
+                "derniereConnexion", Timestamp.valueOf(LocalDateTime.of(2026, 10, 21, 18, 5)),
                 "motDePasse", "pbkdf2-sha256$1$c2Vs$ZW1w"));
         Compte c = daos.getUtilisateurDao().findCompte("medecin");
+        assertTrue(c.getUtilisateur().isDoitChanger());
+        assertEquals(LocalDateTime.of(2026, 10, 21, 18, 5), c.getUtilisateur().getDerniereConnexion());
         assertEquals(3, c.getUtilisateur().getIdent());
         assertEquals("medecin", c.getUtilisateur().getLogin());
         assertTrue(c.getUtilisateur().isActif());
@@ -468,10 +471,60 @@ public class JdbcDaoTest {
     public void lesIdentifiantsSontEcritsEnParametres() {
         daos.getUtilisateurDao().definirIdentifiants(3, "medecin", "pbkdf2-sha256$1$a$b");
         FauxJdbc.Execution e = base.derniere();
-        assertEquals("UPDATE utilisateur SET login=?, motDePasse=? WHERE idUtilisateur=?", e.sql);
+        assertEquals("UPDATE utilisateur SET login=?, motDePasse=?, doitChanger=0 WHERE idUtilisateur=?", e.sql);
         assertEquals("medecin", e.param(1));
         assertEquals("pbkdf2-sha256$1$a$b", e.param(2));
         assertEquals(3, e.param(3));
+
+        daos.getUtilisateurDao().definirMotDePasse(3, "pbkdf2-sha256$1$c$d", true);
+        e = base.derniere();
+        assertEquals("UPDATE utilisateur SET motDePasse=?, doitChanger=? WHERE idUtilisateur=?", e.sql);
+        assertEquals("pbkdf2-sha256$1$c$d", e.param(1));
+        assertEquals(true, e.param(2));
+        assertEquals(3, e.param(3));
+
+        User u = new User(3, "AMRANI", "Lina", "Médecin");
+        daos.getUtilisateurDao().modifier(u);
+        e = base.derniere();
+        assertEquals("UPDATE utilisateur SET nom=?, prenom=?, qualite=? WHERE idUtilisateur=?", e.sql);
+        assertEquals("AMRANI", e.param(1));
+        assertEquals(3, e.param(4));
+    }
+
+    @Test
+    public void fichesMedecinCreeesModifieesEtDesactivees() {
+        medecin m = Donnees.medecin(0);
+        m.setOrdmedcin("16/123");
+        daos.getMedecinDao().insert(m);
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("INSERT INTO medecin (ordreMedecin, nomMedecin"));
+        assertEquals("16/123", e.param(1));
+        assertEquals(true, e.param(11));
+        assertEquals(1001, m.getIdmedecin());
+
+        m.setSpecialite("Pédiatrie");
+        daos.getMedecinDao().modifier(m);
+        e = base.derniere();
+        assertTrue(e.sql.startsWith("UPDATE medecin SET ordreMedecin=?"));
+        assertFalse(e.sql.contains("actif"));
+        assertEquals("Pédiatrie", e.param(5));
+        assertEquals(1001, e.param(11));
+
+        daos.getMedecinDao().definirActif(1001, false);
+        e = base.derniere();
+        assertEquals("UPDATE medecin SET actif=? WHERE idMedecin=?", e.sql);
+        assertEquals(false, e.param(1));
+
+        base.quand("FROM medecin ORDER BY", ligne("idMedecin", 4, "ordreMedecin", null, "nomMedecin", "SAHAB",
+                "prenomMedecin", "Said", "titre", "Dr", "specialite", null, "adresse", null, "telephone1", null,
+                "telephone2", null, "email", null, "nomCabinet", null, "actif", 0));
+        assertFalse(daos.getMedecinDao().findAll().get(0).isActif());
+
+        base.quand("COUNT(*) AS n FROM rendezvous", ligne("n", 2L));
+        assertEquals(2, daos.getRendezVousDao().compterPrevus(1001, LocalDate.of(2026, 10, 22)));
+        e = base.derniere();
+        assertEquals(1001, e.param(1));
+        assertEquals(Rendez_Vous.ETAT_PREVU, e.param(2));
     }
 
     @Test

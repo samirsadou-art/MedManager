@@ -17,6 +17,8 @@ public class medecin {
     private String telephone2;
     private String email;
     private String nom_cabinet;
+    /** Faux pour un médecin qui a quitté le cabinet : il n'est plus proposé dans l'agenda. */
+    private boolean actif = true;
 
     public medecin() {
     }
@@ -121,5 +123,13 @@ public class medecin {
 
     public void setNom_cabinet(String nom_cabinet) {
         this.nom_cabinet = nom_cabinet;
+    }
+
+    public boolean isActif() {
+        return actif;
+    }
+
+    public void setActif(boolean actif) {
+        this.actif = actif;
     }
 }
