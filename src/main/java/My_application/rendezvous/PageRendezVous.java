@@ -72,10 +72,10 @@ import javax.swing.event.DocumentListener;
  * rendez-vous par heure et par patient, pas de rendez-vous dans le passé)
  * restent dans {@link RendezVousService}, via {@link RendezVousController}.
  * <p>
- * Dans un cabinet à plusieurs médecins, une liste déroulante n'affiche que
- * les rendez-vous du médecin choisi ; les créneaux proposés le sont alors
- * avec ce médecin (sinon avec celui du poste ; un poste sans médecin, celui de
- * la secrétaire, doit le choisir).
+ * Dans un cabinet à plusieurs médecins, la secrétaire a une liste déroulante
+ * qui n'affiche que les rendez-vous du médecin choisi ; les créneaux proposés
+ * le sont alors avec ce médecin (sans choix, elle doit le donner). Un médecin
+ * connecté n'a pas cette liste : il ne voit et ne prend que ses rendez-vous.
  * <p>
  * Le panneau de détails propose les gestes du quotidien : déplacer (puis
  * cliquer sur la nouvelle heure), marquer absent, annuler. La recherche
@@ -94,6 +94,8 @@ public class PageRendezVous extends JPanel implements Vue {
     /** Patient pour qui l'on prend rendez-vous ; null = agenda seul (gestes du quotidien). */
     private transient patient malade;
     private final transient Runnable choisirPatient;
+    /** Médecin connecté : l'agenda ne montre que ses rendez-vous, sans liste des médecins (null : secrétaire). */
+    private final Integer medecinConnecte;
     private final int dureeCreneau;
     private final AgendaSemaine agenda;
     private final MiniCalendrier miniCalendrier;
@@ -115,11 +117,15 @@ public class PageRendezVous extends JPanel implements Vue {
      * @param utilisateur   membre connecté (auteur des rendez-vous pris)
      * @param choisirPatient montre la liste des patients, d'où l'on revient
      *                      ici pour le patient choisi (peut être null)
+     * @param medecinConnecte médecin du compte connecté, dont seuls les
+     *                      rendez-vous sont montrés ; null pour la secrétaire
+     *                      (liste « Tous les médecins / Dr … »)
      */
     public PageRendezVous(User utilisateur, RendezVousService service, RapportService rapports,
-            Runnable choisirPatient) {
+            Runnable choisirPatient, Integer medecinConnecte) {
         super(new BorderLayout(16, 16));
         this.choisirPatient = choisirPatient;
+        this.medecinConnecte = medecinConnecte;
         controleur = new RendezVousController(this, service, rapports, null, utilisateur);
         dureeCreneau = 60 / service.getMaxParHeure();
         agenda = new AgendaSemaine(service.getHeureOuverture(), service.getNombreHeures(),
@@ -127,6 +133,17 @@ public class PageRendezVous extends JPanel implements Vue {
         miniCalendrier = new MiniCalendrier(service.aujourdhui());
         defilement = new JScrollPane(agenda);
         chargerMedecins();
+        if (medecinConnecte != null) {
+            // Filtre et médecin des réservations fixés (la liste n'est pas affichée).
+            for (int i = 1; i < choixMedecin.getItemCount(); i++) {
+                if (medecinConnecte.equals(choixMedecin.getItemAt(i).id)) {
+                    choixMedecin.setSelectedIndex(i);
+                }
+            }
+            controleur.setMedecin(medecinConnecte);
+            agenda.setMedecinReservation(medecinConnecte);
+            agenda.setFiltreMedecin(medecinConnecte);
+        }
 
         setBackground(Theme.FOND);
         setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
@@ -192,6 +209,11 @@ public class PageRendezVous extends JPanel implements Vue {
             afficherAucunDetail();
         }
         SwingUtilities.invokeLater(recherche::requestFocusInWindow);
+    }
+
+    /** Pour les tests : le planning de la semaine. */
+    AgendaSemaine agenda() {
+        return agenda;
     }
 
     /** Patient de la page (null sans patient). */
@@ -275,8 +297,8 @@ public class PageRendezVous extends JPanel implements Vue {
         barre.add(pourPatient, BorderLayout.WEST);
         JPanel filtres = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         filtres.setOpaque(false);
-        // Un seul médecin : la liste n'apporterait rien.
-        if (medecins.size() > 1) {
+        // Un seul médecin, ou un médecin connecté : la liste n'apporterait rien.
+        if (listeDesMedecins()) {
             filtres.add(choixMedecin);
         }
         filtres.add(recherche);
@@ -294,8 +316,8 @@ public class PageRendezVous extends JPanel implements Vue {
         defilement.getVerticalScrollBar().setUnitIncrement(AgendaSemaine.HAUTEUR_CRENEAU / 2);
         carte.add(defilement, BorderLayout.CENTER);
 
-        // En bas : semaine précédente à gauche, libellé de la semaine et
-        // compteur au centre, semaine suivante à droite.
+        // En bas, au centre : semaine précédente, libellé de la semaine et
+        // compteur, semaine suivante (les flèches collées au libellé).
         compteur.setIcon(Icones.svg("calendar", 16, Theme.TEXTE_SECONDAIRE));
         compteur.setFont(Theme.police(Font.PLAIN, 12));
         compteur.setForeground(Theme.TEXTE_SECONDAIRE);
@@ -305,22 +327,16 @@ public class PageRendezVous extends JPanel implements Vue {
         semaine.setOpaque(false);
         semaine.add(libelleSemaine, BorderLayout.CENTER);
         semaine.add(compteur, BorderLayout.SOUTH);
-        JPanel bas = new JPanel(new BorderLayout(12, 0));
+        JPanel bas = new JPanel(new java.awt.GridBagLayout());
         bas.setOpaque(false);
         bas.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
-        bas.add(centrerVerticalement(precedente), BorderLayout.WEST);
-        bas.add(semaine, BorderLayout.CENTER);
-        bas.add(centrerVerticalement(suivante), BorderLayout.EAST);
+        java.awt.GridBagConstraints g = new java.awt.GridBagConstraints();
+        g.insets = new Insets(0, 10, 0, 10);
+        bas.add(precedente, g);
+        bas.add(semaine, g);
+        bas.add(suivante, g);
         carte.add(bas, BorderLayout.SOUTH);
         return carte;
-    }
-
-    /** Le bouton garde sa taille et reste au milieu de la hauteur de la barre. */
-    private static JComponent centrerVerticalement(JComponent c) {
-        JPanel p = new JPanel(new java.awt.GridBagLayout());
-        p.setOpaque(false);
-        p.add(c);
-        return p;
     }
 
     private JComponent colonneDroite() {
@@ -446,6 +462,11 @@ public class PageRendezVous extends JPanel implements Vue {
             }
         });
         choixMedecin.addActionListener(e -> choisirMedecin());
+    }
+
+    /** Vrai si la liste « Tous les médecins / Dr … » est proposée (secrétaire, plusieurs médecins). */
+    boolean listeDesMedecins() {
+        return medecinConnecte == null && medecins.size() > 1;
     }
 
     /** Médecin choisi dans la liste, ou null pour tous. */
@@ -783,7 +804,7 @@ public class PageRendezVous extends JPanel implements Vue {
         details.add(ligneDetail("calendar", AgendaSemaine.capitaliser(DATE_LONGUE.format(r.getDate()))));
         details.add(ligneDetail("clock", "Actuellement à " + r.getHeureString()));
         JLabel aide = new JLabel("<html>Cliquez sur une heure libre de l'agenda (vous pouvez changer de semaine)."
-                + (medecins.size() > 1 ? " Pour changer de médecin, choisissez-le d'abord dans la liste." : "")
+                + (listeDesMedecins() ? " Pour changer de médecin, choisissez-le d'abord dans la liste." : "")
                 + " Échap pour abandonner.</html>");
         aide.setFont(Theme.police(Font.PLAIN, 12));
         aide.setForeground(Theme.TEXTE_SECONDAIRE);
@@ -841,7 +862,10 @@ public class PageRendezVous extends JPanel implements Vue {
         if (texte.isEmpty()) {
             return;
         }
-        List<Rendez_Vous> trouves = controleur.rechercher(texte);
+        List<Rendez_Vous> trouves = new ArrayList<>(controleur.rechercher(texte));
+        if (medecinConnecte != null) {
+            trouves.removeIf(r -> !medecinConnecte.equals(r.getIdMedecin()));
+        }
         if (trouves.isEmpty()) {
             afficherInformation("Aucun rendez-vous pour « " + texte + " ».");
             return;
@@ -912,7 +936,7 @@ public class PageRendezVous extends JPanel implements Vue {
     /** Affiche la semaine du rendez-vous et le sélectionne (un annulé n'y figure pas : on le détaille). */
     private void montrer(Rendez_Vous r) {
         quitterDeplacement();
-        if (medecinFiltre() != null && !medecinFiltre().equals(r.getIdMedecin())) {
+        if (medecinConnecte == null && medecinFiltre() != null && !medecinFiltre().equals(r.getIdMedecin())) {
             choixMedecin.setSelectedIndex(0);
         }
         afficherSemaine(r.getDate());
