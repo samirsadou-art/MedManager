@@ -348,6 +348,15 @@ public class JdbcDaoTest {
     }
 
     @Test
+    public void lesPassagesDUnPatientDuPlusRecentAuPlusAncien() {
+        assertTrue(daos.getSalleAttenteDao().findDuPatient(4).isEmpty());
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.contains("WHERE s.idPatient = ? ORDER BY s.jour DESC, s.arriveeLe DESC"));
+        assertTrue(e.sql.contains("LEFT JOIN rendezvous"));
+        assertEquals(4, e.param(1));
+    }
+
+    @Test
     public void lesDerniersFraisDuMedecin() {
         assertNull(daos.getSalleAttenteDao().dernierFrais(2));
         base.quand("SELECT frais FROM salle_attente", ligne("frais", 1800));

@@ -187,4 +187,23 @@ public class DossierServiceTest {
         assertNotNull(service.consultationsDuJour(java.time.LocalDate.now()));
         assertEquals(1, service.consultationsDuJour(java.time.LocalDate.now()).size());
     }
+
+    @Test
+    public void lHistoriqueDonneRendezVousEtPassagesDuPatient() {
+        RendezVousService rendezVous = new RendezVousService(base);
+        SalleAttenteService salle = new SalleAttenteService(base, rendezVous);
+        salle.arriveeSansRendezVous(base.patients.get(1), 1);
+        salle.arriveeSansRendezVous(base.patients.get(2), 1);
+        HistoriquePatient h = service.historique(base.patients.get(1));
+        assertEquals(1, h.getPassages().size());
+        assertEquals(1, h.getPassages().get(0).getPatient().getIdentPat());
+        assertTrue(h.getRendezVous().isEmpty());
+        assertNotNull(h.passageEnCours(java.time.LocalDate.now()));
+        try {
+            service.historique(null);
+            fail();
+        } catch (MetierException e) {
+            assertEquals("Aucun patient sélectionné.", e.getMessage());
+        }
+    }
 }

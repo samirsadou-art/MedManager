@@ -18,6 +18,9 @@ public interface SalleAttenteDao {
     /** Passages du jour (tous états), avec le patient et l'heure du rendez-vous. */
     List<Passage> findDuJour(LocalDate jour);
 
+    /** Tous les passages d'un patient, du plus récent au plus ancien (dossier médical). */
+    List<Passage> findDuPatient(int idPatient);
+
     /**
      * Enregistre l'état, les heures d'appel et de sortie, la priorité, les
      * frais et le paiement du passage, seulement s'il est encore dans l'état
