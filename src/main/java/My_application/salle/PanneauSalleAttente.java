@@ -262,7 +262,7 @@ public class PanneauSalleAttente extends JPanel {
                 badge.setForeground(Theme.SUCCES);
                 badge.setBackground(Theme.SUCCES_CLAIR);
                 badge.setVisible(true);
-                attente.setText("consultation terminée");
+                attente.setText("attend sa sortie");
                 attente.setForeground(Theme.TEXTE_SECONDAIRE);
             } else if (enConsultation) {
                 badge.setText("En consultation");

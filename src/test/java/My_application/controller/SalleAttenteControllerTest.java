@@ -151,7 +151,49 @@ public class SalleAttenteControllerTest {
         assertEquals("annoncé une seule fois", 1, secretaire.annonces.size());
 
         accueilMedecin.appelerSuivant();
+        assertEquals("consultation en cours : le médecin renonce, rien ne change", 1, medecin.dossiers.size());
+        assertTrue(medecin.erreurs.isEmpty());
+        assertEquals(Passage.EN_CONSULTATION, base.passages.get(0).getEtat());
+
+        medecin.fraisFinDeConsultation = "1500";
+        accueilMedecin.appelerSuivant();
+        assertEquals(Passage.A_REGLER, base.passages.get(0).getEtat());
+        assertEquals(Integer.valueOf(1500), base.passages.get(0).getFrais());
         assertEquals(Collections.singletonList("Aucun patient n'attend dans votre file."), medecin.erreurs);
+    }
+
+    @Test
+    public void leMedecinTermineLaConsultationAvantDAppelerUnAutrePatient() {
+        ControleursTest.FausseAccueil vue = vue();
+        AccueilController c = accueil(vue, 1, false);
+        Passage premier = salle.arriveeSansRendezVous(base.patients.get(1), 1);
+        Passage second = salle.arriveeSansRendezVous(base.patients.get(2), 1);
+        c.appeler(premier);
+        c.appeler(second);
+        assertEquals("pas d'appel tant que la consultation n'est pas terminée", Passage.EN_ATTENTE,
+                base.passages.get(1).getEtat());
+        assertEquals(Collections.singletonList(""), vue.fraisProposes);
+
+        vue.fraisFinDeConsultation = "beaucoup";
+        c.appeler(second);
+        assertEquals("montant refusé", 1, vue.erreurs.size());
+        assertEquals(Passage.EN_CONSULTATION, base.passages.get(0).getEtat());
+
+        vue.fraisFinDeConsultation = "";
+        assertFalse(c.terminerConsultation(second));
+        assertFalse(c.terminerConsultation(null));
+        assertTrue(c.terminerConsultation(vue.file.get(0)));
+        assertEquals(Passage.A_REGLER, base.passages.get(0).getEtat());
+        assertNull("frais à demander par la secrétaire", base.passages.get(0).getFrais());
+        assertEquals("il reste affiché, après la file", Passage.A_REGLER, vue.file.get(1).getEtat());
+        assertTrue("pas d'annonce chez le médecin", vue.annonces.isEmpty());
+
+        c.appeler(vue.file.get(0));
+        assertEquals(Passage.EN_CONSULTATION, base.passages.get(1).getEtat());
+        assertEquals(2, vue.dossiers.size());
+        c.appeler(vue.file.get(1));
+        assertEquals("double-clic sur celui qui attend sa sortie : son dossier", 3, vue.dossiers.size());
+        assertEquals(Passage.A_REGLER, base.passages.get(0).getEtat());
     }
 
     @Test
@@ -220,7 +262,7 @@ public class SalleAttenteControllerTest {
         dossiers.enregistrer(medecin.dossiers.get(0), 2000);
 
         accueilMedecin.rafraichir();
-        assertTrue("le médecin ne le voit plus", medecin.file.isEmpty());
+        assertEquals("le médecin le voit attendre sa sortie", Passage.A_REGLER, medecin.file.get(0).getEtat());
         c.verifierEvenements();
         assertEquals(1, secretaire.file.size());
         Passage p = secretaire.file.get(0);
