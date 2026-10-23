@@ -10,14 +10,13 @@ import My_application.controller.DossierPatientController.Constante;
 import My_application.controller.DossierPatientController;
 import My_application.controller.Vue;
 import My_application.entities.DossierPatient;
-import My_application.entities.User;
 import My_application.entities.consultation;
+import My_application.entities.patient;
 import My_application.entities.pathologie;
 import My_application.entities.symptome;
 import My_application.modelTableau.HistoriqueRondu;
 import My_application.modelTableau.HistoriqueVisites;
 import My_application.modelTableau.NoeudHistorique;
-import My_application.rendezvous.calandar;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
 import My_application.vue.FiltreSaisie;
@@ -30,6 +29,7 @@ import java.awt.GridLayout;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
@@ -73,9 +73,12 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     DefaultComboBoxModel BoxPathomodel = new DefaultComboBoxModel();
 
     private final AppContext ctx;
+    /** Montre la page « Rendez-vous » de la fenêtre principale pour ce patient. */
+    private final Consumer<patient> rendezVous;
 
-    public DossierPatientForm(DossierPatient doss, AppContext ctx) {
+    public DossierPatientForm(DossierPatient doss, AppContext ctx, Consumer<patient> rendezVous) {
         this.ctx = ctx;
+        this.rendezVous = rendezVous;
         initComponents();
         Theme.harmoniser(this);
         EnTetePage entete = EnTetePage.installer(this, "folder-open", "Dossier patient",
@@ -1194,8 +1197,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_respirationTxtFocusLost
 
     private void NewRendezVousBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NewRendezVousBtnActionPerformed
-        User util = ctx.getSession().getUtilisateur();
-        new calandar(this.dossier.getMalade(), util, ctx.getRendezVousService(), ctx.getRapportService()).setVisible(true);
+        // L'agenda est une page de la fenêtre principale, qui passe devant le dossier.
+        rendezVous.accept(this.dossier.getMalade());
     }//GEN-LAST:event_NewRendezVousBtnActionPerformed
     // ----- onglets ordonnance / analyses -----
 

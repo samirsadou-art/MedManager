@@ -9,23 +9,22 @@ import My_application.entities.patient;
 import My_application.report.RapportService;
 import My_application.service.RendezVousService;
 import My_application.vue.Dialogues;
-import My_application.vue.EnTetePage;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import com.formdev.flatlaf.ui.FlatLineBorder;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.awt.event.HierarchyEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -61,16 +60,17 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 /**
- * Agenda des rendez-vous (Vue), ouvert depuis le dossier d'un patient.
+ * Page « Rendez-vous » du panneau central de la fenêtre principale (elle
+ * remplace l'ancienne fenêtre séparée {@code calandar}) : l'agenda (Vue).
  * <p>
  * Présentation en planning : la semaine sous forme de cartes colorées par
  * statut ({@link AgendaSemaine}), et à droite un mini-calendrier, le détail du
- * rendez-vous choisi et la légende des couleurs. Un clic sur une heure libre
- * propose le premier créneau disponible pour le patient du dossier ; on le
- * réserve avec « Confirmer » ou d'un double-clic. Les règles (créneau
- * complet, un rendez-vous par heure et par patient, pas de rendez-vous dans le
- * passé) restent dans {@link RendezVousService}, via
- * {@link RendezVousController}.
+ * rendez-vous choisi et la légende des couleurs. Quand la page est ouverte
+ * pour un patient (liste des patients ou dossier), un clic sur une heure libre
+ * propose le premier créneau disponible pour lui ; on le réserve avec
+ * « Confirmer » ou d'un double-clic. Les règles (créneau complet, un
+ * rendez-vous par heure et par patient, pas de rendez-vous dans le passé)
+ * restent dans {@link RendezVousService}, via {@link RendezVousController}.
  * <p>
  * Dans un cabinet à plusieurs médecins, une liste déroulante n'affiche que
  * les rendez-vous du médecin choisi ; les créneaux proposés le sont alors
@@ -82,18 +82,18 @@ import javax.swing.event.DocumentListener;
  * retrouve les rendez-vous d'un patient dans tout l'agenda, et « Liste du
  * jour » produit le PDF des rendez-vous d'une journée par médecin.
  * <p>
- * Fenêtre écrite à la main (plus de {@code .form}). Elle est harmonisée
- * ({@link Theme#harmoniser}) avant d'être construite : ses composants
- * utilisent déjà la charte et ne doivent pas être retouchés.
+ * Page écrite à la main : ses composants utilisent déjà la charte.
  */
-public class calandar extends javax.swing.JFrame implements Vue {
+public class PageRendezVous extends JPanel implements Vue {
 
     private static final long serialVersionUID = 1L;
     private static final DateTimeFormatter DATE_LONGUE = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
     private static final DateTimeFormatter HEURE = DateTimeFormatter.ofPattern("HH:mm");
 
-    private final RendezVousController controleur;
-    private final patient malade;
+    private final transient RendezVousController controleur;
+    /** Patient pour qui l'on prend rendez-vous ; null = agenda seul (gestes du quotidien). */
+    private transient patient malade;
+    private final transient Runnable choisirPatient;
     private final int dureeCreneau;
     private final AgendaSemaine agenda;
     private final MiniCalendrier miniCalendrier;
@@ -103,33 +103,35 @@ public class calandar extends javax.swing.JFrame implements Vue {
     private final JTextField recherche = new JTextField();
     private final JComboBox<ChoixMedecin> choixMedecin = new JComboBox<>();
     /** Médecins du cabinet, par identifiant (ordre alphabétique). */
-    private final Map<Integer, medecin> medecins = new LinkedHashMap<>();
+    private final transient Map<Integer, medecin> medecins = new LinkedHashMap<>();
     private final JPanel details = new JPanel();
+    /** Bandeau « Patient : … » (ou bouton « Prendre un rendez-vous… ») au-dessus du planning. */
+    private final JPanel pourPatient = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private final Timer minute;
     private LocalDate dimanche;
     private boolean premierAffichage = true;
 
-    public calandar(patient Patient, User utilisateur, RendezVousService service, RapportService rapports) {
-        super("Rendez-vous");
-        Theme.harmoniser(this);
-        this.malade = Patient;
-        controleur = new RendezVousController(this, service, rapports, Patient, utilisateur);
+    /**
+     * @param utilisateur   membre connecté (auteur des rendez-vous pris)
+     * @param choisirPatient montre la liste des patients, d'où l'on revient
+     *                      ici pour le patient choisi (peut être null)
+     */
+    public PageRendezVous(User utilisateur, RendezVousService service, RapportService rapports,
+            Runnable choisirPatient) {
+        super(new BorderLayout(16, 16));
+        this.choisirPatient = choisirPatient;
+        controleur = new RendezVousController(this, service, rapports, null, utilisateur);
         dureeCreneau = 60 / service.getMaxParHeure();
         agenda = new AgendaSemaine(service.getHeureOuverture(), service.getNombreHeures(),
-                service.getMaxParHeure(), Patient);
+                service.getMaxParHeure(), null);
         miniCalendrier = new MiniCalendrier(service.aujourdhui());
         defilement = new JScrollPane(agenda);
         chargerMedecins();
 
-        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setMinimumSize(new Dimension(1100, 700));
-        JPanel racine = new JPanel(new BorderLayout(16, 16));
-        racine.setBackground(Theme.FOND);
-        racine.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
-        racine.add(enTete(), BorderLayout.NORTH);
-        racine.add(planning(), BorderLayout.CENTER);
-        racine.add(colonneDroite(), BorderLayout.EAST);
-        setContentPane(racine);
+        setBackground(Theme.FOND);
+        setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+        add(planning(), BorderLayout.CENTER);
+        add(colonneDroite(), BorderLayout.EAST);
 
         agenda.setEcouteur(new AgendaSemaine.Ecouteur() {
             @Override
@@ -145,60 +147,88 @@ public class calandar extends javax.swing.JFrame implements Vue {
             }
         });
         miniCalendrier.setEcouteur(jour -> afficherSemaine(jour));
-        getRootPane().registerKeyboardAction(e -> quitterDeplacement(),
+        registerKeyboardAction(e -> quitterDeplacement(),
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-        // L'heure actuelle et les créneaux passés avancent avec le temps.
+        // L'heure actuelle et les créneaux passés avancent avec le temps, tant
+        // que la page est à l'écran.
         minute = new Timer(60_000, e -> {
             miniCalendrier.setAujourdhui(controleur.getService().aujourdhui());
             agenda.repaint();
             agenda.getEnTete().repaint();
         });
-        minute.start();
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosed(WindowEvent e) {
-                minute.stop();
+        addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) == 0) {
+                return;
             }
-
-            @Override
-            public void windowOpened(WindowEvent e) {
-                recherche.requestFocusInWindow();
+            if (isShowing()) {
+                minute.start();
+            } else {
+                minute.stop();
             }
         });
 
+        majPatient();
         afficherAucunDetail();
         afficherSemaine(service.aujourdhui());
-        pack();
-        setLocationRelativeTo(null);
-        setExtendedState(MAXIMIZED_BOTH);
+    }
+
+    /**
+     * Montre la page (menu « Rendez-vous », liste des patients ou dossier) :
+     * pour un patient, les heures libres lui proposent un créneau ; sans
+     * patient, l'agenda sert aux gestes du quotidien. La semaine affichée est
+     * gardée, la grille revient sur l'heure actuelle.
+     */
+    public void afficher(patient p) {
+        quitterDeplacement();
+        malade = p;
+        controleur.setPatient(p);
+        agenda.setPatient(p);
+        agenda.setPropose(null);
+        majPatient();
+        premierAffichage = true;
+        rafraichir();
+        if (agenda.getSelection() == null) {
+            afficherAucunDetail();
+        }
+        SwingUtilities.invokeLater(recherche::requestFocusInWindow);
+    }
+
+    /** Patient de la page (null sans patient). */
+    public patient getPatient() {
+        return malade;
+    }
+
+    /** Bandeau au-dessus du planning : patient choisi, ou accès à la liste des patients. */
+    private void majPatient() {
+        pourPatient.removeAll();
+        if (malade != null) {
+            JLabel nom = new JLabel("Patient : " + nomComplet(malade),
+                    Icones.svg("user", 18, Theme.SUCCES), JLabel.LEFT);
+            nom.setFont(Theme.policeGras());
+            nom.setForeground(Theme.SUCCES);
+            nom.setOpaque(true);
+            nom.setBackground(Theme.SUCCES_CLAIR);
+            nom.setBorder(BorderFactory.createCompoundBorder(
+                    new FlatLineBorder(new Insets(0, 0, 0, 0), Theme.SUCCES_CLAIR.darker(), 1f, 18),
+                    BorderFactory.createEmptyBorder(6, 12, 6, 14)));
+            nom.setIconTextGap(8);
+            pourPatient.add(nom);
+            JButton fin = new JButton(Icones.svg("x", 16, Theme.TEXTE_SECONDAIRE));
+            fin.setToolTipText("Terminer : ne plus prendre de rendez-vous pour ce patient");
+            fin.addActionListener(e -> afficher(null));
+            pourPatient.add(fin);
+        } else if (choisirPatient != null) {
+            JButton choisir = new JButton("Prendre un rendez-vous…", Icones.svg("user-plus", 16, Theme.PRIMAIRE));
+            choisir.setToolTipText("Choisir le patient dans la liste des patients");
+            choisir.addActionListener(e -> choisirPatient.run());
+            pourPatient.add(choisir);
+        }
+        pourPatient.revalidate();
+        pourPatient.repaint();
     }
 
     // ----- construction -----
-
-    private JComponent enTete() {
-        EnTetePage p = new EnTetePage("calendar-event", "Rendez-vous", malade == null
-                ? "Déplacez, pointez ou annulez les rendez-vous ; pour en prendre un, partez de la liste des patients"
-                : "Planifiez et gérez les consultations");
-        if (malade != null) {
-            JLabel pourPatient = new JLabel("Patient : " + nomComplet(malade),
-                    Icones.svg("user", 18, Theme.SUCCES), JLabel.LEFT);
-            pourPatient.setFont(Theme.policeGras());
-            pourPatient.setForeground(Theme.SUCCES);
-            pourPatient.setOpaque(true);
-            pourPatient.setBackground(Theme.SUCCES_CLAIR);
-            pourPatient.setBorder(BorderFactory.createCompoundBorder(
-                    new FlatLineBorder(new Insets(0, 0, 0, 0), Theme.SUCCES_CLAIR.darker(), 1f, 18),
-                    BorderFactory.createEmptyBorder(6, 12, 6, 14)));
-            pourPatient.setIconTextGap(8);
-            p.ajouterAction(pourPatient);
-        }
-        p.ajouterBouton("Aujourd'hui", "calendar", () -> afficherSemaine(controleur.getService().aujourdhui()));
-        p.ajouterBouton("Liste du jour", "printer", this::listeDuJour);
-        p.ajouterBouton("Actualiser", "refresh", this::rafraichir);
-        p.ajouterBouton("Fermer", "x", this::dispose);
-        return p;
-    }
 
     private JComponent planning() {
         JPanel carte = carte(new BorderLayout());
@@ -222,7 +252,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         recherche.addActionListener(e -> rechercherPartout());
         recherche.putClientProperty("JTextField.leadingIcon", Icones.svg("search", 16, Theme.TEXTE_SECONDAIRE));
         recherche.putClientProperty("JTextField.showClearButton", Boolean.TRUE);
-        recherche.setPreferredSize(new Dimension(300, 34));
+        recherche.setPreferredSize(new Dimension(270, 34));
         recherche.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
@@ -239,6 +269,10 @@ public class calandar extends javax.swing.JFrame implements Vue {
                 filtrer();
             }
         });
+        // À gauche le patient choisi ; « Aujourd'hui » et « Liste du jour »
+        // sont dans l'en-tête de la fenêtre principale.
+        pourPatient.setOpaque(false);
+        barre.add(pourPatient, BorderLayout.WEST);
         JPanel filtres = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         filtres.setOpaque(false);
         // Un seul médecin : la liste n'apporterait rien.
@@ -246,7 +280,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
             filtres.add(choixMedecin);
         }
         filtres.add(recherche);
-        barre.add(filtres, BorderLayout.EAST);
+        barre.add(filtres, BorderLayout.CENTER);
         carte.add(barre, BorderLayout.NORTH);
 
         defilement.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, Theme.BORDURE));
@@ -395,7 +429,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
         agenda.setMedecins(liste);
         agenda.setMedecinReservation(controleur.getIdMedecinReservation());
         choixMedecin.setToolTipText("N'afficher que les rendez-vous d'un médecin");
-        choixMedecin.setPreferredSize(new Dimension(230, 34));
+        choixMedecin.setPreferredSize(new Dimension(210, 34));
         choixMedecin.setMaximumRowCount(12);
         choixMedecin.setRenderer(new DefaultListCellRenderer() {
             private static final long serialVersionUID = 1L;
@@ -531,6 +565,11 @@ public class calandar extends javax.swing.JFrame implements Vue {
 
     // ----- navigation -----
 
+    /** En-tête « Aujourd'hui » : revient à la semaine en cours. */
+    public void allerAujourdhui() {
+        afficherSemaine(controleur.getService().aujourdhui());
+    }
+
     /** Affiche la semaine contenant ce jour. */
     private void afficherSemaine(LocalDate jour) {
         dimanche = RendezVousService.dimancheDeLaSemaine(jour);
@@ -538,7 +577,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
     }
 
     /** Recharge la semaine affichée depuis la base. */
-    void rafraichir() {
+    public void rafraichir() {
         agenda.afficherSemaine(dimanche, controleur.semaine(dimanche));
         libelleSemaine.setText(AgendaSemaine.libelleSemaine(dimanche));
         miniCalendrier.setSemaine(dimanche);
@@ -807,7 +846,8 @@ public class calandar extends javax.swing.JFrame implements Vue {
             afficherInformation("Aucun rendez-vous pour « " + texte + " ».");
             return;
         }
-        final JDialog dialogue = new JDialog(this, "Rendez-vous pour « " + texte + " »", true);
+        final JDialog dialogue = new JDialog(SwingUtilities.getWindowAncestor(this),
+                "Rendez-vous pour « " + texte + " »", Dialog.ModalityType.APPLICATION_MODAL);
         DefaultListModel<Rendez_Vous> modele = new DefaultListModel<>();
         for (Rendez_Vous r : trouves) {
             modele.addElement(r);
@@ -916,7 +956,7 @@ public class calandar extends javax.swing.JFrame implements Vue {
     }
 
     /** PDF des rendez-vous d'un jour de la semaine affichée (médecin choisi, ou tous). */
-    private void listeDuJour() {
+    public void listeDuJour() {
         JComboBox<LocalDate> jours = new JComboBox<>();
         LocalDate aujourdhui = controleur.getService().aujourdhui();
         List<LocalDate> proposes = new ArrayList<>();
@@ -997,8 +1037,8 @@ public class calandar extends javax.swing.JFrame implements Vue {
         nouveauxDetails("Détails du rendez-vous");
         String avec = nomMedecin(controleur.getIdMedecinReservation());
         JLabel aide = new JLabel("<html>Cliquez sur un rendez-vous pour voir son détail"
-                + (malade == null ? ", le déplacer ou l'annuler. Pour prendre un rendez-vous, partez de la "
-                + "liste des patients (ou du dossier)."
+                + (malade == null ? ", le déplacer ou l'annuler. Pour prendre un rendez-vous, choisissez "
+                + "d'abord le patient (« Prendre un rendez-vous… » ou le dossier)."
                 : ", ou sur une heure libre pour proposer un créneau à <b>" + nomComplet(malade) + "</b>"
                 + (medecins.size() > 1 && avec != null ? " avec <b>" + avec + "</b>" : "")
                 + ".")

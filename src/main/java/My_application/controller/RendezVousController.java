@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Contrôleur de l'agenda ({@code calandar}, {@code DetailRendez}). */
+/** Contrôleur de l'agenda ({@code PageRendezVous}, {@code DetailRendez}). */
 public class RendezVousController extends ControleurBase {
 
     private static final DateTimeFormatter JOUR = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH);
@@ -25,7 +25,7 @@ public class RendezVousController extends ControleurBase {
     private final Vue vue;
     private final RendezVousService service;
     private final RapportService rapports;
-    private final patient malade;
+    private patient malade;
     private final User utilisateur;
     /** Médecin choisi dans l'agenda ; null = médecin du poste. */
     private Integer medecin;
@@ -50,6 +50,11 @@ public class RendezVousController extends ControleurBase {
 
     public patient getPatient() {
         return malade;
+    }
+
+    /** Patient des prochains rendez-vous proposés ; null pour l'agenda seul. */
+    public void setPatient(patient p) {
+        this.malade = p;
     }
 
     /**
