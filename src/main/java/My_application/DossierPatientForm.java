@@ -92,6 +92,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     private final JPanel traitements = new JPanel(new CardLayout());
     /** Sous-onglets de la consultation : « Diagnostics » et « Traitements ». */
     private final javax.swing.JTabbedPane sousOnglets = new javax.swing.JTabbedPane();
+    /** Enregistre la consultation en cours sans fermer le dossier. */
+    private final JButton enregistrerBtn = new JButton("Enregistrer");
 
     /** Consultation en cours de saisie (null si aucune). */
     consultation consult = null;
@@ -142,6 +144,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         onglets.setHistorique(controleur.historique());
         rechargerDossierClinique();
         onglets.rafraichirVisites();
+        majBoutonsConsultation();
     }
 
     private static String sousTitre(patient p) {
@@ -231,6 +234,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         GridBagConstraints g = new GridBagConstraints();
         g.insets = new java.awt.Insets(0, 12, 0, 0);
         etat.add(NewConsultBtn, g);
+        etat.add(enregistrerBtn, g);
         JPanel carte = new JPanel(new BorderLayout(12, 0));
         Theme.carte(carte, null);
         carte.setBorder(BorderFactory.createCompoundBorder(carte.getBorder(),
@@ -566,6 +570,28 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         jPanel9.setLayout(new BorderLayout());
         jPanel9.add(jScrollPane1, BorderLayout.CENTER);
         actionDossier(NewConsultBtn, "stethoscope", true);
+        actionDossier(enregistrerBtn, "device-floppy", true);
+        enregistrerBtn.setToolTipText("Enregistrer la consultation en cours dans le dossier");
+        enregistrerBtn.addActionListener(e -> enregistrerConsultation());
+    }
+
+    /**
+     * « Nouvelle Consultation » et « Enregistrer » s'activent à tour de rôle :
+     * le second pendant la saisie d'une consultation, le premier sinon. Le
+     * bouton actif est plein, l'autre grisé.
+     */
+    private void majBoutonsConsultation() {
+        boolean enSaisie = consult != null;
+        boutonAlterne(NewConsultBtn, "stethoscope", !enSaisie);
+        boutonAlterne(enregistrerBtn, "device-floppy", enSaisie);
+    }
+
+    private static void boutonAlterne(JButton b, String icone, boolean actif) {
+        b.setEnabled(actif);
+        b.setBackground(actif ? Theme.PRIMAIRE : UIManager.getColor("Button.background"));
+        b.setForeground(actif ? java.awt.Color.WHITE : Theme.TEXTE);
+        b.setIcon(Icones.svg(icone, 18, actif ? java.awt.Color.WHITE : Theme.PRIMAIRE));
+        b.setDisabledIcon(null);
     }
 
     private static void actionDossier(JButton b, String icone, boolean principal) {
@@ -1700,6 +1726,30 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         onglets.setSelectedIndex(OngletsDossier.CONSULTATIONS);
         sousOnglets.setSelectedIndex(DIAGNOSTICS);
         SelectHistoriqueNoeud();
+        majBoutonsConsultation();
+    }
+
+    /**
+     * « Enregistrer » : écrit la consultation en cours (frais demandés si le
+     * patient est dans la salle d'attente) ; le dossier reste ouvert et la
+     * consultation passe en lecture seule.
+     */
+    void enregistrerConsultation() {
+        if (consult == null || !lireConstantes()) {
+            return;
+        }
+        boolean fait = controleur.fraisADemander() ? enregistrerAvecFrais() : controleur.enregistrer();
+        if (!fait) {
+            return;
+        }
+        consultation enregistree = consult;
+        consult = null;
+        dossier.SetPosition(dossier.getConsultations().indexOf(enregistree));
+        VoirConsultation(enregistree);
+        onglets.setHistorique(controleur.historique());
+        rechargerDossierClinique();
+        SelectHistoriqueNoeud();
+        majBoutonsConsultation();
     }
 
     void initialiser() {
@@ -1840,7 +1890,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
                 "Fermer et enregistrer ...", JOptionPane.YES_NO_CANCEL_OPTION);
         if (result == JOptionPane.YES_OPTION) {
             if (controleur.fraisADemander()) {
-                terminerAvecFrais();
+                if (enregistrerAvecFrais()) {
+                    dispose();
+                }
             } else if (controleur.enregistrer()) {
                 afficherInformation("Modifications effectuées avec succès !");
                 dispose();
@@ -1853,8 +1905,10 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     /**
      * Le patient est dans la salle d'attente : le médecin indique les frais
      * de la consultation, que la secrétaire encaissera avant de le libérer.
+     *
+     * @return true si la consultation a été enregistrée
      */
-    private void terminerAvecFrais() {
+    private boolean enregistrerAvecFrais() {
         JTextField frais = new JTextField(controleur.fraisProposes(), 10);
         FiltreSaisie.installer(frais, FiltreSaisie.entier(7));
         Formulaire f = new Formulaire(this, "Fin de consultation", "check",
@@ -1862,9 +1916,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
                 + "encaissera avant de libérer le patient de la salle d'attente. Laissez vide pour qu'elle les "
                 + "demande, 0 pour une consultation gratuite.", "Enregistrer")
                 .ligne("Frais (DA)", frais);
-        if (f.afficher(() -> controleur.enregistrer(frais.getText()))) {
-            dispose();
-        }
+        return f.afficher(() -> controleur.enregistrer(frais.getText()));
     }
 
     /** Sélectionne dans la liste des visites la consultation affichée. */
