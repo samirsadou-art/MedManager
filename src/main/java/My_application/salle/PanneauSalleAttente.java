@@ -4,6 +4,7 @@ import My_application.controller.AccueilController;
 import My_application.entities.Passage;
 import My_application.service.SalleAttenteService;
 import My_application.vue.Icones;
+import My_application.vue.RetourALaLigne;
 import My_application.vue.Theme;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -55,7 +56,7 @@ public class PanneauSalleAttente extends JPanel {
     private final DefaultListModel<Passage> modele = new DefaultListModel<>();
     private final JList<Passage> liste = new JList<>(modele);
     private final JLabel annonce = new JLabel();
-    private final JPanel boutons = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
+    private final JPanel boutons = new JPanel(new RetourALaLigne(FlowLayout.LEFT, 6, 4));
     private final List<Runnable> miseAJourBoutons = new ArrayList<>();
     private final Rendu rendu = new Rendu();
     private Map<Integer, String> medecins = Collections.emptyMap();

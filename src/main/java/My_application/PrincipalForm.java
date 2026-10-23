@@ -98,8 +98,12 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
     private PanneauSalleAttente salle;
-    /** Part de la largeur de l'accueil donnée à la salle d'attente (le reste aux rendez-vous). */
-    private static final double PART_SALLE_ATTENTE = 0.7;
+    /** Largeur (pixels) en dessous de laquelle la séparation de l'accueil ne réduit pas un panneau. */
+    private static final int LARGEUR_MINIMALE_PANNEAU = 250;
+    /** Préférences de ce poste (position de la séparation de l'accueil). */
+    private static final java.util.prefs.Preferences PREFERENCES =
+            java.util.prefs.Preferences.userNodeForPackage(PrincipalForm.class);
+    private static final String CLE_PART_SALLE_ATTENTE = "accueil.partSalleAttente";
     /** Toutes les 3 secondes : un autre poste a-t-il changé la salle d'attente ou l'agenda ? */
     private Timer surveillance;
     private final JButton arriveBtn = new JButton("Patient arrivé");
@@ -241,32 +245,55 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     }
 
     /**
-     * Salle d'attente : le médecin voit sa file et appelle ; la secrétaire voit
-     * toutes les files, pointe les arrivées et est prévenue de chaque appel.
-     * À côté, sous les rendez-vous du jour : pointer l'arrivée, l'absence, la fin de journée.
-     */
-    /**
-     * Accueil : salle d'attente à gauche (70 %) et rendez-vous du jour à
-     * droite (30 %), côte à côte. Le .form garde l'ancienne disposition
-     * (rendez-vous au-dessus) ; le partage reste réglable à la souris.
+     * Accueil : salle d'attente à gauche et rendez-vous du jour à droite,
+     * moitié-moitié au départ. La séparation se déplace à la souris et sa
+     * position est retenue sur ce poste d'une ouverture à l'autre. Le .form
+     * garde l'ancienne disposition (rendez-vous au-dessus).
      */
     private void disposerSalleEtRendezVous() {
         jSplitPane2.setOrientation(javax.swing.JSplitPane.HORIZONTAL_SPLIT);
         jSplitPane2.setLeftComponent(jPanel7);
         jSplitPane2.setRightComponent(jPanel6);
-        jSplitPane2.setResizeWeight(PART_SALLE_ATTENTE);
-        jSplitPane2.setDividerSize(6);
+        // Sans minimum réduit, les rangées de boutons bloquent la séparation.
+        jPanel7.setMinimumSize(new java.awt.Dimension(LARGEUR_MINIMALE_PANNEAU, 0));
+        jPanel6.setMinimumSize(new java.awt.Dimension(LARGEUR_MINIMALE_PANNEAU, 0));
+        jSplitPane2.setResizeWeight(0.5);
+        jSplitPane2.setDividerSize(10);
+        jSplitPane2.setContinuousLayout(true);
+        jSplitPane2.setToolTipText("Faire glisser pour ajuster les largeurs");
+        final double part = partSalleAttente();
         jSplitPane2.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent e) {
                 if (jSplitPane2.getWidth() > 0) {
-                    jSplitPane2.setDividerLocation(PART_SALLE_ATTENTE);
                     jSplitPane2.removeComponentListener(this);
+                    jSplitPane2.setDividerLocation(part);
+                    jSplitPane2.addPropertyChangeListener(javax.swing.JSplitPane.DIVIDER_LOCATION_PROPERTY,
+                            ev -> retenirPartSalleAttente());
                 }
             }
         });
     }
 
+    /** Part de la largeur retenue pour la salle d'attente (0,5 par défaut). */
+    private static double partSalleAttente() {
+        double part = PREFERENCES.getDouble(CLE_PART_SALLE_ATTENTE, 0.5);
+        return part >= 0.1 && part <= 0.9 ? part : 0.5;
+    }
+
+    /** Retient la position de la séparation choisie à la souris. */
+    private void retenirPartSalleAttente() {
+        int utile = jSplitPane2.getWidth() - jSplitPane2.getDividerSize();
+        if (utile > 0 && jSplitPane2.isShowing()) {
+            PREFERENCES.putDouble(CLE_PART_SALLE_ATTENTE, (double) jSplitPane2.getDividerLocation() / utile);
+        }
+    }
+
+    /**
+     * Salle d'attente : le médecin voit sa file et appelle ; la secrétaire voit
+     * toutes les files, pointe les arrivées et est prévenue de chaque appel.
+     * À côté, sous les rendez-vous du jour : pointer l'arrivée, l'absence, la fin de journée.
+     */
     private void installerSalleAttente() {
         boolean secretaire = role == Role.SECRETAIRE;
         Integer medecinDuPoste = ctx.getSession().getIdMedecinDuPoste();
