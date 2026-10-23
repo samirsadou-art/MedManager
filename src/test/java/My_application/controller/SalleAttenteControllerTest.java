@@ -370,4 +370,18 @@ public class SalleAttenteControllerTest {
                 .medecinsAChoisir().isEmpty());
     }
 
+
+    @Test
+    public void leDoubleClicDeLaSecretaireChargeLaFicheComplete() {
+        ControleursTest.FausseAccueil vue = vue();
+        AccueilController c = accueil(vue, null, true);
+        assertNull("sans service des patients", c.fichePatient(Donnees.patient(1, "?")));
+        c.brancherPatients(new PatientService(base));
+        assertEquals(base.patients.get(1).getNom(), c.fichePatient(Donnees.patient(1, "?")).getNom());
+        assertNull(c.fichePatient(null));
+        assertNull("patient supprimé", c.fichePatient(Donnees.patient(99, "?")));
+        base.echouerSur("patient.findById");
+        assertNull(c.fichePatient(Donnees.patient(1, "?")));
+        assertEquals(1, vue.erreurs.size());
+    }
 }

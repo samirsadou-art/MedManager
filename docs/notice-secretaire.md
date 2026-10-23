@@ -25,6 +25,9 @@ L'accueil montre :
 L'accueil se met à jour tout seul toutes les 3 secondes, avec ce que font les médecins sur leur poste. Vous ne
 voyez ni les consultations ni les dossiers médicaux.
 
+Un **double-clic** sur un patient de la salle d'attente ou des rendez-vous du jour ouvre ses **détails**
+(état civil et coordonnées), avec **Modifier la fiche**.
+
 ## Inscrire un patient
 
 1. Ouvrez **Patients**, puis **Nouveau patient**.
@@ -75,7 +78,7 @@ l'agenda.
   sur le bandeau pour le masquer.
 - **Consultation terminée, paiement :** quand le médecin termine la consultation, il indique les frais. Un bandeau
   vous l'annonce et la carte du patient passe en tête, en vert, avec « À régler : 2 000 DA ». Quand le patient
-  passe à l'accueil, sélectionnez sa carte puis **Encaisser et libérer…** (ou double-cliquez sur la carte) :
+  passe à l'accueil, sélectionnez sa carte puis **Encaisser et libérer…** :
   le montant demandé par le médecin est déjà saisi, corrigez-le si le patient paie autre chose, laissez-le vide
   s'il ne paie rien, puis **Libérer le patient**. Il quitte la salle d'attente. Tant qu'il n'est pas libéré, il
   ne peut pas être pointé une seconde fois.
