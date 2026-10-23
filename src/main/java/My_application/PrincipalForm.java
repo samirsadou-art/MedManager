@@ -292,10 +292,11 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     /**
      * Salle d'attente : le médecin voit sa file et appelle ; la secrétaire voit
      * toutes les files, pointe les arrivées et est prévenue de chaque appel.
-     * À côté, sous les rendez-vous du jour : pointer l'arrivée, l'absence, la fin de journée.
+     * À côté, sous les rendez-vous du jour, la secrétaire pointe l'arrivée, l'absence, la fin de journée.
      */
     private void installerSalleAttente() {
         boolean secretaire = role == Role.SECRETAIRE;
+        boolean medecin = role == Role.MEDECIN;
         Integer medecinDuPoste = ctx.getSession().getIdMedecinDuPoste();
         controleur.brancherSalleAttente(ctx.getSalleAttenteService(), secretaire ? null : medecinDuPoste,
                 ctx.getSession()::getMedecinTraitant, secretaire, secretaire);
@@ -311,19 +312,20 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
                 }
             });
         } else {
+            // Le médecin n'a que « Patient suivant » (et le double-clic pour appeler) :
+            // l'urgence et le départ sans consultation sont l'affaire de la secrétaire.
             salle.ajouterAction("Patient suivant", "speakerphone", controleur::appelerSuivant);
-            salle.ajouterBouton("Appeler", "stethoscope",
-                    p -> p.getEtat() == Passage.EN_ATTENTE || p.getEtat() == Passage.EN_CONSULTATION,
-                    controleur::appeler);
             salle.surDoubleClic(controleur::appeler);
         }
-        salle.ajouterBouton("Urgence", "first-aid-kit", p -> p.getEtat() == Passage.EN_ATTENTE,
-                controleur::urgence);
-        salle.ajouterBouton("Parti sans consultation", "x", p -> p.getEtat() == Passage.EN_ATTENTE, p -> {
-            if (Dialogues.confirmer(this, p.getPatient() + " est reparti sans consultation ?")) {
-                controleur.parti(p);
-            }
-        });
+        if (!medecin) {
+            salle.ajouterBouton("Urgence", "first-aid-kit", p -> p.getEtat() == Passage.EN_ATTENTE,
+                    controleur::urgence);
+            salle.ajouterBouton("Parti sans consultation", "x", p -> p.getEtat() == Passage.EN_ATTENTE, p -> {
+                if (Dialogues.confirmer(this, p.getPatient() + " est reparti sans consultation ?")) {
+                    controleur.parti(p);
+                }
+            });
+        }
         jPanel11.removeAll();
         jPanel11.add(salle, BorderLayout.CENTER);
         jButton2.setVisible(false);
@@ -369,7 +371,10 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         jPanel9.removeAll();
         jPanel9.setLayout(new BorderLayout(0, 6));
         jPanel9.add(compte, BorderLayout.NORTH);
-        jPanel9.add(actions, BorderLayout.CENTER);
+        if (!medecin) {
+            // Pointer l'arrivée, l'absence et la fin de journée : la secrétaire seulement.
+            jPanel9.add(actions, BorderLayout.CENTER);
+        }
 
         surveillance = new Timer(3000, e -> {
             controleur.verifierEvenements();
