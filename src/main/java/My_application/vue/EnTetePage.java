@@ -29,6 +29,7 @@ public class EnTetePage extends JPanel {
 
     private final JLabel titre = new JLabel();
     private final JLabel sousTitre = new JLabel();
+    private final JLabel icone = new JLabel();
     private final JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
 
     public EnTetePage(String icone, String titre, String sousTitre) {
@@ -48,13 +49,18 @@ public class EnTetePage extends JPanel {
         textes.add(this.sousTitre);
         JPanel gauche = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         gauche.setOpaque(false);
-        if (icone != null) {
-            gauche.add(new JLabel(Icones.svg(icone, 36, Theme.PRIMAIRE)));
-        }
+        setIcone(icone);
+        gauche.add(this.icone);
         gauche.add(textes);
         add(gauche, BorderLayout.WEST);
         actions.setOpaque(false);
         add(actions, BorderLayout.EAST);
+    }
+
+    /** Pictogramme à gauche du titre (null : aucun). */
+    public final void setIcone(String nom) {
+        icone.setIcon(nom == null ? null : Icones.svg(nom, 36, Theme.PRIMAIRE));
+        icone.setVisible(nom != null);
     }
 
     public void setTitre(String texte) {
