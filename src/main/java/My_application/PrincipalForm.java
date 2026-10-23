@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
@@ -312,9 +313,12 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
                 }
             });
         } else {
-            // Le médecin n'a que « Patient suivant » (et le double-clic pour appeler) :
-            // l'urgence et le départ sans consultation sont l'affaire de la secrétaire.
+            // Le médecin n'a que « Patient suivant », « Terminer la consultation » (et le double-clic
+            // pour appeler) : l'urgence et le départ sans consultation sont l'affaire de la secrétaire.
+            // Une consultation à la fois : la terminer renvoie le patient en salle d'attente, à régler.
             salle.ajouterAction("Patient suivant", "speakerphone", controleur::appelerSuivant);
+            salle.ajouterBouton("Terminer la consultation", "check", p -> p.getEtat() == Passage.EN_CONSULTATION,
+                    controleur::terminerConsultation);
             salle.surDoubleClic(controleur::appeler);
         }
         if (!medecin) {
@@ -456,6 +460,21 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     public void annoncerAppel(String annonce) {
         salle.annoncer(annonce);
         Toolkit.getDefaultToolkit().beep();
+    }
+
+    @Override
+    public boolean terminerConsultationEnCours(Passage enCours, String fraisProposes, Predicate<String> terminer) {
+        JTextField frais = new JTextField(fraisProposes, 10);
+        FiltreSaisie.installer(frais, FiltreSaisie.entier(7));
+        JLabel patient = new JLabel(enCours.getPatient().getNom().toUpperCase(Locale.FRENCH) + " "
+                + enCours.getPatient().getPrenom());
+        patient.setFont(Theme.policeGras());
+        return new Formulaire(this, "Consultation en cours", "stethoscope",
+                "Terminez cette consultation avant d'appeler un autre patient. Il retourne en salle d'attente "
+                + "jusqu'à ce que la secrétaire encaisse les frais et le libère. Laissez les frais vides pour "
+                + "qu'elle les demande, 0 pour une consultation gratuite.", "Terminer la consultation")
+                .ligne("Patient", patient).ligne("Frais (DA)", frais)
+                .afficher(() -> terminer.test(frais.getText()));
     }
 
     @Override

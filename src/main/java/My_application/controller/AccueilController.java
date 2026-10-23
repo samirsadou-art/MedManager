@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -116,7 +117,7 @@ public class AccueilController extends ControleurBase {
         if (salle != null) {
             // Lu en premier : un changement fait pendant la lecture sera revu au prochain tour.
             a.evenement = salle.dernierEvenement();
-            a.file = avecCaisse ? salle.presents(medecinDeLaFile) : salle.file(medecinDeLaFile);
+            a.file = avecCaisse ? salle.presents(medecinDeLaFile) : salle.salleDuMedecin(medecinDeLaFile);
             a.medecins = new HashMap<>();
             for (medecin m : rendezVousService.tousLesMedecins()) {
                 a.medecins.put(m.getIdmedecin(), m.toString());
@@ -134,7 +135,7 @@ public class AccueilController extends ControleurBase {
         Set<Integer> appels = new HashSet<>();
         Set<Integer> frais = new HashSet<>();
         for (Passage p : a.file) {
-            if (p.getEtat() == Passage.A_REGLER) {
+            if (avecCaisse && p.getEtat() == Passage.A_REGLER) {
                 frais.add(p.getIdPassage());
                 if (fraisConnus != null && !fraisConnus.contains(p.getIdPassage())) {
                     vue.annoncerAppel(p.getPatient().getNom() + " " + p.getPatient().getPrenom()
@@ -269,8 +270,14 @@ public class AccueilController extends ControleurBase {
         }
     }
 
-    /** Le médecin appelle le premier patient de sa file et ouvre son dossier. */
+    /**
+     * Le médecin appelle le premier patient de sa file et ouvre son dossier.
+     * Si un patient est encore en consultation, il doit d'abord la terminer.
+     */
     public void appelerSuivant() {
+        if (!consultationEnCoursTerminee()) {
+            return;
+        }
         Passage p = tenter(() -> salle.appelerSuivant(medecinDeLaFile), null);
         if (p != null) {
             rafraichir();
@@ -278,17 +285,50 @@ public class AccueilController extends ControleurBase {
         }
     }
 
-    /** Le médecin appelle ce patient (ou reprend celui déjà en consultation) et ouvre son dossier. */
+    /**
+     * Le médecin appelle ce patient (ou rouvre le dossier de celui qui est en
+     * consultation ou attend sa sortie) et ouvre son dossier.
+     */
     public void appeler(Passage p) {
         if (p == null) {
             return;
         }
-        if (p.getEtat() == Passage.EN_CONSULTATION) {
+        if (p.getEtat() == Passage.EN_CONSULTATION || p.getEtat() == Passage.A_REGLER) {
             ouvrirDossier(p);
-        } else if (tenter(() -> salle.appeler(p))) {
+        } else if (consultationEnCoursTerminee() && tenter(() -> salle.appeler(p))) {
             rafraichir();
             ouvrirDossier(p);
         }
+    }
+
+    /**
+     * Vrai si le médecin n'a personne en consultation, ou s'il vient de
+     * terminer la consultation en cours : le patient retourne alors en salle
+     * d'attente jusqu'à ce que la secrétaire le libère.
+     */
+    private boolean consultationEnCoursTerminee() {
+        Optional<Passage> lu = tenter(() -> Optional.ofNullable(salle.enConsultation(medecinDeLaFile)), null);
+        if (lu == null) {
+            return false;
+        }
+        return !lu.isPresent() || terminerConsultation(lu.get());
+    }
+
+    /**
+     * Le médecin termine la consultation de ce patient en indiquant les
+     * frais : le patient retourne en salle d'attente, à régler. Vrai si c'est fait.
+     */
+    public boolean terminerConsultation(Passage enCours) {
+        if (enCours == null || enCours.getEtat() != Passage.EN_CONSULTATION) {
+            return false;
+        }
+        Integer proposes = tenter(() -> salle.fraisProposes(enCours.getIdMedecin()), null);
+        boolean terminee = vue.terminerConsultationEnCours(enCours, proposes == null ? "" : String.valueOf(proposes),
+                saisie -> tenter(() -> salle.terminerConsultation(enCours, SalleAttenteService.montant(saisie))));
+        if (terminee) {
+            rafraichir();
+        }
+        return terminee;
     }
 
     private void ouvrirDossier(Passage p) {

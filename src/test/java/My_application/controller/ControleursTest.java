@@ -448,6 +448,17 @@ public class ControleursTest {
             dossiers.add(dossier);
         }
 
+        /** Frais saisis quand le médecin doit terminer la consultation en cours ; null : il renonce. */
+        String fraisFinDeConsultation;
+        final List<String> fraisProposes = new ArrayList<>();
+
+        @Override
+        public boolean terminerConsultationEnCours(Passage enCours, String proposes,
+                java.util.function.Predicate<String> terminer) {
+            fraisProposes.add(proposes);
+            return fraisFinDeConsultation != null && terminer.test(fraisFinDeConsultation);
+        }
+
         @Override
         public void afficherRendezVousDuJour(List<Rendez_Vous> rendezVous) {
             rdv = rendezVous;

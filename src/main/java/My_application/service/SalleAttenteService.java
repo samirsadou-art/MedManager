@@ -25,10 +25,14 @@ import java.util.List;
  * ({@link #arrivee}), ou fait entrer un patient sans rendez-vous avec le
  * médecin choisi ({@link #arriveeSansRendezVous}). Elle peut remonter une
  * urgence ou noter qu'un patient est reparti sans être vu.</li>
- * <li>Le médecin appelle le patient suivant ({@link #appelerSuivant}) ;
- * l'enregistrement de la consultation, avec les frais qu'il a fixés, fait
- * passer le patient « à régler » ({@link #cloreConsultation}, appelé par
- * {@code DossierService}) : il quitte la file du médecin.</li>
+ * <li>Le médecin appelle le patient suivant ({@link #appelerSuivant}),
+ * une consultation à la fois : tant qu'un patient est en consultation chez
+ * lui, il ne peut pas en appeler un autre. L'enregistrement de la
+ * consultation ({@link #cloreConsultation}, appelé par
+ * {@code DossierService}), ou sa fin sans consultation enregistrée
+ * ({@link #terminerConsultation}), avec les frais qu'il a fixés, renvoie le
+ * patient en salle d'attente « à régler » : il quitte la file du médecin
+ * mais reste au cabinet.</li>
  * <li>La secrétaire encaisse les frais et libère le patient, qui quitte le
  * cabinet ({@link #liberer}).</li>
  * <li>Ordre de la file : urgences, puis patients avec rendez-vous selon
@@ -55,12 +59,22 @@ public class SalleAttenteService {
 
     /**
      * Ordre de la file d'un médecin (voir la description de la classe) ; à
-     * l'accueil, les patients à régler viennent en tête.
+     * l'accueil de la secrétaire, les patients à régler viennent en tête.
      */
-    public static final Comparator<Passage> ORDRE = (a, b) -> {
-        if (rang(a) != rang(b)) {
-            return Integer.compare(rang(a), rang(b));
-        }
+    public static final Comparator<Passage> ORDRE = ordre(true);
+    /** Chez le médecin : le patient en consultation, la file, puis ceux qui attendent leur sortie. */
+    public static final Comparator<Passage> ORDRE_MEDECIN = ordre(false);
+
+    private static Comparator<Passage> ordre(boolean aReglerEnTete) {
+        return (a, b) -> {
+            if (rang(a, aReglerEnTete) != rang(b, aReglerEnTete)) {
+                return Integer.compare(rang(a, aReglerEnTete), rang(b, aReglerEnTete));
+            }
+            return comparerDansLaFile(a, b);
+        };
+    }
+
+    private static int comparerDansLaFile(Passage a, Passage b) {
         if (a.isUrgence() != b.isUrgence()) {
             return a.isUrgence() ? -1 : 1;
         }
@@ -72,12 +86,12 @@ public class SalleAttenteService {
             return a.getHeurePrevue().compareTo(b.getHeurePrevue());
         }
         return a.getArriveeLe().compareTo(b.getArriveeLe());
-    };
+    }
 
-    private static int rang(Passage p) {
+    private static int rang(Passage p, boolean aReglerEnTete) {
         switch (p.getEtat()) {
             case Passage.A_REGLER:
-                return 0;
+                return aReglerEnTete ? 0 : 3;
             case Passage.EN_CONSULTATION:
                 return 1;
             default:
@@ -185,6 +199,35 @@ public class SalleAttenteService {
      */
     public List<Passage> presents(Integer idMedecin) {
         return file(passagesDuJour(), idMedecin, true);
+    }
+
+    /**
+     * Accueil du médecin : sa file, puis les patients dont il a terminé la
+     * consultation et qui attendent que la secrétaire les libère.
+     */
+    public List<Passage> salleDuMedecin(Integer idMedecin) {
+        List<Passage> l = file(passagesDuJour(), idMedecin, true);
+        l.sort(ORDRE_MEDECIN);
+        return l;
+    }
+
+    /** Patient en consultation chez ce médecin (null : médecin du poste), ou null s'il n'y en a pas. */
+    public Passage enConsultation(Integer idMedecin) {
+        return enConsultation(passagesDuJour(), rendezVous.medecinPour(idMedecin));
+    }
+
+    private static Passage enConsultation(List<Passage> passages, int idMedecin) {
+        for (Passage p : passages) {
+            if (p.getEtat() == Passage.EN_CONSULTATION && p.getIdMedecin() == idMedecin) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    /** Frais proposés au médecin quand il termine une consultation : les derniers qu'il a fixés. */
+    public Integer fraisProposes(int idMedecin) {
+        return salleDao.dernierFrais(idMedecin);
     }
 
     /** Même chose sur des passages déjà lus. */
@@ -445,12 +488,14 @@ public class SalleAttenteService {
 
     /**
      * Le médecin appelle le premier patient de sa file (null : médecin du
-     * poste). Renvoie le passage appelé.
+     * poste), s'il n'a personne en consultation. Renvoie le passage appelé.
      */
     public Passage appelerSuivant(Integer idMedecin) {
         acces.exiger(Role.MEDECIN);
         int medecin = rendezVous.medecinPour(idMedecin);
-        for (Passage p : file(medecin)) {
+        List<Passage> passages = passagesDuJour();
+        refuserSiConsultationEnCours(passages, medecin, null);
+        for (Passage p : file(passages, medecin, false)) {
             if (p.getEtat() == Passage.EN_ATTENTE) {
                 appeler(p);
                 return p;
@@ -459,12 +504,16 @@ public class SalleAttenteService {
         throw new MetierException("Aucun patient n'attend dans votre file.");
     }
 
-    /** Le médecin appelle ce patient : il passe en consultation. */
+    /**
+     * Le médecin appelle ce patient : il passe en consultation. Refusé tant
+     * qu'un autre patient est en consultation chez ce médecin.
+     */
     public void appeler(final Passage p) {
         acces.exiger(Role.MEDECIN);
         if (p.getEtat() != Passage.EN_ATTENTE) {
             throw new MetierException("Ce patient n'est plus en attente.");
         }
+        refuserSiConsultationEnCours(passagesDuJour(), p.getIdMedecin(), p);
         p.setEtat(Passage.EN_CONSULTATION);
         p.setAppeleLe(maintenant());
         try {
@@ -482,6 +531,48 @@ public class SalleAttenteService {
         } catch (RuntimeException e) {
             p.setEtat(Passage.EN_ATTENTE);
             p.setAppeleLe(null);
+            throw e;
+        }
+    }
+
+    private static void refuserSiConsultationEnCours(List<Passage> passages, int idMedecin, Passage appele) {
+        Passage enCours = enConsultation(passages, idMedecin);
+        if (enCours != null && (appele == null || !enCours.getIdPassage().equals(appele.getIdPassage()))) {
+            throw new MetierException("La consultation de " + enCours.getPatient().getNom() + " "
+                    + enCours.getPatient().getPrenom() + " est en cours : terminez-la avant d'appeler "
+                    + "un autre patient.");
+        }
+    }
+
+    /**
+     * Le médecin termine la consultation sans en enregistrer une dans le
+     * dossier : le patient retourne en salle d'attente « à régler », avec les
+     * frais fixés (null : non précisés), jusqu'à ce que la secrétaire le
+     * libère ({@link #liberer}). Son rendez-vous est terminé.
+     */
+    public void terminerConsultation(final Passage p, Integer frais) {
+        acces.exiger(Role.MEDECIN);
+        if (p.getEtat() != Passage.EN_CONSULTATION) {
+            throw new MetierException("Ce patient n'est pas en consultation.");
+        }
+        verifierMontant(frais);
+        p.setEtat(Passage.A_REGLER);
+        p.setFrais(frais);
+        try {
+            daos.enTransaction(new UniteDeTravail<Void>() {
+                @Override
+                public Void executer() {
+                    enregistrer(p, Passage.EN_CONSULTATION, EVENEMENT_SALLE);
+                    if (p.getIdRendezVous() != null) {
+                        rendezVousDao.changerEtat(p.getIdRendezVous(), Rendez_Vous.ETAT_EN_CONSULTATION,
+                                Rendez_Vous.ETAT_TERMINE);
+                    }
+                    return null;
+                }
+            });
+        } catch (RuntimeException e) {
+            p.setEtat(Passage.EN_CONSULTATION);
+            p.setFrais(null);
             throw e;
         }
     }

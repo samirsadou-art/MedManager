@@ -159,7 +159,10 @@ public class SalleAttenteServiceTest {
         List<Passage> file = salle.file(1);
         assertEquals("le patient en consultation reste affiché en tête", Passage.EN_CONSULTATION,
                 file.get(0).getEtat());
-        assertEquals(10, patientDe(salle.appelerSuivant(1)));
+        salle.terminerConsultation(appele, 1500);
+        Passage dix = salle.appelerSuivant(1);
+        assertEquals(10, patientDe(dix));
+        salle.terminerConsultation(dix, null);
         try {
             salle.appelerSuivant(1);
             fail("le patient sans rendez-vous attend le médecin 2");
@@ -167,6 +170,75 @@ public class SalleAttenteServiceTest {
             assertTrue(e.getMessage().contains("Aucun patient"));
         }
         assertEquals(12, patientDe(salle.appelerSuivant(2)));
+    }
+
+    @Test
+    public void uneSeuleConsultationALaFoisParMedecin() {
+        Rendez_Vous r = rdv(10, "09:00", 1);
+        salle.arrivee(r);
+        salle.arriveeSansRendezVous(base.patients.get(11), 1);
+        salle.arriveeSansRendezVous(base.patients.get(12), 2);
+        Passage enCours = salle.appelerSuivant(1);
+        assertEquals(10, patientDe(salle.enConsultation(1)));
+        assertNull(salle.enConsultation(2));
+        try {
+            salle.appelerSuivant(1);
+            fail("la consultation de 10 n'est pas terminée");
+        } catch (MetierException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("est en cours"));
+        }
+        Passage suivant = salle.file(1).get(1);
+        try {
+            salle.appeler(suivant);
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("terminez-la"));
+        }
+        assertEquals(Passage.EN_ATTENTE, suivant.getEtat());
+        assertEquals("l'autre médecin appelle librement", 12, patientDe(salle.appelerSuivant(2)));
+
+        long avant = salle.dernierEvenement();
+        salle.terminerConsultation(enCours, 2000);
+        assertEquals(avant + 1, salle.dernierEvenement());
+        assertEquals(Passage.A_REGLER, base.passages.get(0).getEtat());
+        assertEquals(Integer.valueOf(2000), base.passages.get(0).getFrais());
+        assertNull("toujours au cabinet", base.passages.get(0).getSortieLe());
+        assertEquals(Rendez_Vous.ETAT_TERMINE, base.rendezVous.get(0).getEtat());
+        assertEquals(Integer.valueOf(2000), salle.fraisProposes(1));
+        List<Passage> chezLeMedecin = salle.salleDuMedecin(1);
+        assertEquals(2, chezLeMedecin.size());
+        assertEquals("il attend sa sortie en bas de la liste du médecin", Passage.A_REGLER,
+                chezLeMedecin.get(1).getEtat());
+        assertEquals("en tête chez la secrétaire", Passage.A_REGLER, salle.presents(1).get(0).getEtat());
+        assertEquals(11, patientDe(salle.appelerSuivant(1)));
+        try {
+            salle.terminerConsultation(enCours, 2000);
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("pas en consultation"));
+        }
+    }
+
+    @Test
+    public void uneFinDeConsultationRateeNeChangeRien() {
+        salle.arriveeSansRendezVous(base.patients.get(10), 1);
+        Passage p = salle.appelerSuivant(1);
+        try {
+            salle.terminerConsultation(p, -5);
+            fail();
+        } catch (MetierException e) {
+            assertTrue(e.getMessage().contains("montant"));
+        }
+        Passage vuAilleurs = salle.file(1).get(0);
+        salle.terminerConsultation(vuAilleurs, null);
+        try {
+            salle.terminerConsultation(p, 1000);
+            fail();
+        } catch (MetierException e) {
+            assertEquals(SalleAttenteService.MODIFIE_AILLEURS, e.getMessage());
+        }
+        assertEquals(Passage.EN_CONSULTATION, p.getEtat());
+        assertNull(p.getFrais());
     }
 
     @Test
