@@ -408,18 +408,33 @@ public class SalleAttenteServiceTest {
         salle.appelerSuivant(1);
         SalleAttenteService.cloreConsultation(base, 11, MAINTENANT, 2000);
         salle.partiSansConsultation(salle.file(1).get(0));
-        assertEquals("seul le rendez-vous passé et non pointé", 1, salle.finDeJournee());
         SalleAttenteService.Bilan b = salle.bilan();
         assertEquals(1, b.getVus());
         assertEquals(1, b.getARegler());
         assertEquals(0, b.getEncaisse());
+        assertEquals(1, b.getEnAttente());
+        try {
+            salle.finDeJournee();
+            fail("salle d'attente pas vide");
+        } catch (MetierException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("2 patients sont encore en salle d'attente"));
+        }
+        assertEquals("rien marqué absent", Rendez_Vous.ETAT_PREVU, base.rendezVous.get(0).getEtat());
         salle.liberer(salle.presents(null).get(0), 2000);
+        try {
+            salle.finDeJournee();
+            fail("un patient attend encore");
+        } catch (MetierException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("1 patient est encore en salle d'attente"));
+        }
+        salle.partiSansConsultation(salle.file(null).get(0));
+        assertEquals("seul le rendez-vous passé et non pointé", 1, salle.finDeJournee());
         b = salle.bilan();
         assertEquals(1, b.getVus());
         assertEquals(0, b.getARegler());
         assertEquals(2000, b.getEncaisse());
-        assertEquals(1, b.getPartis());
-        assertEquals(1, b.getEnAttente());
+        assertEquals(2, b.getPartis());
+        assertEquals(0, b.getEnAttente());
         assertEquals(1, b.getSansRendezVous());
         assertEquals("le non venu et le parti", 2, b.getAbsents());
         assertEquals(0, b.getAttenteMoyenne());

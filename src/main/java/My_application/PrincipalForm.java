@@ -27,6 +27,7 @@ import My_application.messagerie.FenetreMessagerie;
 import My_application.rendezvous.PageRendezVous;
 import My_application.salle.PanneauSalleAttente;
 import My_application.service.MotDePasse;
+import My_application.service.SalleAttenteService;
 import My_application.vue.Bandeau;
 import My_application.vue.Dialogues;
 import My_application.vue.EnTetePage;
@@ -99,6 +100,10 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
     private PanneauSalleAttente salle;
+    /** « Fin de journée… » de la secrétaire : actif seulement quand la salle d'attente est vide. */
+    private JButton finBtn;
+    private static final String INFO_FIN_DE_JOURNEE =
+            "Disponible quand la salle d'attente est vide (tous les patients libérés ou partis).";
     /** Largeur (pixels) en dessous de laquelle la séparation de l'accueil ne réduit pas un panneau. */
     private static final int LARGEUR_MINIMALE_PANNEAU = 250;
     /** Préférences de ce poste (position de la séparation de l'accueil). */
@@ -336,7 +341,9 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
         arriveBtn.setIcon(Icones.svg("check", 16, Theme.PRIMAIRE));
         absentBtn.setIcon(Icones.svg("circle-minus", 16, Theme.PRIMAIRE));
-        JButton finBtn = new JButton("Fin de journée…", Icones.svg("player-stop", 16, Theme.PRIMAIRE));
+        finBtn = new JButton("Fin de journée…", Icones.svg("player-stop", 16, Theme.PRIMAIRE));
+        finBtn.setEnabled(false);
+        finBtn.setToolTipText(INFO_FIN_DE_JOURNEE);
         arriveBtn.addActionListener(e -> {
             Rendez_Vous r = rendezVousSelectionne();
             if (r != null) {
@@ -447,6 +454,12 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     @Override
     public void afficherSalleAttente(List<Passage> file, Map<Integer, String> medecins, LocalDateTime maintenant) {
         salle.setFile(file, medecins, maintenant);
+        if (finBtn != null) {
+            // Fin de journée seulement quand la salle d'attente est vide (le service le vérifie aussi).
+            boolean vide = SalleAttenteService.nombreDePresents(file) == 0;
+            finBtn.setEnabled(vide);
+            finBtn.setToolTipText(vide ? null : INFO_FIN_DE_JOURNEE);
+        }
         int enAttente = 0;
         for (Passage p : file) {
             if (p.getEtat() == Passage.EN_ATTENTE) {
