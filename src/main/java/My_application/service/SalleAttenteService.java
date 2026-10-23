@@ -427,14 +427,34 @@ public class SalleAttenteService {
 
     /**
      * Fin de journée : les rendez-vous du jour encore « prévus » dont l'heure
-     * est passée sont marqués absents. Renvoie leur nombre.
+     * est passée sont marqués absents. Renvoie leur nombre. Refusée tant que
+     * la salle d'attente n'est pas vide (patient en attente, en consultation
+     * ou pas encore libéré).
      */
     public int finDeJournee() {
         acces.exiger(Role.SECRETAIRE, Role.MEDECIN);
+        int presents = nombreDePresents(passagesDuJour());
+        if (presents > 0) {
+            throw new MetierException("Fin de journée impossible : " + presents
+                    + (presents == 1 ? " patient est encore" : " patients sont encore")
+                    + " en salle d'attente.\nLibérez-les d'abord (« Encaisser et libérer » ou "
+                    + "« Parti sans consultation »).");
+        }
         int n = 0;
         for (Rendez_Vous r : rendezVous.duJour(aujourdhui())) {
             if (rendezVous.peutEtreMarqueAbsent(r)) {
                 rendezVous.marquerAbsent(r);
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** Patients encore au cabinet : en attente, en consultation ou à régler. */
+    public static int nombreDePresents(List<Passage> passages) {
+        int n = 0;
+        for (Passage p : passages) {
+            if (p.isPresent()) {
                 n++;
             }
         }

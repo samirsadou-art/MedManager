@@ -313,6 +313,24 @@ public class SalleAttenteControllerTest {
     }
 
     @Test
+    public void laFinDeJourneeAttendQueLaSalleSoitVide() {
+        ControleursTest.FausseAccueil vue = vue();
+        AccueilController c = accueil(vue, null, true);
+        rdv(1, "00:00", 1);
+        Rendez_Vous venu = rdv(2, "00:15", 1);
+        c.arrivee(venu);
+        c.finDeJournee();
+        assertTrue("pas de bilan", vue.informations.isEmpty());
+        assertEquals(1, vue.erreurs.size());
+        assertTrue(vue.erreurs.get(0), vue.erreurs.get(0).contains("encore en salle d'attente"));
+        assertEquals("rien marqué absent", Rendez_Vous.ETAT_PREVU, base.rendezVous.get(0).getEtat());
+
+        salle.partiSansConsultation(salle.presents(null).get(0));
+        c.finDeJournee();
+        assertTrue(vue.informations.get(0), vue.informations.get(0).startsWith("1 rendez-vous non honoré"));
+    }
+
+    @Test
     public void laPurgeDesEvenementsEstSilencieuse() {
         ControleursTest.FausseAccueil vue = vue();
         base.echouerSur("evenement.purger");
