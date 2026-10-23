@@ -4,7 +4,9 @@ import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.consultation;
 import My_application.entities.medecin;
+import My_application.entities.patient;
 import My_application.service.DossierService;
+import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import My_application.service.SalleAttenteService;
 import java.time.LocalDate;
@@ -26,6 +28,8 @@ public class AccueilController extends ControleurBase {
     private final RendezVousService rendezVousService;
     /** Faux pour la secrétaire : les consultations (motifs, diagnostics) relèvent du dossier médical. */
     private final boolean avecConsultations;
+    /** Fiches complètes des patients (détails au double-clic), null si non branché. */
+    private PatientService patients;
 
     // Salle d'attente : branchée par brancherSalleAttente (absente des anciens écrans de test).
     private SalleAttenteService salle;
@@ -87,6 +91,23 @@ public class AccueilController extends ControleurBase {
         this.annoncerAppels = annoncerAppels;
         this.avecCaisse = avecCaisse;
         return this;
+    }
+
+    /** Permet d'afficher les détails d'un patient de l'accueil (double-clic de la secrétaire). */
+    public AccueilController brancherPatients(PatientService patients) {
+        this.patients = patients;
+        return this;
+    }
+
+    /**
+     * Fiche complète d'un patient de la salle d'attente ou des rendez-vous du
+     * jour (ces listes n'en chargent que le nom), ou null s'il n'existe plus.
+     */
+    public patient fichePatient(patient p) {
+        if (patients == null || p == null) {
+            return null;
+        }
+        return tenter(() -> patients.trouver(p.getIdentPat()), null);
     }
 
     /** Activité du jour, lue d'un bloc hors de l'EDT. */

@@ -2,6 +2,7 @@
 
 package My_application;
 
+import My_application.Patient.DetailsPatient;
 import My_application.Patient.PagePatients;
 import My_application.controller.ListePatientController;
 import My_application.TableModelPrincipale.ConsultJourTableModel;
@@ -43,6 +44,8 @@ import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -312,9 +315,16 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             salle.ajouterAction("Patient sans rendez-vous…", "user-plus", () -> userMenuBtn.doClick());
             salle.ajouterBouton("Encaisser et libérer…", "check", p -> p.getEtat() == Passage.A_REGLER,
                     this::encaisserEtLiberer);
-            salle.surDoubleClic(p -> {
-                if (p.getEtat() == Passage.A_REGLER) {
-                    encaisserEtLiberer(p);
+            // Double-clic sur un patient (salle d'attente ou rendez-vous du jour) : ses détails.
+            controleur.brancherPatients(ctx.getPatientService());
+            salle.surDoubleClic(p -> afficherDetails(p.getPatient()));
+            TableRendezvous.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    Rendez_Vous r = rendezVousSelectionne();
+                    if (e.getClickCount() == 2 && TableRendezvous.rowAtPoint(e.getPoint()) >= 0 && r != null) {
+                        afficherDetails(r.getPatient());
+                    }
                 }
             });
         } else {
@@ -397,6 +407,22 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         });
         surveillance.start();
         controleur.purgerEvenements();
+    }
+
+    /** Détails du patient (comme sur la page Patients) ; l'accueil est relu si la fiche a changé. */
+    private void afficherDetails(patient p) {
+        patient fiche = controleur.fichePatient(p);
+        if (fiche == null) {
+            if (p != null) {
+                Dialogues.information(this, "La fiche de ce patient n'existe plus.");
+            }
+            return;
+        }
+        DetailsPatient details = new DetailsPatient(this, ctx.getPatientService(), fiche);
+        details.setVisible(true);
+        if (details.getPatientModifie() != null) {
+            refresh();
+        }
     }
 
     /**
