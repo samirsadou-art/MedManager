@@ -56,7 +56,7 @@ import javax.swing.JTextField;
 import javax.swing.Timer;
 
 /**
- * Fenêtre principale (Vue) : rendez-vous et consultations du jour.
+ * Fenêtre principale (Vue) : rendez-vous et salle d'attente du jour.
  * Les données sont fournies par {@link AccueilController} ; la fenêtre ne
  * fait que les afficher.
  */
@@ -69,7 +69,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     /** Rôle du compte connecté : il choisit la page d'accueil et le menu. */
     private final Role role;
     private static final String TITRE_MEMBRES = "Membres du cabinet";
-    private static final String SOUS_TITRE_ACCUEIL = "Consultations, rendez-vous et salle d'attente du jour";
+    private static final String SOUS_TITRE_ACCUEIL = "Rendez-vous et salle d'attente du jour";
     private static final String SOUS_TITRE_MEMBRES =
             "Comptes de connexion des médecins, de la secrétaire et des administrateurs";
     /** Pages du compte administrateur (null pour les autres rôles). */
@@ -107,7 +107,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         TableConsult.setModel(CJModel);
         TableConsult.setDefaultRenderer(Object.class, new ConsultJourTableRondu());
         controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService(),
-                Executeur.SWING, role == Role.MEDECIN);
+                Executeur.SWING, false);
         if (role != Role.ADMIN) {
             messagerie = new FenetreMessagerie(ctx.getMessagerieService(), ctx.getPatientService(),
                     ctx.getSession().getIdUtilisateurConnecte(), n -> menu.setBadge("Messagerie", n));
@@ -404,8 +404,8 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
      * menu latéral à gauche et en-tête de page. L'ancienne barre d'icônes
      * sans libellés est remplacée par le menu, qui reprend ses actions.
      * <p>
-     * Le contenu dépend du rôle : le médecin voit tout ; la secrétaire n'a
-     * pas les consultations du jour (dossier médical) ; l'administrateur
+     * Le contenu dépend du rôle : le médecin a en plus la page
+     * « Consultations » (date au choix) ; l'administrateur
      * arrive sur les membres du cabinet.
      */
     private void presenterNavigation() {
@@ -423,13 +423,12 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             pagesAdmin.add(pageStatistiques, "Statistiques");
             contenu = pagesAdmin;
         } else {
-            entete = new EnTetePage("home", "Accueil", role == Role.SECRETAIRE
-                    ? "Rendez-vous et salle d'attente du jour" : SOUS_TITRE_ACCUEIL);
-            if (role == Role.SECRETAIRE) {
-                // Les consultations (motifs, diagnostics) relèvent du dossier médical.
-                centre.remove(jSplitPane1);
-                centre.add(jPanel2, BorderLayout.CENTER);
-            }
+            entete = new EnTetePage("home", "Accueil", SOUS_TITRE_ACCUEIL);
+            // Plus de panneau des consultations à l'accueil : le médecin a le
+            // menu « Consultations » (date au choix) ; la secrétaire ne les voit
+            // pas (dossier médical).
+            centre.remove(jSplitPane1);
+            centre.add(jPanel2, BorderLayout.CENTER);
             ((JComponent) contenu).setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
             if (role == Role.MEDECIN) {
                 pageConsultations = new PageConsultations(ctx.getDossierService(), ctx.getPatientService(),
