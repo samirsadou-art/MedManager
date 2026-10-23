@@ -88,5 +88,6 @@ public class VueModelesTest {
         assertEquals("2025", annee.toString());
         assertNotNull(h.lookForNoeud(h.getVisitesNoeud(), 0));
         assertNull(h.lookForNoeud(h.getVisitesNoeud(), 5));
+        assertEquals("seule la branche des consultations", 1, h.getVisitesNoeud().getChildCount());
     }
 }
