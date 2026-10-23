@@ -3,6 +3,7 @@ package My_application.dao.jdbc;
 import static My_application.fake.FauxJdbc.ligne;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -10,6 +11,8 @@ import My_application.dao.MessageDao;
 import My_application.entities.Compte;
 import My_application.entities.EntreeJournal;
 import My_application.entities.MessageInterne;
+import My_application.entities.Antecedent;
+import My_application.entities.NoteDossier;
 import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.Role;
@@ -354,6 +357,49 @@ public class JdbcDaoTest {
         assertTrue(e.sql.contains("WHERE s.idPatient = ? ORDER BY s.jour DESC, s.arriveeLe DESC"));
         assertTrue(e.sql.contains("LEFT JOIN rendezvous"));
         assertEquals(4, e.param(1));
+    }
+
+    @Test
+    public void antecedentsEtNotesDuDossier() {
+        Antecedent a = new Antecedent();
+        a.setIdPatient(4);
+        a.setCategorie(Antecedent.Categorie.ALLERGIE);
+        a.setLibelle("Pénicilline");
+        a.setSaisiLe(LocalDateTime.of(2026, 10, 23, 10, 0));
+        daos.getDossierCliniqueDao().insert(a);
+        assertEquals(Integer.valueOf(1001), a.getIdAntecedent());
+        FauxJdbc.Execution e = base.derniere();
+        assertTrue(e.sql.startsWith("INSERT INTO antecedent"));
+        assertEquals("ALLERGIE", e.param(2));
+        assertNull(e.param(4));
+        assertNull(e.param(5));
+
+        base.quand("FROM antecedent", ligne("idAntecedent", 7, "idPatient", 4, "categorie", "CHIRURGICAL",
+                "libelle", "Appendicectomie", "complement", "2015", "idMedecin", 2,
+                "saisiLe", Timestamp.valueOf("2026-10-23 10:00:00")));
+        List<Antecedent> l = daos.getDossierCliniqueDao().findAntecedents(4);
+        assertEquals(Antecedent.Categorie.CHIRURGICAL, l.get(0).getCategorie());
+        assertEquals("Appendicectomie (2015)", l.get(0).toString());
+        assertEquals(Integer.valueOf(2), l.get(0).getIdMedecin());
+        assertTrue(base.derniere().sql.contains("ORDER BY categorie, idAntecedent"));
+        daos.getDossierCliniqueDao().supprimerAntecedent(7);
+        assertEquals("DELETE FROM antecedent WHERE idAntecedent=?", base.derniere().sql);
+
+        NoteDossier n = new NoteDossier();
+        n.setIdPatient(4);
+        n.setTexte("Revoir dans 3 mois");
+        n.setEcriteLe(LocalDateTime.of(2026, 10, 23, 10, 5));
+        daos.getDossierCliniqueDao().insert(n);
+        assertTrue(base.derniere().sql.startsWith("INSERT INTO note_dossier"));
+        assertNotNull(n.getIdNote());
+        base.quand("FROM note_dossier", ligne("idNote", 3, "idPatient", 4, "texte", "Revoir", "idMedecin", null,
+                "ecriteLe", Timestamp.valueOf("2026-10-23 10:05:00")));
+        NoteDossier lue = daos.getDossierCliniqueDao().findNotes(4).get(0);
+        assertNull(lue.getIdMedecin());
+        assertEquals(LocalDateTime.of(2026, 10, 23, 10, 5), lue.getEcriteLe());
+        assertTrue(base.derniere().sql.contains("ORDER BY ecriteLe DESC"));
+        daos.getDossierCliniqueDao().supprimerNote(3);
+        assertEquals("DELETE FROM note_dossier WHERE idNote=?", base.derniere().sql);
     }
 
     @Test

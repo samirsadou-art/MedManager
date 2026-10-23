@@ -43,6 +43,8 @@ public interface DAOFactory {
 
     StatistiquesDao getStatistiquesDao();
 
+    DossierCliniqueDao getDossierCliniqueDao();
+
     /**
      * Exécute un traitement de façon atomique (tout ou rien) sur les DAO de
      * cette fabrique.

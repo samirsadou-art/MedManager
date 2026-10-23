@@ -8,7 +8,9 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import My_application.dao.DataAccessException;
+import My_application.entities.Antecedent;
 import My_application.entities.DossierPatient;
+import My_application.entities.NoteDossier;
 import My_application.entities.Passage;
 import My_application.entities.analyse;
 import My_application.entities.consultation;
@@ -204,6 +206,74 @@ public class DossierServiceTest {
             fail();
         } catch (MetierException e) {
             assertEquals("Aucun patient sélectionné.", e.getMessage());
+        }
+    }
+
+    @Test
+    public void lesAntecedentsSontNotesTraceesEtSansDoublon() {
+        DossierPatient d = service.ouvrirDossier(base.patients.get(1), base.medecins.get(1));
+        Antecedent a = service.ajouterAntecedent(d, Antecedent.Categorie.ALLERGIE, "  Pénicilline ", " ");
+        assertEquals("Pénicilline", a.getLibelle());
+        assertNull("précision vide", a.getComplement());
+        assertEquals(Integer.valueOf(1), a.getIdMedecin());
+        assertNotNull(a.getSaisiLe());
+        service.ajouterAntecedent(d, Antecedent.Categorie.MEDICAL, "Pénicilline", null);
+        refuse(() -> service.ajouterAntecedent(d, Antecedent.Categorie.ALLERGIE, "PÉNICILLINE", null), "déjà noté");
+        refuse(() -> service.ajouterAntecedent(d, Antecedent.Categorie.ALLERGIE, " ", null), "Indiquez");
+        refuse(() -> service.ajouterAntecedent(d, null, "X", null), "rubrique");
+        refuse(() -> service.ajouterAntecedent(d, Antecedent.Categorie.FAMILIAL, repeter('x', 201), null), "trop long");
+        refuse(() -> service.ajouterAntecedent(d, Antecedent.Categorie.FAMILIAL, "X", repeter('x', 256)), "trop longue");
+        assertEquals(2, service.antecedents(base.patients.get(1)).size());
+        assertTrue(service.antecedents(base.patients.get(2)).isEmpty());
+
+        service.supprimerAntecedent(a);
+        assertEquals(1, service.antecedents(base.patients.get(1)).size());
+        refuse(() -> service.supprimerAntecedent(a), "déjà été retiré");
+        refuse(() -> service.antecedents(null), "Aucun patient");
+    }
+
+    @Test
+    public void lesNotesDuPlusRecentAuPlusAncien() {
+        DossierPatient d = service.ouvrirDossier(base.patients.get(1), null);
+        NoteDossier n1 = service.ajouterNote(d, "Première");
+        NoteDossier n2 = service.ajouterNote(d, " Seconde ");
+        assertEquals("Seconde", n2.getTexte());
+        assertNull("dossier ouvert sans médecin", n2.getIdMedecin());
+        assertEquals(n2.getIdNote(), service.notes(base.patients.get(1)).get(0).getIdNote());
+        refuse(() -> service.ajouterNote(d, "   "), "vide");
+        refuse(() -> service.ajouterNote(d, repeter('x', 4001)), "trop long");
+        service.supprimerNote(n1);
+        assertEquals(1, service.notes(base.patients.get(1)).size());
+        refuse(() -> service.supprimerNote(n1), "déjà été supprimée");
+    }
+
+    @Test
+    public void unAntecedentQuiNeSEcritPasNeLaissePasDeTrace() {
+        DossierPatient d = service.ouvrirDossier(base.patients.get(1), base.medecins.get(1));
+        base.echouerSur("clinique.insertAntecedent");
+        try {
+            service.ajouterAntecedent(d, Antecedent.Categorie.ALLERGIE, "Aspirine", null);
+            fail();
+        } catch (DataAccessException e) {
+            assertTrue(base.antecedents.isEmpty());
+            assertEquals(1, base.rollbacks);
+        }
+    }
+
+    private static String repeter(char c, int n) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            b.append(c);
+        }
+        return b.toString();
+    }
+
+    private static void refuse(Runnable action, String extrait) {
+        try {
+            action.run();
+            fail("refus attendu : " + extrait);
+        } catch (MetierException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains(extrait));
         }
     }
 }

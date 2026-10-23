@@ -24,7 +24,11 @@ public interface JournalAcces {
         RENDEZ_VOUS_PRIS,
         RENDEZ_VOUS_ANNULE,
         RENDEZ_VOUS_DEPLACE,
-        RENDEZ_VOUS_ABSENT
+        RENDEZ_VOUS_ABSENT,
+        ANTECEDENT_AJOUTE,
+        ANTECEDENT_SUPPRIME,
+        NOTE_AJOUTEE,
+        NOTE_SUPPRIMEE
     }
 
     /**

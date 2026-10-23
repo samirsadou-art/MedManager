@@ -1,6 +1,8 @@
 package My_application.dossier;
 
+import My_application.entities.Antecedent;
 import My_application.entities.DossierPatient;
+import My_application.entities.NoteDossier;
 import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.consultation;
@@ -105,11 +107,23 @@ public class OngletsDossier extends JTabbedPane {
 
         /** Fiche du patient (état civil, coordonnées). */
         void modifierFiche();
+
+        /** Note un antécédent (boîte de saisie). */
+        void ajouterAntecedent();
+
+        void supprimerAntecedent(Antecedent a);
+
+        /** Écrit une note (boîte de saisie). */
+        void ajouterNote();
+
+        void supprimerNote(NoteDossier n);
     }
 
     private final transient DossierPatient dossier;
     private final transient Actions actions;
     private transient HistoriquePatient historique = HistoriquePatient.VIDE;
+    private transient List<Antecedent> antecedentsNotes = new ArrayList<>();
+    private transient List<NoteDossier> notes = new ArrayList<>();
 
     private final JPanel ensemble = page();
     private final JPanel constantes = page();
@@ -141,6 +155,13 @@ public class OngletsDossier extends JTabbedPane {
     /** Rendez-vous et passages du patient (lus à l'ouverture du dossier). */
     public void setHistorique(HistoriquePatient historique) {
         this.historique = historique == null ? HistoriquePatient.VIDE : historique;
+        rafraichirOngletCourant();
+    }
+
+    /** Antécédents et notes saisis dans le dossier (V18). */
+    public void setDossierClinique(List<Antecedent> antecedents, List<NoteDossier> notes) {
+        this.antecedentsNotes = new ArrayList<>(antecedents);
+        this.notes = new ArrayList<>(notes);
         rafraichirOngletCourant();
     }
 
@@ -276,7 +297,7 @@ public class OngletsDossier extends JTabbedPane {
         JPanel colonnes = new JPanel(new GridLayout(1, 3, 12, 0));
         colonnes.setOpaque(false);
 
-        colonnes.add(colonne(carteInformations(), carteProchainRendezVous()));
+        colonnes.add(colonne(carteInformations(), carteResumeAntecedents(), carteProchainRendezVous()));
 
         List<JComponent> milieu = new ArrayList<>();
         milieu.add(carteConstantes(cs));
@@ -304,6 +325,26 @@ public class OngletsDossier extends JTabbedPane {
         g.ligne("Pays", p.getPays());
         g.ligne("N° sécurité sociale", p.getNum_soc());
         return carte("user", "Informations personnelles", "Modifier", actions::modifierFiche, g);
+    }
+
+    /** Allergies d'abord, puis les autres rubriques, en une ligne chacune. */
+    private JComponent carteResumeAntecedents() {
+        Grille g = new Grille();
+        boolean vide = true;
+        for (Antecedent.Categorie c : Antecedent.Categorie.values()) {
+            List<String> l = new ArrayList<>();
+            for (Antecedent a : antecedentsNotes) {
+                if (a.getCategorie() == c) {
+                    l.add(a.toString());
+                }
+            }
+            if (!l.isEmpty()) {
+                g.ligne(c.getLibelle(), String.join(", ", l), c == Antecedent.Categorie.ALLERGIE ? Theme.DANGER : null);
+                vide = false;
+            }
+        }
+        return carte("clipboard-list", "Antécédents et allergies", vide ? "Ajouter" : "Voir tout",
+                () -> setSelectedIndex(ANTECEDENTS), vide ? discret("Aucun antécédent noté.") : g);
     }
 
     private JComponent carteProchainRendezVous() {
@@ -806,19 +847,90 @@ public class OngletsDossier extends JTabbedPane {
             puces.add(new Etiquette(f.getDesignation() + " · " + f.getNombre(), Theme.TEXTE_SECONDAIRE, Theme.FOND));
         }
 
-        JPanel p = new JPanel();
-        p.setOpaque(false);
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        JComponent c1 = carte("clipboard-list", "Pathologies diagnostiquées au cabinet", null, null,
+        JComponent c1 = carte("stethoscope", "Pathologies diagnostiquées au cabinet", null, null,
                 pathologies.isEmpty() ? discret("Aucune pathologie notée dans les consultations.") : defile);
         JComponent c2 = carte("stethoscope", "Symptômes les plus fréquents", null, null,
                 symptomes.isEmpty() ? discret("Aucun symptôme noté.") : puces);
-        c1.setAlignmentX(LEFT_ALIGNMENT);
-        c2.setAlignmentX(LEFT_ALIGNMENT);
-        p.add(c1);
-        p.add(Box.createVerticalStrut(12));
-        p.add(c2);
+
+        JPanel p = new JPanel(new GridLayout(1, 2, 12, 0));
+        p.setOpaque(false);
+        p.add(colonne(carteAntecedents(), carteNotes()));
+        p.add(colonne(c1, c2));
         return p;
+    }
+
+    /** Antécédents saisis à la main, par rubrique, avec une corbeille par ligne. */
+    private JComponent carteAntecedents() {
+        JPanel liste = new JPanel();
+        liste.setOpaque(false);
+        liste.setLayout(new BoxLayout(liste, BoxLayout.Y_AXIS));
+        for (Antecedent.Categorie c : Antecedent.Categorie.values()) {
+            List<Antecedent> l = new ArrayList<>();
+            for (Antecedent a : antecedentsNotes) {
+                if (a.getCategorie() == c) {
+                    l.add(a);
+                }
+            }
+            if (l.isEmpty()) {
+                continue;
+            }
+            JLabel rubrique = new JLabel(c.getLibelle());
+            rubrique.setFont(Theme.police(Font.BOLD, Theme.TAILLE_BASE - 1));
+            rubrique.setForeground(c == Antecedent.Categorie.ALLERGIE ? Theme.DANGER : Theme.TEXTE_SECONDAIRE);
+            rubrique.setBorder(BorderFactory.createEmptyBorder(liste.getComponentCount() == 0 ? 0 : 8, 0, 2, 0));
+            rubrique.setAlignmentX(LEFT_ALIGNMENT);
+            liste.add(rubrique);
+            for (Antecedent a : l) {
+                String complement = a.getComplement() == null ? "" : "&nbsp;&nbsp;<span style='color:#6B7C8F'>"
+                        + echapper(a.getComplement()) + "</span>";
+                liste.add(ligneSupprimable("<html>" + echapper(a.getLibelle()) + complement + "</html>",
+                        "Retirer cet antécédent", () -> actions.supprimerAntecedent(a)));
+            }
+        }
+        if (liste.getComponentCount() == 0) {
+            liste.add(discret("Aucun antécédent noté : allergies, médicaux, chirurgicaux, familiaux…"));
+        }
+        return carte("clipboard-list", "Antécédents notés", "+ Ajouter", actions::ajouterAntecedent, liste);
+    }
+
+    /** Notes du médecin, de la plus récente à la plus ancienne. */
+    private JComponent carteNotes() {
+        JPanel liste = new JPanel();
+        liste.setOpaque(false);
+        liste.setLayout(new BoxLayout(liste, BoxLayout.Y_AXIS));
+        DateTimeFormatter quand = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", Locale.FRENCH);
+        for (NoteDossier n : notes) {
+            String auteur = historique.nomMedecin(n.getIdMedecin()).trim();
+            String tete = n.getEcriteLe().format(quand) + (auteur.isEmpty() ? "" : " · " + auteur);
+            String html = "<html><span style='color:#6B7C8F'>" + echapper(tete) + "</span><br>"
+                    + echapper(n.getTexte()).replace("\n", "<br>") + "</html>";
+            liste.add(ligneSupprimable(html, "Supprimer cette note", () -> actions.supprimerNote(n)));
+        }
+        if (notes.isEmpty()) {
+            liste.add(discret("Aucune note."));
+        }
+        return carte("pencil", "Notes du médecin", "+ Écrire une note", actions::ajouterNote, liste);
+    }
+
+    private static JComponent ligneSupprimable(String html, String bulle, Runnable supprimer) {
+        JPanel l = new JPanel(new BorderLayout(8, 0));
+        l.setOpaque(false);
+        l.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.FOND),
+                BorderFactory.createEmptyBorder(4, 0, 4, 0)));
+        JLabel texte = new JLabel(html);
+        texte.setFont(Theme.police());
+        texte.setForeground(Theme.TEXTE);
+        JButton corbeille = new JButton(Icones.svg("trash", 14, Theme.TEXTE_SECONDAIRE));
+        corbeille.setToolTipText(bulle);
+        corbeille.putClientProperty("JButton.buttonType", "toolBarButton");
+        corbeille.addActionListener(e -> supprimer.run());
+        JPanel droite = new JPanel(new BorderLayout());
+        droite.setOpaque(false);
+        droite.add(corbeille, BorderLayout.NORTH);
+        l.add(texte, BorderLayout.CENTER);
+        l.add(droite, BorderLayout.EAST);
+        l.setAlignmentX(LEFT_ALIGNMENT);
+        return l;
     }
 
     // ===================================================== rendez-vous et règlements
@@ -1069,6 +1181,11 @@ public class OngletsDossier extends JTabbedPane {
         }
 
         void ligne(String libelle, String valeur) {
+            ligne(libelle, valeur, null);
+        }
+
+        /** @param couleur couleur de la valeur (rouge pour les allergies), ou null */
+        void ligne(String libelle, String valeur, Color couleur) {
             GridBagConstraints g = new GridBagConstraints();
             g.gridy = ligne++;
             g.anchor = GridBagConstraints.WEST;
@@ -1081,9 +1198,9 @@ public class OngletsDossier extends JTabbedPane {
             g.weightx = 1;
             g.fill = GridBagConstraints.HORIZONTAL;
             g.insets = new Insets(3, 0, 3, 0);
-            JLabel v = new JLabel(tiret(valeur));
-            v.setFont(Theme.police());
-            v.setForeground(Theme.TEXTE);
+            JLabel v = new JLabel("<html>" + echapper(tiret(valeur)) + "</html>");
+            v.setFont(couleur == null ? Theme.police() : Theme.policeGras());
+            v.setForeground(couleur == null ? Theme.TEXTE : couleur);
             add(v, g);
         }
     }

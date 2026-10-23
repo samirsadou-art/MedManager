@@ -11,13 +11,14 @@ import My_application.controller.DossierPatientController;
 import My_application.controller.Vue;
 import My_application.dossier.BandeauIdentite;
 import My_application.dossier.OngletsDossier;
+import My_application.entities.Antecedent;
 import My_application.entities.DossierPatient;
+import My_application.entities.NoteDossier;
 import My_application.entities.consultation;
 import My_application.entities.patient;
 import My_application.entities.pathologie;
 import My_application.entities.symptome;
 import My_application.Patient.FichePatient;
-import My_application.service.HistoriquePatient;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
 import My_application.vue.FiltreSaisie;
@@ -30,6 +31,7 @@ import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
@@ -38,10 +40,13 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
 
@@ -113,9 +118,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         bandeau = new BandeauIdentite(this::modifierFiche);
         onglets = new OngletsDossier(dossier, jPanel24, new ActionsOnglets());
         presenterOnglets();
-        HistoriquePatient historique = controleur.historique();
-        onglets.setHistorique(historique);
-        bandeau.afficher(dossier.getMalade(), historique.passageEnCours(LocalDate.now()));
+        onglets.setHistorique(controleur.historique());
+        rechargerDossierClinique();
         onglets.rafraichirVisites();
         jButton2.setToolTipText("Évolution des constantes vitales");
         jButton2.addActionListener(e -> onglets.setSelectedIndex(OngletsDossier.CONSTANTES));
@@ -177,6 +181,69 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         public void modifierFiche() {
             DossierPatientForm.this.modifierFiche();
         }
+
+        @Override
+        public void ajouterAntecedent() {
+            JComboBox<Antecedent.Categorie> rubrique = new JComboBox<>(Antecedent.Categorie.values());
+            JTextField libelle = new JTextField(28);
+            libelle.putClientProperty("JTextField.placeholderText", "Pénicilline, appendicectomie, diabète du père…");
+            JTextField complement = new JTextField(28);
+            complement.putClientProperty("JTextField.placeholderText", "Facultatif : date, réaction, dosage…");
+            Formulaire f = new Formulaire(DossierPatientForm.this, "Nouvel antécédent", "clipboard-list",
+                    "Noté tout de suite dans le dossier, sans attendre sa fermeture.", "Ajouter")
+                    .ligne("Rubrique", rubrique)
+                    .ligne("Antécédent", libelle)
+                    .ligne("Précision", complement);
+            if (f.afficher(() -> controleur.ajouterAntecedent((Antecedent.Categorie) rubrique.getSelectedItem(),
+                    libelle.getText(), complement.getText()))) {
+                rechargerDossierClinique();
+            }
+        }
+
+        @Override
+        public void supprimerAntecedent(Antecedent a) {
+            if (Dialogues.confirmer(DossierPatientForm.this, "Retirer « " + a + " » des antécédents ?")
+                    && controleur.supprimerAntecedent(a)) {
+                rechargerDossierClinique();
+            }
+        }
+
+        @Override
+        public void ajouterNote() {
+            JTextArea texte = new JTextArea(8, 40);
+            texte.setLineWrap(true);
+            texte.setWrapStyleWord(true);
+            Formulaire f = new Formulaire(DossierPatientForm.this, "Nouvelle note", "pencil",
+                    "Note datée, à votre nom, enregistrée tout de suite dans le dossier.", "Enregistrer")
+                    .ligne(null, new JScrollPane(texte));
+            if (f.afficher(() -> controleur.ajouterNote(texte.getText()))) {
+                rechargerDossierClinique();
+            }
+        }
+
+        @Override
+        public void supprimerNote(NoteDossier n) {
+            if (Dialogues.confirmer(DossierPatientForm.this, "Supprimer cette note ?") && controleur.supprimerNote(n)) {
+                rechargerDossierClinique();
+            }
+        }
+    }
+
+    /** Relit antécédents et notes, et les allergies du bandeau. */
+    private void rechargerDossierClinique() {
+        List<Antecedent> antecedents = controleur.antecedents();
+        onglets.setDossierClinique(antecedents, controleur.notes());
+        afficherBandeau(antecedents);
+    }
+
+    private void afficherBandeau(List<Antecedent> antecedents) {
+        List<String> allergies = new ArrayList<>();
+        for (Antecedent a : antecedents) {
+            if (a.getCategorie() == Antecedent.Categorie.ALLERGIE) {
+                allergies.add(a.getLibelle());
+            }
+        }
+        bandeau.afficher(dossier.getMalade(), onglets.getHistorique().passageEnCours(LocalDate.now()), allergies);
     }
 
     /** Fiche du patient (état civil, coordonnées) : le bandeau et la vue d'ensemble suivent les changements. */
@@ -187,7 +254,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         if (modifie != null) {
             dossier.setMalade(modifie);
             entete.setSousTitre(sousTitre(modifie));
-            bandeau.afficher(modifie, onglets.getHistorique().passageEnCours(LocalDate.now()));
+            rechargerDossierClinique();
             remplirInfo();
             onglets.rafraichirOngletCourant();
         }

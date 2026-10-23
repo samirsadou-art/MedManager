@@ -6,6 +6,7 @@ import My_application.dao.DAOFactory;
 import My_application.dao.DoublonException;
 import My_application.dao.DataAccessException;
 import My_application.dao.DemandeAnalyseDao;
+import My_application.dao.DossierCliniqueDao;
 import My_application.dao.EvenementDao;
 import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
@@ -27,6 +28,8 @@ import My_application.entities.EntreeJournal;
 import My_application.entities.MessageInterne;
 import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
+import My_application.entities.Antecedent;
+import My_application.entities.NoteDossier;
 import My_application.entities.Statistiques;
 import My_application.entities.User;
 import My_application.entities.analyse;
@@ -96,6 +99,8 @@ public class MemoireDAOFactory implements DAOFactory {
     public final Set<String> lus = new HashSet<>();
     /** Membres en ligne, et le poste de chacun. */
     public final Map<Integer, String> presents = new HashMap<>();
+    public final List<Antecedent> antecedents = new ArrayList<>();
+    public final List<NoteDossier> notes = new ArrayList<>();
 
     // ----- instrumentation -----
     public int commits;
@@ -172,6 +177,8 @@ public class MemoireDAOFactory implements DAOFactory {
         final Map<Integer, String> em = new HashMap<>(empreintes);
         final Set<Integer> in = new HashSet<>(inactifs);
         final List<EntreeJournal> jo = new ArrayList<>(journal);
+        final List<Antecedent> an = new ArrayList<>(antecedents);
+        final List<NoteDossier> no = new ArrayList<>(notes);
 
         void restaurer() {
             remplacer(consultations, c);
@@ -196,6 +203,8 @@ public class MemoireDAOFactory implements DAOFactory {
             inactifs.clear();
             inactifs.addAll(in);
             remplacer(journal, jo);
+            remplacer(antecedents, an);
+            remplacer(notes, no);
         }
     }
 
@@ -1199,6 +1208,64 @@ public class MemoireDAOFactory implements DAOFactory {
                 int avant = messages.size();
                 messages.removeIf(m -> m.getEnvoyeLe().isBefore(limite));
                 return avant - messages.size();
+            }
+        };
+    }
+
+    @Override
+    public DossierCliniqueDao getDossierCliniqueDao() {
+        return new DossierCliniqueDao() {
+            @Override
+            public List<Antecedent> findAntecedents(int idPatient) {
+                appel("clinique.findAntecedents");
+                List<Antecedent> l = new ArrayList<>();
+                for (Antecedent a : antecedents) {
+                    if (a.getIdPatient() == idPatient) {
+                        l.add(a);
+                    }
+                }
+                l.sort(Comparator.comparing((Antecedent a) -> a.getCategorie().name())
+                        .thenComparing(Antecedent::getIdAntecedent));
+                return l;
+            }
+
+            @Override
+            public void insert(Antecedent a) {
+                appel("clinique.insertAntecedent");
+                a.setIdAntecedent(nouvelId());
+                antecedents.add(a);
+            }
+
+            @Override
+            public boolean supprimerAntecedent(int idAntecedent) {
+                appel("clinique.supprimerAntecedent");
+                return antecedents.removeIf(a -> a.getIdAntecedent() == idAntecedent);
+            }
+
+            @Override
+            public List<NoteDossier> findNotes(int idPatient) {
+                appel("clinique.findNotes");
+                List<NoteDossier> l = new ArrayList<>();
+                for (NoteDossier n : notes) {
+                    if (n.getIdPatient() == idPatient) {
+                        l.add(n);
+                    }
+                }
+                l.sort(Comparator.comparing(NoteDossier::getEcriteLe).thenComparing(NoteDossier::getIdNote).reversed());
+                return l;
+            }
+
+            @Override
+            public void insert(NoteDossier n) {
+                appel("clinique.insertNote");
+                n.setIdNote(nouvelId());
+                notes.add(n);
+            }
+
+            @Override
+            public boolean supprimerNote(int idNote) {
+                appel("clinique.supprimerNote");
+                return notes.removeIf(n -> n.getIdNote() == idNote);
             }
         };
     }
