@@ -83,6 +83,8 @@ public class FichePatient extends JDialog implements FichePatientVue {
     private transient patient resultat;
     private boolean existant;
     private Suite suite = Suite.AUCUNE;
+    /** Faux pour le médecin : « Mettre en salle d'attente » n'est pas proposé après l'inscription. */
+    private boolean salleAttente = true;
 
     /** Inscription d'un nouveau patient. */
     public FichePatient(Window parent, PatientService patientService) {
@@ -246,11 +248,19 @@ public class FichePatient extends JDialog implements FichePatientVue {
     }
 
     private Suite demanderSuite(patient p) {
-        Object[] choix = {"Prendre un rendez-vous", "Mettre en salle d'attente", "Terminer"};
+        Object[] choix = salleAttente
+                ? new Object[] {"Prendre un rendez-vous", "Mettre en salle d'attente", "Terminer"}
+                : new Object[] {"Prendre un rendez-vous", "Terminer"};
         int reponse = JOptionPane.showOptionDialog(this,
                 "Patient " + p + " inscrit (dossier n° " + p.getNumeroDossier() + ").\nQue voulez-vous faire ?",
                 "Patient inscrit", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, choix, choix[0]);
-        return reponse == 0 ? Suite.RENDEZ_VOUS : reponse == 1 ? Suite.SALLE_ATTENTE : Suite.AUCUNE;
+        return reponse == 0 ? Suite.RENDEZ_VOUS
+                : reponse == 1 && salleAttente ? Suite.SALLE_ATTENTE : Suite.AUCUNE;
+    }
+
+    /** Ne propose pas « Mettre en salle d'attente » après l'inscription (médecin). À appeler avant l'affichage. */
+    public void sansSalleAttente() {
+        salleAttente = false;
     }
 
     /** Patient inscrit ou modifié, fiche existante choisie, ou null si rien n'a été enregistré. */

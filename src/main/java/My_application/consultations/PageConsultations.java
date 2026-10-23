@@ -21,11 +21,9 @@ import java.awt.event.MouseEvent;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
@@ -55,11 +53,10 @@ public class PageConsultations extends JPanel implements ConsultationsVue {
     private final transient Consumer<DossierPatient> ouvrir;
     private final JSpinner date = new JSpinner(new SpinnerDateModel());
     private final ListeTableModel<consultation> modele = new ListeTableModel<>(
-            "Genre", "N° dossier", "Nom", "Prénom", "Âge", "Heure", "Médecin");
+            "Genre", "N° dossier", "Nom", "Prénom", "Âge", "Heure");
     private final JTable table = new JTable(modele);
     private final JLabel resume = new JLabel(" ");
     private final JButton ouvrirBtn = new JButton("Ouvrir le dossier", Icones.svg("folder-open", 16, Theme.PRIMAIRE));
-    private transient Map<Integer, String> medecins = Collections.emptyMap();
     /** Évite de relire pendant qu'on remet la date affichée dans le champ. */
     private boolean enCours;
 
@@ -161,9 +158,7 @@ public class PageConsultations extends JPanel implements ConsultationsVue {
     // ----- ConsultationsVue -----
 
     @Override
-    public void afficherConsultations(LocalDate jour, List<consultation> consultations,
-            Map<Integer, String> medecins) {
-        this.medecins = medecins;
+    public void afficherConsultations(LocalDate jour, List<consultation> consultations) {
         enCours = true;
         date.setValue(Date.from(jour.atStartOfDay(ZoneId.systemDefault()).toInstant()));
         enCours = false;
@@ -188,7 +183,7 @@ public class PageConsultations extends JPanel implements ConsultationsVue {
     }
 
     /** Une ligne = une consultation ; la colonne choisit ce qui est affiché. */
-    private final class Rendu extends DefaultTableCellRenderer {
+    private static final class Rendu extends DefaultTableCellRenderer {
 
         private static final long serialVersionUID = 1L;
 
@@ -199,7 +194,7 @@ public class PageConsultations extends JPanel implements ConsultationsVue {
             Theme.cellule(l, t, choisie, ligne);
             consultation c = (consultation) valeur;
             l.setIcon(null);
-            l.setHorizontalAlignment(colonne == 0 || colonne >= 4 && colonne <= 5 ? CENTER : LEFT);
+            l.setHorizontalAlignment(colonne == 0 || colonne >= 4 ? CENTER : LEFT);
             switch (colonne) {
                 case 0:
                     l.setIcon(Icones.patient(c.getPatient(), 32));
@@ -217,12 +212,8 @@ public class PageConsultations extends JPanel implements ConsultationsVue {
                 case 4:
                     l.setText(c.getPatient().getStringAge());
                     break;
-                case 5:
-                    l.setText(c.getHeureString());
-                    break;
                 default:
-                    String m = c.getMedecin() == null ? null : medecins.get(c.getMedecin().getIdmedecin());
-                    l.setText(m == null ? "" : m);
+                    l.setText(c.getHeureString());
             }
             return l;
         }

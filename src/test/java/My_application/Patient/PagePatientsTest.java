@@ -1,7 +1,9 @@
 package My_application.Patient;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import My_application.controller.ListePatientController;
 import My_application.entities.DossierPatient;
@@ -58,5 +60,11 @@ public class PagePatientsTest {
     @Test
     public void lePanneauSeConstruitPourLaSecretaire() {
         assertNotNull(page(false));
+    }
+
+    @Test
+    public void salleDAttenteProposeeALaSecretaireSeulement() {
+        assertTrue(page(false).boutonSalleAttente().isVisible());
+        assertFalse(page(true).boutonSalleAttente().isVisible());
     }
 }

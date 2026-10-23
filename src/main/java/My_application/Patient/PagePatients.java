@@ -118,6 +118,8 @@ public class PagePatients extends JPanel implements ListePatientVue {
         salleBtn.setToolTipText("Patient arrivé sans rendez-vous : le mettre en salle d'attente");
         salleBtn.addActionListener(e -> mettreEnSalle(selection()));
         ouvrirBtn.setVisible(medecin);
+        // La salle d'attente est tenue par la secrétaire : le médecin n'y met pas de patient d'ici.
+        salleBtn.setVisible(!medecin);
 
         JPanel barre = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         barre.setOpaque(false);
@@ -192,6 +194,10 @@ public class PagePatients extends JPanel implements ListePatientVue {
         return recherche;
     }
 
+    JButton boutonSalleAttente() {
+        return salleBtn;
+    }
+
     void rechercher() {
         controleur.rechercher(recherche.getText().trim());
     }
@@ -210,6 +216,9 @@ public class PagePatients extends JPanel implements ListePatientVue {
 
     private void inscrire() {
         FichePatient fiche = new FichePatient(fenetre(), patients);
+        if (medecin) {
+            fiche.sansSalleAttente();
+        }
         fiche.setVisible(true);
         patient p = fiche.getPatient();
         if (p == null) {
