@@ -11,7 +11,9 @@ import static org.junit.Assume.assumeTrue;
 
 import My_application.dao.DAOFactory;
 import My_application.dao.DataAccessException;
+import My_application.entities.Antecedent;
 import My_application.entities.DossierPatient;
+import My_application.entities.NoteDossier;
 import My_application.entities.EntreeJournal;
 import My_application.entities.MessageInterne;
 import My_application.entities.Passage;
@@ -320,6 +322,29 @@ public class MySqlIntegrationTest {
         List<patient> r = daos.getPatientDao().findByNomCommencantPar("O'N");
         assertEquals(1, r.size());
         assertEquals(p.getDat_nais(), r.get(0).getDat_nais());
+    }
+
+    @Test
+    public void antecedentsEtNotesEnregistresEtRelus() {
+        patient p = creerPatient("HADDAD");
+        medecin m = daos.getMedecinDao().findById(idMedecin);
+        DossierService service = new DossierService(daos);
+        DossierPatient d = service.ouvrirDossier(p, m);
+        service.ajouterAntecedent(d, Antecedent.Categorie.ALLERGIE, "Pénicilline", "urticaire");
+        service.ajouterAntecedent(d, Antecedent.Categorie.CHIRURGICAL, "Appendicectomie", null);
+        service.ajouterNote(d, "Patient anxieux.\nRevoir dans 3 mois.");
+        List<Antecedent> l = service.antecedents(p);
+        assertEquals(2, l.size());
+        assertEquals("rubriques dans l'ordre alphabétique de la colonne", Antecedent.Categorie.ALLERGIE,
+                l.get(0).getCategorie());
+        assertEquals("urticaire", l.get(0).getComplement());
+        assertEquals(Integer.valueOf(idMedecin), l.get(0).getIdMedecin());
+        List<NoteDossier> notes = service.notes(p);
+        assertEquals("Patient anxieux.\nRevoir dans 3 mois.", notes.get(0).getTexte());
+        service.supprimerAntecedent(l.get(1));
+        service.supprimerNote(notes.get(0));
+        assertEquals(1, service.antecedents(p).size());
+        assertTrue(service.notes(p).isEmpty());
     }
 
     @Test

@@ -83,6 +83,8 @@ public class RolesTest {
         refuse(() -> dossiers.nouvelleConsultation(d), "médecin");
         refuse(() -> dossiers.enregistrer(d), "médecin");
         refuse(() -> dossiers.historique(base.patients.get(1)), "médecin");
+        refuse(() -> dossiers.antecedents(base.patients.get(1)), "médecin");
+        refuse(() -> dossiers.ajouterNote(d, "x"), "médecin");
         assertTrue("aucune trace d'accès au dossier", base.journal.isEmpty());
     }
 

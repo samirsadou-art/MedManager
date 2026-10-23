@@ -6,7 +6,9 @@ import My_application.dao.DemandeAnalyseDao;
 import My_application.dao.MedecinDao;
 import My_application.dao.PrescriptionDao;
 import My_application.dao.UniteDeTravail;
+import My_application.entities.Antecedent;
 import My_application.entities.DossierPatient;
+import My_application.entities.NoteDossier;
 import My_application.entities.Role;
 import My_application.entities.analyse;
 import My_application.entities.analyseBio;
@@ -275,6 +277,129 @@ public class DossierService {
         int id = malade.getIdentPat();
         return new HistoriquePatient(daos.getRendezVousDao().findDesPatients(Collections.singletonList(id)),
                 daos.getSalleAttenteDao().findDuPatient(id), medecinDao.findAll());
+    }
+
+    // ----- antécédents et notes (V18) -----
+
+    public static final int LONGUEUR_LIBELLE = 200;
+    public static final int LONGUEUR_COMPLEMENT = 255;
+    public static final int LONGUEUR_NOTE = 4000;
+
+    /** Antécédents notés dans le dossier, par rubrique. */
+    public List<Antecedent> antecedents(patient malade) {
+        acces.exiger(Role.MEDECIN);
+        return daos.getDossierCliniqueDao().findAntecedents(idPatient(malade));
+    }
+
+    /** Notes du médecin, de la plus récente à la plus ancienne. */
+    public List<NoteDossier> notes(patient malade) {
+        acces.exiger(Role.MEDECIN);
+        return daos.getDossierCliniqueDao().findNotes(idPatient(malade));
+    }
+
+    /**
+     * Note un antécédent dans le dossier, tout de suite (sans attendre la
+     * fermeture du dossier), au nom du médecin du dossier.
+     *
+     * @throws MetierException libellé vide ou trop long, ou déjà noté dans cette rubrique
+     */
+    public Antecedent ajouterAntecedent(DossierPatient dossier, Antecedent.Categorie categorie, String libelle,
+            String complement) {
+        acces.exiger(Role.MEDECIN);
+        if (categorie == null) {
+            throw new MetierException("Choisissez la rubrique de l'antécédent.");
+        }
+        String texte = obligatoire(libelle, "Indiquez l'antécédent.", LONGUEUR_LIBELLE);
+        String precision = facultatif(complement, LONGUEUR_COMPLEMENT);
+        int id = idPatient(dossier.getMalade());
+        for (Antecedent a : daos.getDossierCliniqueDao().findAntecedents(id)) {
+            if (a.getCategorie() == categorie && a.getLibelle().equalsIgnoreCase(texte)) {
+                throw new MetierException("« " + texte + " » est déjà noté dans « " + categorie.getLibelle() + " ».");
+            }
+        }
+        final Antecedent a = new Antecedent();
+        a.setIdPatient(id);
+        a.setCategorie(categorie);
+        a.setLibelle(texte);
+        a.setComplement(precision);
+        a.setIdMedecin(idMedecin(dossier));
+        a.setSaisiLe(LocalDateTime.now().withNano(0));
+        daos.enTransaction(() -> {
+            daos.getDossierCliniqueDao().insert(a);
+            journal.noter(JournalAcces.Action.ANTECEDENT_AJOUTE, id, categorie.name() + " : " + texte);
+            return null;
+        });
+        return a;
+    }
+
+    public void supprimerAntecedent(final Antecedent a) {
+        acces.exiger(Role.MEDECIN);
+        daos.enTransaction(() -> {
+            if (!daos.getDossierCliniqueDao().supprimerAntecedent(a.getIdAntecedent())) {
+                throw new MetierException("Cet antécédent a déjà été retiré du dossier.");
+            }
+            journal.noter(JournalAcces.Action.ANTECEDENT_SUPPRIME, a.getIdPatient(),
+                    a.getCategorie().name() + " : " + a.getLibelle());
+            return null;
+        });
+    }
+
+    /** Ajoute une note datée au dossier, au nom du médecin du dossier. */
+    public NoteDossier ajouterNote(DossierPatient dossier, String texte) {
+        acces.exiger(Role.MEDECIN);
+        final NoteDossier n = new NoteDossier();
+        n.setIdPatient(idPatient(dossier.getMalade()));
+        n.setTexte(obligatoire(texte, "La note est vide.", LONGUEUR_NOTE));
+        n.setIdMedecin(idMedecin(dossier));
+        n.setEcriteLe(LocalDateTime.now().withNano(0));
+        daos.enTransaction(() -> {
+            daos.getDossierCliniqueDao().insert(n);
+            journal.noter(JournalAcces.Action.NOTE_AJOUTEE, n.getIdPatient(), "note n° " + n.getIdNote());
+            return null;
+        });
+        return n;
+    }
+
+    public void supprimerNote(final NoteDossier n) {
+        acces.exiger(Role.MEDECIN);
+        daos.enTransaction(() -> {
+            if (!daos.getDossierCliniqueDao().supprimerNote(n.getIdNote())) {
+                throw new MetierException("Cette note a déjà été supprimée.");
+            }
+            journal.noter(JournalAcces.Action.NOTE_SUPPRIMEE, n.getIdPatient(), "note n° " + n.getIdNote());
+            return null;
+        });
+    }
+
+    private static int idPatient(patient malade) {
+        if (malade == null) {
+            throw new MetierException("Aucun patient sélectionné.");
+        }
+        return malade.getIdentPat();
+    }
+
+    private static Integer idMedecin(DossierPatient dossier) {
+        medecin m = dossier.getMedTraitant();
+        return m == null || m.getIdmedecin() <= 0 ? null : m.getIdmedecin();
+    }
+
+    private static String obligatoire(String texte, String siVide, int longueur) {
+        String t = texte == null ? "" : texte.trim();
+        if (t.isEmpty()) {
+            throw new MetierException(siVide);
+        }
+        if (t.length() > longueur) {
+            throw new MetierException("Texte trop long (" + longueur + " caractères au plus).");
+        }
+        return t;
+    }
+
+    private static String facultatif(String texte, int longueur) {
+        String t = texte == null ? "" : texte.trim();
+        if (t.length() > longueur) {
+            throw new MetierException("Précision trop longue (" + longueur + " caractères au plus).");
+        }
+        return t.isEmpty() ? null : t;
     }
 
     /** Consultations du jour (motifs et diagnostics compris) : réservé aux médecins. */

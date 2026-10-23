@@ -86,10 +86,22 @@ public class BandeauIdentite extends JPanel {
 
     /** @param enCours passage du jour si le patient est au cabinet, sinon null */
     public void afficher(patient p, Passage enCours) {
+        afficher(p, enCours, java.util.Collections.<String>emptyList());
+    }
+
+    /** @param allergies allergies notées dans le dossier, signalées en rouge à côté du nom */
+    public void afficher(patient p, Passage enCours, List<String> allergies) {
         photo.setIcon(Icones.patient(p, 72));
         nom.setText(p.getNom().toUpperCase(Locale.FRENCH) + " " + p.getPrenom());
 
         presence.removeAll();
+        if (!allergies.isEmpty()) {
+            Etiquette e = new Etiquette("Allergies : " + String.join(", ", allergies), Theme.DANGER,
+                    Theme.DANGER_CLAIR);
+            e.setIcon(Icones.svg("first-aid-kit", 14, Theme.DANGER));
+            presence.add(e);
+            presence.add(Box.createHorizontalStrut(8));
+        }
         if (enCours != null) {
             presence.add(new Etiquette(textePresence(enCours), Theme.AVERTISSEMENT, Theme.AVERTISSEMENT_CLAIR));
         }

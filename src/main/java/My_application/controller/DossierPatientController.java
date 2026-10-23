@@ -1,6 +1,8 @@
 package My_application.controller;
 
+import My_application.entities.Antecedent;
 import My_application.entities.DossierPatient;
+import My_application.entities.NoteDossier;
 import My_application.entities.consultation;
 import My_application.entities.pathologie;
 import My_application.entities.symptome;
@@ -46,6 +48,33 @@ public class DossierPatientController extends ControleurBase {
      */
     public HistoriquePatient historique() {
         return tenter(() -> dossierService.historique(dossier.getMalade()), HistoriquePatient.VIDE);
+    }
+
+    // ----- antécédents et notes -----
+
+    public List<Antecedent> antecedents() {
+        return tenter(() -> dossierService.antecedents(dossier.getMalade()), Collections.<Antecedent>emptyList());
+    }
+
+    public List<NoteDossier> notes() {
+        return tenter(() -> dossierService.notes(dossier.getMalade()), Collections.<NoteDossier>emptyList());
+    }
+
+    /** Vrai si l'antécédent a été noté ; sinon le message a été affiché. */
+    public boolean ajouterAntecedent(Antecedent.Categorie categorie, String libelle, String complement) {
+        return tenter(() -> dossierService.ajouterAntecedent(dossier, categorie, libelle, complement));
+    }
+
+    public boolean supprimerAntecedent(Antecedent a) {
+        return tenter(() -> dossierService.supprimerAntecedent(a));
+    }
+
+    public boolean ajouterNote(String texte) {
+        return tenter(() -> dossierService.ajouterNote(dossier, texte));
+    }
+
+    public boolean supprimerNote(NoteDossier n) {
+        return tenter(() -> dossierService.supprimerNote(n));
     }
 
     /** Démarre une nouvelle consultation ; null si impossible. */
