@@ -32,7 +32,6 @@ import java.awt.Container;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -109,7 +108,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         initComponents();
         Theme.harmoniser(this);
         entete = EnTetePage.installer(this, "folder-open", "Dossier patient", sousTitre(doss.getMalade()));
-        presenterActionsDossier(entete);
+        presenterActionsDossier();
         installerFiltres();
         masquerFonctionsAbsentes();
         saisie = presenterSaisie();
@@ -138,8 +137,6 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         onglets.setHistorique(controleur.historique());
         rechargerDossierClinique();
         onglets.rafraichirVisites();
-        jButton2.setToolTipText("Évolution des constantes vitales");
-        jButton2.addActionListener(e -> onglets.setSelectedIndex(OngletsDossier.CONSTANTES));
     }
 
     private static String sousTitre(patient p) {
@@ -218,6 +215,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         JPanel etat = new JPanel(new GridBagLayout());
         etat.setOpaque(false);
         etat.add(etatConsultation);
+        GridBagConstraints g = new GridBagConstraints();
+        g.insets = new java.awt.Insets(0, 12, 0, 0);
+        etat.add(NewConsultBtn, g);
         JPanel carte = new JPanel(new BorderLayout(12, 0));
         Theme.carte(carte, null);
         carte.setBorder(BorderFactory.createCompoundBorder(carte.getBorder(),
@@ -384,7 +384,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         etatConsultation.removeAll();
         if (c == null) {
             titreConsultation.setText("Aucune consultation");
-            detailConsultation.setText("« Nouvelle Consultation », en haut, pour commencer la première visite.");
+            detailConsultation.setText("« Nouvelle consultation », à droite, pour commencer la première visite.");
         } else {
             String jour = c.getDate_cons().format(JOUR_CONSULTATION);
             titreConsultation.setText("Consultation du " + jour + c.getHeureString());
@@ -539,34 +539,17 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }
 
     /**
-     * Les actions du dossier (nouvelle consultation, rendez-vous, fermeture…)
-     * étaient cachées derrière le séparateur de l'historique : elles sont
-     * maintenant affichées en haut de la fenêtre, sous l'en-tête, en une
-     * rangée de boutons centrée.
+     * La rangée de boutons du haut (nouvelle consultation, rendez-vous, lettre
+     * d'orientation, statistiques, fermeture) est retirée : « Nouvelle
+     * consultation » passe dans l'en-tête de l'onglet « Consultations », le
+     * rendez-vous est dans l'onglet « Rendez-vous et règlements », les
+     * constantes ont leur onglet et la fenêtre se ferme par sa croix.
      */
-    private void presenterActionsDossier(EnTetePage entete) {
+    private void presenterActionsDossier() {
         jPanel9.removeAll();
         jPanel9.setLayout(new BorderLayout());
         jPanel9.add(jScrollPane1, BorderLayout.CENTER);
-        jPanel3.setLayout(new GridLayout(1, 0, 10, 0));
-        jPanel3.setOpaque(false);
-        jPanel3.setBorder(null);
         actionDossier(NewConsultBtn, "stethoscope", true);
-        actionDossier(NewRendezVousBtn, "calendar-event", false);
-        actionDossier(jButton10, "file-text", false);
-        actionDossier(jButton2, "chart-bar", false);
-        actionDossier(FermerDossierBtn, "x", false);
-        FermerDossierBtn.setForeground(Theme.DANGER);
-
-        JPanel barre = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        barre.setOpaque(false);
-        barre.setBorder(BorderFactory.createEmptyBorder(0, 20, 10, 20));
-        barre.add(jPanel3);
-        JPanel haut = new JPanel(new BorderLayout());
-        haut.setOpaque(false);
-        haut.add(entete, BorderLayout.CENTER);
-        haut.add(barre, BorderLayout.SOUTH);
-        getContentPane().add(haut, BorderLayout.NORTH);
     }
 
     private static void actionDossier(JButton b, String icone, boolean principal) {
