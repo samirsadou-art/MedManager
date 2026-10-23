@@ -6,7 +6,6 @@ import My_application.Analyse.AnalyseForm;
 import My_application.Analyse.PaneauAnalyse;
 import My_application.Ordonnance.OrdonnanceForm;
 import My_application.Ordonnance.PaneauOrdonnance;
-import My_application.Ordonnance.SaisieOrdonnance;
 import My_application.controller.DossierPatientController.Constante;
 import My_application.controller.DossierPatientController;
 import My_application.controller.Vue;
@@ -21,7 +20,6 @@ import My_application.entities.patient;
 import My_application.entities.pathologie;
 import My_application.entities.symptome;
 import My_application.Patient.FichePatient;
-import My_application.service.Posologie;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
 import My_application.vue.FiltreSaisie;
@@ -101,10 +99,6 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     consultation consult = null;
     PaneauAnalyse Panalyse = null;
     PaneauOrdonnance Pordonnance = null;
-    /** Saisie de l'ordonnance de la consultation en cours (null pour une consultation enregistrée). */
-    private SaisieOrdonnance saisieOrdo = null;
-    /** Allergies notées dans le dossier, rappelées pendant la saisie de l'ordonnance. */
-    private List<String> allergiesDossier = new ArrayList<>();
     /** Vrai si l'utilisateur a choisi l'onglet Analyses (conservé d'une consultation à l'autre). */
     private boolean analysesChoisies = false;
 
@@ -398,11 +392,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
     /** Les onglets ordonnance / analyses, ou une phrase quand la consultation n'en a pas. */
     private void majTraitements() {
-        int onglets = jTabbedPane1.getTabCount();
-        ((CardLayout) traitements.getLayout()).show(traitements, onglets > 0 ? AVEC_TRAITEMENTS : SANS_TRAITEMENT);
-        // L'onglet de saisie est toujours là pendant la consultation : il ne compte que s'il a des médicaments.
-        int n = onglets - (saisieOrdo != null && jTabbedPane1.indexOfComponent(saisieOrdo) >= 0
-                && consult != null && !consult.hasOrdonnance() ? 1 : 0);
+        int n = jTabbedPane1.getTabCount();
+        ((CardLayout) traitements.getLayout()).show(traitements, n > 0 ? AVEC_TRAITEMENTS : SANS_TRAITEMENT);
         if (sousOnglets.getTabCount() > 1) {
             sousOnglets.setTitleAt(1, n > 0 ? TRAITEMENTS + " (" + n + ")" : TRAITEMENTS);
         }
@@ -525,7 +516,6 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
                 allergies.add(a.getLibelle());
             }
         }
-        allergiesDossier = allergies;
         bandeau.afficher(dossier.getMalade(), onglets.getHistorique().passageEnCours(LocalDate.now()), allergies);
     }
 
@@ -1436,10 +1426,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         if (consult == null) {
             return;
         }
-        if (saisieOrdo != null && jTabbedPane1.indexOfComponent(saisieOrdo) >= 0) {
-            jTabbedPane1.setSelectedComponent(saisieOrdo);
-            saisieOrdo.commencer();
-        } else if (jTabbedPane1.indexOfComponent(Pordonnance) < 0) {
+        if (jTabbedPane1.indexOfComponent(Pordonnance) < 0) {
             new OrdonnanceForm(consult, ctx.getCatalogueService()).setVisible(true);
             addOrdonnance(consult);
         } else {
@@ -1450,13 +1437,6 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     private void supprimerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_supprimerBtnActionPerformed
         int onglet = jTabbedPane1.getSelectedIndex();
         if (onglet >= 0 && consult != null) {
-            if (saisieOrdo != null && onglet == jTabbedPane1.indexOfComponent(saisieOrdo)) {
-                // L'onglet de saisie reste : on vide seulement l'ordonnance.
-                if (consult.hasOrdonnance() && Dialogues.confirmer(this, "Retirer tous les médicaments de l'ordonnance ?")) {
-                    saisieOrdo.toutRetirer();
-                }
-                return;
-            }
             if (onglet == jTabbedPane1.indexOfComponent(Pordonnance)) {
                 consult.addOrdonnance(); // ordonnance vide (et non null : évite une NullPointerException plus tard)
             } else if (onglet == jTabbedPane1.indexOfComponent(Panalyse)) {
@@ -1664,8 +1644,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         }
         consultation c = dossier.getCurrentConsultation();
         int onglet = jTabbedPane1.getSelectedIndex();
-        if (onglet >= 0 && (onglet == jTabbedPane1.indexOfComponent(Pordonnance)
-                || onglet == jTabbedPane1.indexOfComponent(saisieOrdo))) {
+        if (onglet >= 0 && onglet == jTabbedPane1.indexOfComponent(Pordonnance)) {
             controleur.ordonnance(c, imprimer);
         } else if (onglet >= 0 && onglet == jTabbedPane1.indexOfComponent(Panalyse)) {
             controleur.analyses(c, imprimer);
@@ -1813,17 +1792,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
                 + myconsult.getDate_cons().format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.FRENCH))
                 + " à " + myconsult.getHeureString());
         enTeteConsultation(myconsult);
-        saisieOrdo = null;
-        if (myconsult == consult) {
-            // Consultation en cours : l'ordonnance se saisit directement dans l'onglet.
-            if (consult.getOrdoPat() == null) {
-                consult.addOrdonnance();
-            }
-            saisieOrdo = new SaisieOrdonnance(consult.getOrdoPat(), ctx.getCatalogueService(),
-                    Posologie.ordonnancePrecedente(dossier.getConsultations(), consult),
-                    () -> allergiesDossier, this::majTraitements);
-            jTabbedPane1.addTab(ONGLET_ORDONNANCE, Icones.svg("prescription", 16, Theme.PRIMAIRE), saisieOrdo);
-        } else if (myconsult.hasOrdonnance()) {
+        if (myconsult.hasOrdonnance()) {
             Pordonnance = new PaneauOrdonnance(myconsult.getOrdoPat());
             jTabbedPane1.addTab(ONGLET_ORDONNANCE, Icones.svg("prescription", 16, Theme.PRIMAIRE), Pordonnance);
         }
@@ -1831,8 +1800,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             Panalyse = new PaneauAnalyse(myconsult.getAnaPat());
             jTabbedPane1.addTab(ONGLET_ANALYSES, Icones.svg("flask", 16, Theme.PRIMAIRE), Panalyse);
         }
-        int onglet = jTabbedPane1.indexOfComponent(analysesChoisies ? Panalyse
-                : saisieOrdo != null ? saisieOrdo : Pordonnance);
+        int onglet = jTabbedPane1.indexOfComponent(analysesChoisies ? Panalyse : Pordonnance);
         if (onglet >= 0) {
             jTabbedPane1.setSelectedIndex(onglet);
         }
