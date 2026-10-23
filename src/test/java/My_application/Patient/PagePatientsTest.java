@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 
 import My_application.controller.ListePatientController;
 import My_application.entities.DossierPatient;
+import My_application.entities.patient;
 import My_application.fake.Donnees;
 import My_application.fake.MemoireDAOFactory;
 import My_application.service.DossierService;
@@ -53,13 +54,33 @@ public class PagePatientsTest {
         assertEquals("Aucun patient ne correspond à la recherche.", PagePatients.resume(0, true, false));
         assertEquals("1 patient · double-cliquez pour ouvrir le dossier médical",
                 PagePatients.resume(1, false, true));
-        assertEquals("3 patients trouvés · double-cliquez pour ouvrir la fiche",
+        assertEquals("3 patients trouvés · double-cliquez pour ouvrir les détails",
                 PagePatients.resume(3, true, false));
     }
 
     @Test
     public void lePanneauSeConstruitPourLaSecretaire() {
         assertNotNull(page(false));
+    }
+
+    @Test
+    public void colonneTelephoneRetireeEtBoutonDetails() {
+        PagePatients page = page(false);
+        assertEquals(5, page.modele().getColumnCount());
+        for (int i = 0; i < page.modele().getColumnCount(); i++) {
+            assertFalse("Téléphone".equals(page.modele().getColumnName(i)));
+        }
+        assertTrue(page.boutonDetails().isVisible());
+        assertFalse(page.boutonDetails().isEnabled());
+    }
+
+    @Test
+    public void adresseSansPartiesVides() {
+        patient p = new patient();
+        p.setAdresse(" 12 rue des Oliviers ");
+        p.setVille("Tizi Ouzou");
+        p.setLocalite("");
+        assertEquals("12 rue des Oliviers, Tizi Ouzou", DetailsPatient.adresse(p));
     }
 
     @Test
