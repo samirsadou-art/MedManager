@@ -98,6 +98,8 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
     private PanneauSalleAttente salle;
+    /** Part de la largeur de l'accueil donnée à la salle d'attente (le reste aux rendez-vous). */
+    private static final double PART_SALLE_ATTENTE = 0.7;
     /** Toutes les 3 secondes : un autre poste a-t-il changé la salle d'attente ou l'agenda ? */
     private Timer surveillance;
     private final JButton arriveBtn = new JButton("Patient arrivé");
@@ -241,8 +243,30 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     /**
      * Salle d'attente : le médecin voit sa file et appelle ; la secrétaire voit
      * toutes les files, pointe les arrivées et est prévenue de chaque appel.
-     * Sous les rendez-vous du jour : pointer l'arrivée, l'absence, la fin de journée.
+     * À côté, sous les rendez-vous du jour : pointer l'arrivée, l'absence, la fin de journée.
      */
+    /**
+     * Accueil : salle d'attente à gauche (70 %) et rendez-vous du jour à
+     * droite (30 %), côte à côte. Le .form garde l'ancienne disposition
+     * (rendez-vous au-dessus) ; le partage reste réglable à la souris.
+     */
+    private void disposerSalleEtRendezVous() {
+        jSplitPane2.setOrientation(javax.swing.JSplitPane.HORIZONTAL_SPLIT);
+        jSplitPane2.setLeftComponent(jPanel7);
+        jSplitPane2.setRightComponent(jPanel6);
+        jSplitPane2.setResizeWeight(PART_SALLE_ATTENTE);
+        jSplitPane2.setDividerSize(6);
+        jSplitPane2.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                if (jSplitPane2.getWidth() > 0) {
+                    jSplitPane2.setDividerLocation(PART_SALLE_ATTENTE);
+                    jSplitPane2.removeComponentListener(this);
+                }
+            }
+        });
+    }
+
     private void installerSalleAttente() {
         boolean secretaire = role == Role.SECRETAIRE;
         Integer medecinDuPoste = ctx.getSession().getIdMedecinDuPoste();
@@ -300,12 +324,25 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         });
         TableRendezvous.getSelectionModel().addListSelectionListener(e -> majBoutonsRendezVous());
         majBoutonsRendezVous();
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        // Colonne étroite (30 % de l'accueil) : nombre de rendez-vous, puis
+        // « Patient arrivé » et « Absent » côte à côte, « Fin de journée » dessous.
+        JPanel compte = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        compte.setOpaque(false);
+        for (java.awt.Component c : jPanel9.getComponents()) {
+            compte.add(c);
+        }
+        JPanel pointage = new JPanel(new java.awt.GridLayout(1, 2, 6, 0));
+        pointage.setOpaque(false);
+        pointage.add(arriveBtn);
+        pointage.add(absentBtn);
+        JPanel actions = new JPanel(new java.awt.GridLayout(0, 1, 0, 6));
         actions.setOpaque(false);
-        actions.add(arriveBtn);
-        actions.add(absentBtn);
+        actions.add(pointage);
         actions.add(finBtn);
-        jPanel9.add(actions);
+        jPanel9.removeAll();
+        jPanel9.setLayout(new BorderLayout(0, 6));
+        jPanel9.add(compte, BorderLayout.NORTH);
+        jPanel9.add(actions, BorderLayout.CENTER);
 
         surveillance = new Timer(3000, e -> {
             controleur.verifierEvenements();
@@ -482,6 +519,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             // pas (dossier médical).
             centre.remove(jSplitPane1);
             centre.add(jPanel2, BorderLayout.CENTER);
+            disposerSalleEtRendezVous();
             ((JComponent) contenu).setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
             pagesCabinet = new JPanel(new CardLayout());
             pagesCabinet.setOpaque(false);
