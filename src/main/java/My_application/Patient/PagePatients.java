@@ -40,10 +40,10 @@ import javax.swing.table.DefaultTableCellRenderer;
 /**
  * Page « Patients » dans le panneau central de la fenêtre principale (elle
  * remplace l'ancienne fenêtre séparée {@code ListePatient}) : recherche par
- * nom, téléphone ou numéro de dossier, inscription, modification de la fiche,
- * rendez-vous et arrivée sans rendez-vous. Le dossier médical ne s'ouvre que
- * pour un médecin ; un double-clic ouvre la fiche administrative pour la
- * secrétaire.
+ * nom, téléphone ou numéro de dossier, inscription, détails du patient (d'où
+ * l'on modifie sa fiche), rendez-vous et arrivée sans rendez-vous. Le dossier
+ * médical ne s'ouvre que pour un médecin ; un double-clic ouvre les détails
+ * pour la secrétaire.
  */
 public class PagePatients extends JPanel implements ListePatientVue {
 
@@ -61,7 +61,7 @@ public class PagePatients extends JPanel implements ListePatientVue {
     private final JTextField recherche = new JTextField(28);
     private final JLabel resume = new JLabel(" ");
     private final JButton ouvrirBtn = new JButton("Ouvrir le dossier", Icones.svg("folder-open", 16, Theme.PRIMAIRE));
-    private final JButton modifierBtn = new JButton("Modifier la fiche", Icones.svg("pencil", 16, Theme.PRIMAIRE));
+    private final JButton detailsBtn = new JButton("Détails", Icones.svg("eye", 16, Theme.PRIMAIRE));
     private final JButton rendezVousBtn = new JButton("Rendez-vous", Icones.svg("calendar-event", 16, Theme.PRIMAIRE));
     private final JButton salleBtn = new JButton("Salle d'attente", Icones.svg("clock", 16, Theme.PRIMAIRE));
     private final Timer delai;
@@ -112,7 +112,8 @@ public class PagePatients extends JPanel implements ListePatientVue {
         JButton nouveau = new JButton("Nouveau patient", Icones.svg("user-plus", 16, Theme.PRIMAIRE));
         nouveau.addActionListener(e -> inscrire());
         ouvrirBtn.addActionListener(e -> controleur.ouvrirDossier(selection()));
-        modifierBtn.addActionListener(e -> modifierFiche(selection()));
+        detailsBtn.setToolTipText("État civil et coordonnées du patient ; la fiche se modifie depuis cette fenêtre");
+        detailsBtn.addActionListener(e -> afficherDetails(selection()));
         rendezVousBtn.setToolTipText("Prendre un rendez-vous pour ce patient");
         rendezVousBtn.addActionListener(e -> prendreRendezVous(selection()));
         salleBtn.setToolTipText("Patient arrivé sans rendez-vous : le mettre en salle d'attente");
@@ -135,7 +136,7 @@ public class PagePatients extends JPanel implements ListePatientVue {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         actions.setOpaque(false);
         actions.add(ouvrirBtn);
-        actions.add(modifierBtn);
+        actions.add(detailsBtn);
         actions.add(rendezVousBtn);
         actions.add(salleBtn);
 
@@ -153,7 +154,7 @@ public class PagePatients extends JPanel implements ListePatientVue {
                     if (PagePatients.this.medecin) {
                         controleur.ouvrirDossier(selection());
                     } else {
-                        modifierFiche(selection());
+                        afficherDetails(selection());
                     }
                 }
             }
@@ -194,6 +195,10 @@ public class PagePatients extends JPanel implements ListePatientVue {
         return recherche;
     }
 
+    JButton boutonDetails() {
+        return detailsBtn;
+    }
+
     JButton boutonSalleAttente() {
         return salleBtn;
     }
@@ -205,7 +210,7 @@ public class PagePatients extends JPanel implements ListePatientVue {
     private void activerBoutons() {
         boolean une = selection() != null;
         ouvrirBtn.setEnabled(une);
-        modifierBtn.setEnabled(une);
+        detailsBtn.setEnabled(une);
         rendezVousBtn.setEnabled(une);
         salleBtn.setEnabled(une);
     }
@@ -232,14 +237,15 @@ public class PagePatients extends JPanel implements ListePatientVue {
         }
     }
 
-    private void modifierFiche(patient p) {
+    /** Fenêtre des détails ; si la fiche y a été modifiée, la liste montre le patient à jour. */
+    private void afficherDetails(patient p) {
         if (p == null) {
             return;
         }
-        FichePatient fiche = new FichePatient(fenetre(), patients, p);
-        fiche.setVisible(true);
-        if (fiche.getPatient() != null) {
-            afficherSeul(fiche.getPatient());
+        DetailsPatient details = new DetailsPatient(fenetre(), patients, p);
+        details.setVisible(true);
+        if (details.getPatientModifie() != null) {
+            afficherSeul(details.getPatientModifie());
         }
     }
 
@@ -298,7 +304,7 @@ public class PagePatients extends JPanel implements ListePatientVue {
         }
         return nombre + " patient" + (nombre > 1 ? "s" : "")
                 + (recherche ? " trouvé" + (nombre > 1 ? "s" : "") : "")
-                + " · double-cliquez pour ouvrir " + (medecin ? "le dossier médical" : "la fiche");
+                + " · double-cliquez pour ouvrir " + (medecin ? "le dossier médical" : "les détails");
     }
 
     // ----- ListePatientVue -----
@@ -329,13 +335,13 @@ public class PagePatients extends JPanel implements ListePatientVue {
         Dialogues.information(this, message);
     }
 
-    /** Colonnes de la page : avatar, numéro de dossier, nom, prénom, âge, téléphone. */
+    /** Colonnes de la page : avatar, numéro de dossier, nom, prénom, âge (le téléphone est dans les détails). */
     static final class ModelePatients extends ListeTableModel<patient> {
 
         private static final long serialVersionUID = 1L;
 
         ModelePatients() {
-            super("Genre", "N° dossier", "Nom", "Prénom", "Âge", "Téléphone");
+            super("Genre", "N° dossier", "Nom", "Prénom", "Âge");
         }
     }
 
@@ -366,11 +372,8 @@ public class PagePatients extends JPanel implements ListePatientVue {
                 case 3:
                     l.setText(p.getPrenom());
                     break;
-                case 4:
-                    l.setText(p.getStringAge());
-                    break;
                 default:
-                    l.setText(p.getTelephone() == null ? "" : p.getTelephone());
+                    l.setText(p.getStringAge());
             }
             return l;
         }
