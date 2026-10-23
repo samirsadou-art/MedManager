@@ -25,15 +25,14 @@ public class HistoriqueVisites {
     private final DefaultTreeModel racine = new DefaultTreeModel(null);
     private final DefaultMutableTreeNode visites;
     private final DefaultMutableTreeNode consult;
-    private final DefaultMutableTreeNode rendez;
 
     public HistoriqueVisites(DossierPatient dossier) {
         this.dossier = dossier;
         visites = new DefaultMutableTreeNode(new NoeudHistorique(-1, "Visites", -1));
         consult = new DefaultMutableTreeNode(new NoeudHistorique(-1, "Consultations", -1));
-        rendez = new DefaultMutableTreeNode(new NoeudHistorique(-1, "Rendez-Vous", -1));
+        // Plus de branche « Rendez-Vous » : elle restait toujours vide, les
+        // rendez-vous du patient se prennent par le bouton « Nouveau Rendez-vous ».
         visites.add(consult);
-        visites.add(rendez);
         racine.setRoot(visites);
     }
 
@@ -47,10 +46,6 @@ public class HistoriqueVisites {
 
     public DefaultMutableTreeNode getConsultNoeud() {
         return consult;
-    }
-
-    public DefaultMutableTreeNode getRendezNoeud() {
-        return rendez;
     }
 
     public void chargerHistorique() {

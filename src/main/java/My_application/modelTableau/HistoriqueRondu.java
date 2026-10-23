@@ -18,17 +18,15 @@ import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.TreeCellRenderer;
 
 /**
- * Arbre de l'historique des visites : catégories (consultations,
- * rendez-vous) puis une ligne par visite.
+ * Arbre de l'historique des visites : la catégorie des consultations puis
+ * une ligne par visite.
  *
  * @author GLOBAL INFO LAGA
  */
 public class HistoriqueRondu  implements TreeCellRenderer {
 
     private static final Icon CONSULTATIONS = Icones.svg("stethoscope", 22, Theme.PRIMAIRE);
-    private static final Icon RENDEZ_VOUS = Icones.svg("calendar-event", 22, Theme.PRIMAIRE);
     private static final Icon CONSULTATION = Icones.svg("history", 16, Theme.TEXTE_SECONDAIRE);
-    private static final Icon RENDEZ_VOUS_LIGNE = Icones.svg("calendar", 16, Theme.TEXTE_SECONDAIRE);
 
         private final JLabel label;
         private final DefaultTreeCellRenderer render;
@@ -53,13 +51,8 @@ public class HistoriqueRondu  implements TreeCellRenderer {
           if (NH.getItem().equals("Consultations")) {
               icone = CONSULTATIONS;
               police = Theme.police(Font.BOLD, Theme.TAILLE_BASE + 1);
-          } else if (NH.getItem().equals("Rendez-Vous")) {
-              icone = RENDEZ_VOUS;
-              police = Theme.police(Font.BOLD, Theme.TAILLE_BASE + 1);
           } else if (noeud.isLeaf() && NH.getType() == 0) {
               icone = CONSULTATION;
-          } else if (noeud.isLeaf() && NH.getIndiceConsult() == 1) {
-              icone = RENDEZ_VOUS_LIGNE;
           }
           if (icone == null) {
               return render.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus);
