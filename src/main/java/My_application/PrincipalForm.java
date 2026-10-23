@@ -495,7 +495,7 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
                     ctx.getRapportService(), () -> {
                         menu.selectionner("Patients");
                         pageCabinet("Patients");
-                    });
+                    }, role == Role.MEDECIN ? ctx.getSession().getIdMedecinDuPoste() : null);
             pagesCabinet.add(pageRendezVous, "Rendez-vous");
             if (role == Role.MEDECIN) {
                 pageConsultations = new PageConsultations(ctx.getDossierService(), ctx.getPatientService(),
