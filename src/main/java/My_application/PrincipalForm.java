@@ -9,6 +9,7 @@ import My_application.TableModelPrincipale.RendezJourTableModel;
 import My_application.TableModelPrincipale.RendezJourTableRondu;
 import My_application.admin.PageMembres;
 import My_application.admin.PageStatistiques;
+import My_application.consultations.PageConsultations;
 import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
 import My_application.controller.ConnexionController;
@@ -68,12 +69,17 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     /** Rôle du compte connecté : il choisit la page d'accueil et le menu. */
     private final Role role;
     private static final String TITRE_MEMBRES = "Membres du cabinet";
+    private static final String SOUS_TITRE_ACCUEIL = "Consultations, rendez-vous et salle d'attente du jour";
     private static final String SOUS_TITRE_MEMBRES =
             "Comptes de connexion des médecins, de la secrétaire et des administrateurs";
     /** Pages du compte administrateur (null pour les autres rôles). */
     private PageMembres pageMembres;
     private PageStatistiques pageStatistiques;
     private JPanel pagesAdmin;
+    /** Médecin : page « Consultations » (date choisie) à côté de l'accueil, dans le panneau central. */
+    private PageConsultations pageConsultations;
+    private JPanel pagesMedecin;
+    private EnTetePage entete;
     /** Messagerie interne (null pour l'administrateur) : créée au démarrage, montrée par le menu. */
     private FenetreMessagerie messagerie;
     private MenuLateral menu;
@@ -123,6 +129,27 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             entete.setTitre(TITRE_MEMBRES);
             entete.setSousTitre(SOUS_TITRE_MEMBRES);
             pageMembres.rafraichir();
+        }
+    }
+
+    /**
+     * Menu « Accueil » ou « Consultations » : montre la page dans le panneau
+     * central et met l'en-tête à jour (la secrétaire n'a que l'accueil).
+     */
+    private void pageMedecin(String page) {
+        if (pagesMedecin != null) {
+            ((CardLayout) pagesMedecin.getLayout()).show(pagesMedecin, page);
+        }
+        if ("Consultations".equals(page)) {
+            entete.setIcone("stethoscope");
+            entete.setTitre("Consultations");
+            entete.setSousTitre("Consultations de la date choisie, tous médecins confondus");
+            pageConsultations.rafraichir();
+        } else {
+            entete.setIcone("home");
+            entete.setTitre("Accueil");
+            entete.setSousTitre(SOUS_TITRE_ACCUEIL);
+            controleur.rafraichir();
         }
     }
 
@@ -357,6 +384,10 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     }
 
     public void refresh() {
+        if (pageConsultations != null && pageConsultations.isShowing()) {
+            pageConsultations.rafraichir();
+            return;
+        }
         if (pageStatistiques != null && pageStatistiques.isShowing()) {
             pageStatistiques.rafraichir();
             return;
@@ -381,7 +412,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         Fnord.setVisible(false);
         Fsud.setVisible(false);
 
-        EnTetePage entete;
         Container contenu = getContentPane();
         if (role == Role.ADMIN) {
             entete = new EnTetePage("users", TITRE_MEMBRES, SOUS_TITRE_MEMBRES);
@@ -394,14 +424,23 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             contenu = pagesAdmin;
         } else {
             entete = new EnTetePage("home", "Accueil", role == Role.SECRETAIRE
-                    ? "Rendez-vous et salle d'attente du jour"
-                    : "Consultations, rendez-vous et salle d'attente du jour");
+                    ? "Rendez-vous et salle d'attente du jour" : SOUS_TITRE_ACCUEIL);
             if (role == Role.SECRETAIRE) {
                 // Les consultations (motifs, diagnostics) relèvent du dossier médical.
                 centre.remove(jSplitPane1);
                 centre.add(jPanel2, BorderLayout.CENTER);
             }
             ((JComponent) contenu).setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+            if (role == Role.MEDECIN) {
+                pageConsultations = new PageConsultations(ctx.getDossierService(), ctx.getPatientService(),
+                        ctx.getRendezVousService(), ctx.getSession()::getMedecinTraitant,
+                        d -> new DossierPatientForm(d, ctx).setVisible(true));
+                pagesMedecin = new JPanel(new CardLayout());
+                pagesMedecin.setOpaque(false);
+                pagesMedecin.add(contenu, "Accueil");
+                pagesMedecin.add(pageConsultations, "Consultations");
+                contenu = pagesMedecin;
+            }
         }
         entete.setBorder(BorderFactory.createEmptyBorder(16, 20, 8, 20));
         entete.ajouterBouton("Actualiser", "refresh", this::refresh);
@@ -416,7 +455,10 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
             menu.ajouter("chart-bar", "Statistiques", true, () -> pageAdmin(entete, "Statistiques"));
             menu.selectionner("Membres");
         } else {
-            menu.ajouter("home", "Accueil", true, this::refresh);
+            menu.ajouter("home", "Accueil", true, () -> pageMedecin("Accueil"));
+            if (pageConsultations != null) {
+                menu.ajouter("stethoscope", "Consultations", true, () -> pageMedecin("Consultations"));
+            }
             menu.ajouter("users", "Patients", false, () -> userMenuBtn.doClick());
             menu.ajouter("calendar-event", "Rendez-vous", false, () -> new calandar(null, null, ctx.getRendezVousService(), ctx.getRapportService()).setVisible(true));
             menu.ajouter("message-circle", "Messagerie", false, () -> ChatBtn.doClick());
