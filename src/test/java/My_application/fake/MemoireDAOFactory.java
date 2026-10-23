@@ -1021,6 +1021,19 @@ public class MemoireDAOFactory implements DAOFactory {
             }
 
             @Override
+            public List<Passage> findDuPatient(int idPatient) {
+                appel("salle.findDuPatient");
+                List<Passage> l = new ArrayList<>();
+                for (Passage x : passages) {
+                    if (x.getPatient().getIdentPat() == idPatient) {
+                        l.add(copie(x));
+                    }
+                }
+                l.sort(Comparator.comparing(Passage::getArriveeLe).reversed());
+                return l;
+            }
+
+            @Override
             public boolean mettreAJour(Passage p, int etatAttendu) {
                 appel("salle.mettreAJour");
                 for (Passage x : passages) {

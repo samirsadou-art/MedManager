@@ -8,6 +8,7 @@ import My_application.report.RapportService;
 import My_application.service.CatalogueService;
 import My_application.service.ConstantesVitales;
 import My_application.service.DossierService;
+import My_application.service.HistoriquePatient;
 import My_application.service.SalleAttenteService;
 import java.util.Collections;
 import java.util.List;
@@ -37,6 +38,14 @@ public class DossierPatientController extends ControleurBase {
 
     public DossierPatient getDossier() {
         return dossier;
+    }
+
+    /**
+     * Rendez-vous et passages du patient pour les onglets du dossier. En cas
+     * d'échec, l'erreur est signalée et le dossier s'ouvre quand même.
+     */
+    public HistoriquePatient historique() {
+        return tenter(() -> dossierService.historique(dossier.getMalade()), HistoriquePatient.VIDE);
     }
 
     /** Démarre une nouvelle consultation ; null si impossible. */

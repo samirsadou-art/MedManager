@@ -9,14 +9,15 @@ import My_application.Ordonnance.PaneauOrdonnance;
 import My_application.controller.DossierPatientController.Constante;
 import My_application.controller.DossierPatientController;
 import My_application.controller.Vue;
+import My_application.dossier.BandeauIdentite;
+import My_application.dossier.OngletsDossier;
 import My_application.entities.DossierPatient;
 import My_application.entities.consultation;
 import My_application.entities.patient;
 import My_application.entities.pathologie;
 import My_application.entities.symptome;
-import My_application.modelTableau.HistoriqueRondu;
-import My_application.modelTableau.HistoriqueVisites;
-import My_application.modelTableau.NoeudHistorique;
+import My_application.Patient.FichePatient;
+import My_application.service.HistoriquePatient;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
 import My_application.vue.FiltreSaisie;
@@ -24,8 +25,10 @@ import My_application.vue.Formulaire;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import java.awt.BorderLayout;
+import java.awt.Container;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -35,16 +38,12 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreeNode;
-import javax.swing.tree.TreePath;
-import javax.swing.tree.TreeSelectionModel;
 
 /**
  * Dossier médical d'un patient (Vue).
@@ -52,6 +51,12 @@ import javax.swing.tree.TreeSelectionModel;
  * La fenêtre ne contient plus de SQL : les recherches de symptômes et
  * pathologies, l'enregistrement (transactionnel) et l'impression passent par
  * {@link DossierPatientController}. Elle reçoit un dossier déjà chargé.
+ * <p>
+ * Sous les boutons du haut : un bandeau d'identité, puis les onglets du
+ * dossier ({@link OngletsDossier}). Le panneau de saisie d'une consultation,
+ * dessiné avec l'éditeur de NetBeans, est placé dans l'onglet
+ * « Consultations », à côté de la liste des visites qui remplace l'arbre
+ * de l'historique et les flèches de navigation.
  */
 public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
@@ -60,7 +65,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
     private final DossierPatientController controleur;
     private final DossierPatient dossier;
-    private final HistoriqueVisites historiqueModele;
+    private final EnTetePage entete;
+    private final BandeauIdentite bandeau;
+    private final OngletsDossier onglets;
 
     /** Consultation en cours de saisie (null si aucune). */
     consultation consult = null;
@@ -81,9 +88,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         this.rendezVous = rendezVous;
         initComponents();
         Theme.harmoniser(this);
-        EnTetePage entete = EnTetePage.installer(this, "folder-open", "Dossier patient",
-                doss.getMalade().getNom().toUpperCase() + " " + doss.getMalade().getPrenom()
-                + "  ·  " + doss.getMalade().getStringAge());
+        entete = EnTetePage.installer(this, "folder-open", "Dossier patient", sousTitre(doss.getMalade()));
         presenterActionsDossier(entete);
         installerFiltres();
         masquerFonctionsAbsentes();
@@ -105,11 +110,87 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         remplirInfo();
         configCombo();
 
-        historiqueModele = new HistoriqueVisites(dossier);
-        historiqueModele.chargerHistorique();
-        historique.setModel(historiqueModele.getTreemodel());
-        historique.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-        historique.setCellRenderer(new HistoriqueRondu());
+        bandeau = new BandeauIdentite(this::modifierFiche);
+        onglets = new OngletsDossier(dossier, jPanel24, new ActionsOnglets());
+        presenterOnglets();
+        HistoriquePatient historique = controleur.historique();
+        onglets.setHistorique(historique);
+        bandeau.afficher(dossier.getMalade(), historique.passageEnCours(LocalDate.now()));
+        onglets.rafraichirVisites();
+        jButton2.setToolTipText("Évolution des constantes vitales");
+        jButton2.addActionListener(e -> onglets.setSelectedIndex(OngletsDossier.CONSTANTES));
+    }
+
+    private static String sousTitre(patient p) {
+        return p.getNom().toUpperCase() + " " + p.getPrenom() + "  ·  " + p.getStringAge();
+    }
+
+    /**
+     * Remplace les deux colonnes dessinées dans NetBeans (informations et
+     * historique à gauche, consultation à droite) par le bandeau d'identité
+     * et les onglets. Le panneau de la consultation est repris tel quel dans
+     * l'onglet « Consultations », sans ses flèches de navigation.
+     */
+    private void presenterOnglets() {
+        Container centre = jPanel5.getParent();
+        centre.removeAll();
+        centre.setLayout(new BorderLayout(0, 10));
+        centre.setBackground(Theme.FOND);
+        if (centre instanceof JComponent) {
+            ((JComponent) centre).setBorder(BorderFactory.createEmptyBorder(0, 14, 12, 14));
+        }
+        centre.add(bandeau, BorderLayout.NORTH);
+        centre.add(onglets, BorderLayout.CENTER);
+        jPanel7.setVisible(false);
+    }
+
+    /** Ce que les onglets du dossier demandent à la fenêtre. */
+    private final class ActionsOnglets implements OngletsDossier.Actions {
+
+        @Override
+        public void voirConsultation(consultation c) {
+            int index = dossier.getConsultations().indexOf(c);
+            if (index < 0 || !lireConstantes()) {
+                return;
+            }
+            dossier.SetPosition(index);
+            VoirConsultation(dossier.getCurrentConsultation());
+            majNavigation();
+        }
+
+        @Override
+        public void ordonnance(consultation c, boolean imprimer) {
+            controleur.ordonnance(c, imprimer);
+        }
+
+        @Override
+        public void analyses(consultation c, boolean imprimer) {
+            controleur.analyses(c, imprimer);
+        }
+
+        @Override
+        public void agenda() {
+            rendezVous.accept(dossier.getMalade());
+        }
+
+        @Override
+        public void modifierFiche() {
+            DossierPatientForm.this.modifierFiche();
+        }
+    }
+
+    /** Fiche du patient (état civil, coordonnées) : le bandeau et la vue d'ensemble suivent les changements. */
+    private void modifierFiche() {
+        FichePatient fiche = new FichePatient(this, ctx.getPatientService(), dossier.getMalade());
+        fiche.setVisible(true);
+        patient modifie = fiche.getPatient();
+        if (modifie != null) {
+            dossier.setMalade(modifie);
+            entete.setSousTitre(sousTitre(modifie));
+            bandeau.afficher(modifie, onglets.getHistorique().passageEnCours(LocalDate.now()));
+            remplirInfo();
+            onglets.rafraichirOngletCourant();
+        }
     }
 
     /**
@@ -1165,15 +1246,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_historiqueKeyPressed
 
     private void historiqueMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_historiqueMousePressed
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode) historique.getLastSelectedPathComponent();
-        if (node != null && node.isLeaf() && node.getUserObject() instanceof NoeudHistorique) {
-            NoeudHistorique noeud = (NoeudHistorique) node.getUserObject();
-            if (noeud.getType() == 0 && noeud.getIndiceConsult() >= 0) {
-                dossier.SetPosition(noeud.getIndiceConsult());
-                VoirConsultation(dossier.getCurrentConsultation());
-                majNavigation();
-            }
-        }
+        // L'arbre de l'historique n'est plus affiché : la liste des visites de l'onglet
+        // « Consultations » le remplace (OngletsDossier).
     }//GEN-LAST:event_historiqueMousePressed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
@@ -1304,12 +1378,12 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         ActiverTraitement();
         initialiser();
         int index = dossier.getNombreConsultation() - 1;
-        historiqueModele.addConsulToHistorique(consult, index);
         dossier.SetPosition(index);
         VoirConsultation(consult);
         majNavigation();
-        SelectHistoriqueNoeud();
         NbreVisiteLabel.setText(String.valueOf(dossier.getNombreConsultation()));
+        onglets.setSelectedIndex(OngletsDossier.CONSULTATIONS);
+        SelectHistoriqueNoeud();
     }
 
     void initialiser() {
@@ -1348,7 +1422,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         afficherPathologies(myconsult);
         TimeTxt.setText(myconsult.getHeureString());
         dateText.setText(" " + myconsult.getDate_cons().format(DateTimeFormatter.ofPattern("EEEE, d MMM yyyy", Locale.FRENCH)));
-        MedcinLabel.setText(myconsult.getMedecin().getNomComplet());
+        MedcinLabel.setText(myconsult.getMedecin().getNomComplet().trim() + "  ·  consultation du "
+                + myconsult.getDate_cons().format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.FRENCH))
+                + " à " + myconsult.getHeureString());
         if (myconsult.hasOrdonnance()) {
             Pordonnance = new PaneauOrdonnance(myconsult.getOrdoPat());
             jTabbedPane1.addTab(ONGLET_ORDONNANCE, icone("/res/icons/ordo32.png"), Pordonnance);
@@ -1474,16 +1550,10 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         }
     }
 
+    /** Sélectionne dans la liste des visites la consultation affichée. */
     void SelectHistoriqueNoeud() {
-        DefaultMutableTreeNode noeud = historiqueModele.lookForNoeud(historiqueModele.getVisitesNoeud(),
-                dossier.getConsultPosition());
-        if (noeud == null) {
-            return;
-        }
-        TreeNode[] nodes = ((DefaultTreeModel) historique.getModel()).getPathToRoot(noeud);
-        TreePath tpath = new TreePath(nodes);
-        historique.scrollPathToVisible(tpath);
-        historique.setSelectionPath(tpath);
+        onglets.rafraichirOngletCourant();
+        onglets.rafraichirVisites();
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

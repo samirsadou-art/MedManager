@@ -20,6 +20,7 @@ import My_application.entities.symptome;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -260,6 +261,20 @@ public class DossierService {
         if (c.getDate_cons() == null || c.getHeure_cons() == null) {
             throw new MetierException("La date de la consultation est manquante.");
         }
+    }
+
+    /**
+     * Rendez-vous et passages au cabinet du patient (avec les frais et les
+     * règlements), pour les onglets de son dossier.
+     */
+    public HistoriquePatient historique(patient malade) {
+        acces.exiger(Role.MEDECIN);
+        if (malade == null) {
+            throw new MetierException("Aucun patient sélectionné.");
+        }
+        int id = malade.getIdentPat();
+        return new HistoriquePatient(daos.getRendezVousDao().findDesPatients(Collections.singletonList(id)),
+                daos.getSalleAttenteDao().findDuPatient(id), medecinDao.findAll());
     }
 
     /** Consultations du jour (motifs et diagnostics compris) : réservé aux médecins. */

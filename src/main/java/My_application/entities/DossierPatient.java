@@ -10,8 +10,8 @@ import java.util.List;
  * dernière).
  * <p>
  * Le chargement ({@code ovrirDossier}) et l'enregistrement ({@code update})
- * sont passés dans {@code DossierService} ; l'arbre d'historique Swing est
- * construit par la vue ({@code modelTableau.HistoriqueVisites}).
+ * sont passés dans {@code DossierService} ; la vue montre les visites dans
+ * l'onglet « Consultations » ({@code dossier.OngletsDossier}).
  */
 public class DossierPatient {
 

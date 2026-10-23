@@ -22,6 +22,11 @@ public class JdbcSalleAttenteDao implements SalleAttenteDao {
         return t == null ? null : t.toLocalDateTime();
     }
 
+    private static final String SELECT = "SELECT s.idPassage, s.idPatient, s.idMedecin, s.idRendezVous, s.jour, "
+            + "s.arriveeLe, s.appeleLe, s.sortieLe, s.priorite, s.etat, s.frais, s.montantRegle, s.regleLe, r.heure, p.* "
+            + "FROM salle_attente s JOIN patient p ON p.idPatient = s.idPatient "
+            + "LEFT JOIN rendezvous r ON r.idRendezVous = s.idRendezVous ";
+
     private static final RowMapper<Passage> MAPPER = new RowMapper<Passage>() {
         @Override
         public Passage map(ResultSet rs) throws SQLException {
@@ -56,11 +61,12 @@ public class JdbcSalleAttenteDao implements SalleAttenteDao {
     /** Fiche complète du patient : le médecin ouvre son dossier depuis la salle d'attente. */
     @Override
     public List<Passage> findDuJour(LocalDate jour) {
-        return jdbc.query("SELECT s.idPassage, s.idPatient, s.idMedecin, s.idRendezVous, s.jour, s.arriveeLe, "
-                + "s.appeleLe, s.sortieLe, s.priorite, s.etat, s.frais, s.montantRegle, s.regleLe, r.heure, p.* "
-                + "FROM salle_attente s JOIN patient p ON p.idPatient = s.idPatient "
-                + "LEFT JOIN rendezvous r ON r.idRendezVous = s.idRendezVous "
-                + "WHERE s.jour = ? ORDER BY s.arriveeLe", MAPPER, jour);
+        return jdbc.query(SELECT + "WHERE s.jour = ? ORDER BY s.arriveeLe", MAPPER, jour);
+    }
+
+    @Override
+    public List<Passage> findDuPatient(int idPatient) {
+        return jdbc.query(SELECT + "WHERE s.idPatient = ? ORDER BY s.jour DESC, s.arriveeLe DESC", MAPPER, idPatient);
     }
 
     @Override
