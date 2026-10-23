@@ -8,9 +8,6 @@ import My_application.service.MetierException;
 import My_application.service.PatientService;
 import My_application.service.RendezVousService;
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -40,30 +37,16 @@ public class ConsultationsController extends ControleurBase {
         this.medecinTraitant = medecinTraitant;
     }
 
-    /** Résultat d'une lecture, fait hors de l'EDT. */
-    private static final class Lecture {
-        List<consultation> consultations;
-        Map<Integer, String> medecins;
-    }
-
     /** Affiche les consultations de ce jour. */
     public void afficher(LocalDate date) {
         if (date == null) {
             return;
         }
         jour = date;
-        enArrierePlan(() -> {
-            Lecture l = new Lecture();
-            l.consultations = dossierService.consultationsDuJour(date);
-            l.medecins = new HashMap<>();
-            for (medecin m : rendezVousService.tousLesMedecins()) {
-                l.medecins.put(m.getIdmedecin(), m.toString());
-            }
-            return l;
-        }, l -> {
+        enArrierePlan(() -> dossierService.consultationsDuJour(date), consultations -> {
             // Une lecture plus ancienne qui arrive après le choix d'une autre date est ignorée.
             if (date.equals(jour)) {
-                vue.afficherConsultations(date, l.consultations, l.medecins);
+                vue.afficherConsultations(date, consultations);
             }
         });
     }

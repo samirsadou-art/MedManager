@@ -19,7 +19,6 @@ import My_application.service.Session;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -33,14 +32,12 @@ public class ConsultationsControllerTest {
     static final class FausseConsultations extends FausseVue implements ConsultationsVue {
         LocalDate jour;
         List<consultation> consultations;
-        Map<Integer, String> medecins;
         final List<DossierPatient> dossiers = new ArrayList<>();
 
         @Override
-        public void afficherConsultations(LocalDate j, List<consultation> c, Map<Integer, String> m) {
+        public void afficherConsultations(LocalDate j, List<consultation> c) {
             jour = j;
             consultations = c;
-            medecins = m;
         }
 
         @Override
@@ -68,7 +65,6 @@ public class ConsultationsControllerTest {
         controleur(Executeur.IMMEDIAT).rafraichir();
         assertEquals(LocalDate.now(), vue.jour);
         assertEquals(1, vue.consultations.size());
-        assertEquals(base.medecins.get(1).toString(), vue.medecins.get(1));
         assertTrue(vue.erreurs.isEmpty());
     }
 
