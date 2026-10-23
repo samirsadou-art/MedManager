@@ -25,6 +25,7 @@ import My_application.vue.Formulaire;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import java.awt.BorderLayout;
+import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -36,6 +37,7 @@ import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -76,9 +78,10 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         this.ctx = ctx;
         initComponents();
         Theme.harmoniser(this);
-        EnTetePage.installer(this, "folder-open", "Dossier patient", doss.getMalade().getNom().toUpperCase()
-                + " " + doss.getMalade().getPrenom() + "  ·  " + doss.getMalade().getStringAge());
-        presenterActionsDossier();
+        EnTetePage entete = EnTetePage.installer(this, "folder-open", "Dossier patient",
+                doss.getMalade().getNom().toUpperCase() + " " + doss.getMalade().getPrenom()
+                + "  ·  " + doss.getMalade().getStringAge());
+        presenterActionsDossier(entete);
         installerFiltres();
         masquerFonctionsAbsentes();
         this.setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -134,28 +137,37 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     /**
      * Les actions du dossier (nouvelle consultation, rendez-vous, fermeture…)
      * étaient cachées derrière le séparateur de l'historique : elles sont
-     * maintenant affichées sous l'historique, en boutons pleine largeur.
+     * maintenant affichées en haut de la fenêtre, sous l'en-tête, en une
+     * rangée de boutons centrée.
      */
-    private void presenterActionsDossier() {
+    private void presenterActionsDossier(EnTetePage entete) {
         jPanel9.removeAll();
         jPanel9.setLayout(new BorderLayout());
         jPanel9.add(jScrollPane1, BorderLayout.CENTER);
-        jPanel9.add(jPanel3, BorderLayout.SOUTH);
-        jPanel3.setLayout(new GridLayout(0, 1, 0, 6));
-        jPanel3.setBackground(Theme.FOND);
-        jPanel3.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+        jPanel3.setLayout(new GridLayout(1, 0, 10, 0));
+        jPanel3.setOpaque(false);
+        jPanel3.setBorder(null);
         actionDossier(NewConsultBtn, "stethoscope", true);
         actionDossier(NewRendezVousBtn, "calendar-event", false);
         actionDossier(jButton10, "file-text", false);
         actionDossier(jButton2, "chart-bar", false);
         actionDossier(FermerDossierBtn, "x", false);
         FermerDossierBtn.setForeground(Theme.DANGER);
+
+        JPanel barre = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        barre.setOpaque(false);
+        barre.setBorder(BorderFactory.createEmptyBorder(0, 20, 10, 20));
+        barre.add(jPanel3);
+        JPanel haut = new JPanel(new BorderLayout());
+        haut.setOpaque(false);
+        haut.add(entete, BorderLayout.CENTER);
+        haut.add(barre, BorderLayout.SOUTH);
+        getContentPane().add(haut, BorderLayout.NORTH);
     }
 
     private static void actionDossier(JButton b, String icone, boolean principal) {
         b.setBorder(UIManager.getBorder("Button.border"));
         b.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE));
-        b.setHorizontalAlignment(JButton.LEFT);
         b.setIconTextGap(10);
         if (principal) {
             b.setBackground(Theme.PRIMAIRE);
@@ -166,6 +178,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             b.setForeground(Theme.TEXTE);
             b.setIcon(Icones.svg(icone, 18, Theme.PRIMAIRE));
         }
+        b.setPreferredSize(new java.awt.Dimension(b.getPreferredSize().width + 24, 38));
     }
 
     void remplirInfo() {
