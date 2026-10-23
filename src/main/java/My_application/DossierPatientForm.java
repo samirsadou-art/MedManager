@@ -72,6 +72,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     private static final String ONGLET_ORDONNANCE = "Ordonnance";
     private static final String ONGLET_ANALYSES = "Analyses";
     private static final String AVEC_TRAITEMENTS = "traitements";
+    private static final String TRAITEMENTS = "Traitements";
+    /** Sous-onglet « Diagnostics » de l'onglet « Consultations ». */
+    private static final int DIAGNOSTICS = 0;
     private static final String SANS_TRAITEMENT = "aucun";
     private static final DateTimeFormatter JOUR_CONSULTATION = DateTimeFormatter.ofPattern(
             "EEEE dd/MM/yyyy 'à' ", Locale.FRENCH);
@@ -87,6 +90,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     private final JLabel detailConsultation = new JLabel();
     private final JPanel etatConsultation = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
     private final JPanel traitements = new JPanel(new CardLayout());
+    /** Sous-onglets de la consultation : « Diagnostics » et « Traitements ». */
+    private final javax.swing.JTabbedPane sousOnglets = new javax.swing.JTabbedPane();
 
     /** Consultation en cours de saisie (null si aucune). */
     consultation consult = null;
@@ -164,9 +169,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
     /**
      * Onglet « Consultations » présenté comme le reste du dossier : une carte
-     * d'en-tête (date, médecin, état), trois cartes côte à côte (paramètres
-     * vitaux, symptômes, pathologies) et la carte des traitements avec ses
-     * boutons. Les champs, listes et boutons sont ceux dessinés dans NetBeans
+     * d'en-tête (date, médecin, état), puis deux sous-onglets : « Diagnostics »
+     * (paramètres vitaux, symptômes, pathologies côte à côte) et
+     * « Traitements » (ordonnance et analyses avec leurs boutons). Les champs, listes et boutons sont ceux dessinés dans NetBeans
      * (le {@code .form} ne change pas), seulement replacés et restylés.
      */
     private JPanel presenterSaisie() {
@@ -184,17 +189,25 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         g.insets = new java.awt.Insets(0, 0, 0, 0);
         haut.add(carteListe("clipboard-list", "Pathologies", pathologieCombo, "Choisir ou saisir une pathologie…",
                 addPathoBtn, suppPathoBtn, jScrollPane6, PathologieList), g);
-        haut.setPreferredSize(new java.awt.Dimension(600, 205));
 
-        JPanel corps = new JPanel(new BorderLayout(0, 12));
-        corps.setOpaque(false);
-        corps.add(haut, BorderLayout.NORTH);
-        corps.add(carteTraitements(), BorderLayout.CENTER);
+        sousOnglets.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE));
+        sousOnglets.addTab("Diagnostics", Icones.svg("heartbeat", 16, Theme.PRIMAIRE), sousOnglet(haut));
+        sousOnglets.addTab(TRAITEMENTS, Icones.svg("pill", 16, Theme.PRIMAIRE), sousOnglet(carteTraitements()));
+        sousOnglets.setToolTipTextAt(DIAGNOSTICS, "Paramètres vitaux, symptômes et pathologies");
+        sousOnglets.setToolTipTextAt(1, "Ordonnance et analyses de la consultation");
 
         JPanel p = new JPanel(new BorderLayout(0, 12));
         p.setOpaque(false);
         p.add(carteEnTete(), BorderLayout.NORTH);
-        p.add(corps, BorderLayout.CENTER);
+        p.add(sousOnglets, BorderLayout.CENTER);
+        return p;
+    }
+
+    private static JPanel sousOnglet(JComponent contenu) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(Theme.FOND);
+        p.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        p.add(contenu, BorderLayout.CENTER);
         return p;
     }
 
@@ -353,7 +366,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         contenu.setOpaque(false);
         contenu.add(traitements, BorderLayout.CENTER);
         contenu.add(documents, BorderLayout.SOUTH);
-        return OngletsDossier.carte("pill", "Traitements", etablir, contenu);
+        return OngletsDossier.carte("prescription", "Ordonnance et analyses", etablir, contenu);
     }
 
     private static void boutonTraitement(JButton b, String icone, String texte, String bulle) {
@@ -375,8 +388,11 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
     /** Les onglets ordonnance / analyses, ou une phrase quand la consultation n'en a pas. */
     private void majTraitements() {
-        ((CardLayout) traitements.getLayout()).show(traitements,
-                jTabbedPane1.getTabCount() > 0 ? AVEC_TRAITEMENTS : SANS_TRAITEMENT);
+        int n = jTabbedPane1.getTabCount();
+        ((CardLayout) traitements.getLayout()).show(traitements, n > 0 ? AVEC_TRAITEMENTS : SANS_TRAITEMENT);
+        if (sousOnglets.getTabCount() > 1) {
+            sousOnglets.setTitleAt(1, n > 0 ? TRAITEMENTS + " (" + n + ")" : TRAITEMENTS);
+        }
     }
 
     /** En-tête de l'onglet « Consultations » ; {@code c} null : le dossier n'a encore aucune consultation. */
@@ -1682,6 +1698,7 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         majNavigation();
         NbreVisiteLabel.setText(String.valueOf(dossier.getNombreConsultation()));
         onglets.setSelectedIndex(OngletsDossier.CONSULTATIONS);
+        sousOnglets.setSelectedIndex(DIAGNOSTICS);
         SelectHistoriqueNoeud();
     }
 
