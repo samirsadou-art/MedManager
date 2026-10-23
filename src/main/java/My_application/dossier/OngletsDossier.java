@@ -85,6 +85,10 @@ public class OngletsDossier extends JTabbedPane {
     public static final int ANTECEDENTS = 5;
     public static final int RENDEZ_VOUS = 6;
 
+    /** Pictogrammes des onglets, dans l'ordre des onglets. */
+    private static final String[] ICONES = {"home", "stethoscope", "heartbeat", "flask", "prescription",
+        "clipboard-list", "calendar-event"};
+
     static final DateTimeFormatter DATE = BandeauIdentite.DATE;
     private static final DateTimeFormatter HEURE = DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH);
     private static final DateTimeFormatter JOUR = DateTimeFormatter.ofPattern("EEEE dd/MM/yyyy 'à' HH:mm",
@@ -142,14 +146,40 @@ public class OngletsDossier extends JTabbedPane {
         this.dossier = dossier;
         this.actions = actions;
         setFont(Theme.police(Font.BOLD, Theme.TAILLE_BASE));
-        addTab("Vue d'ensemble", Icones.svg("home", 16, Theme.PRIMAIRE), defilant(ensemble));
-        addTab("Consultations", Icones.svg("stethoscope", 16, Theme.PRIMAIRE), pageConsultations(saisie));
-        addTab("Constantes", Icones.svg("heartbeat", 16, Theme.PRIMAIRE), defilant(constantes));
-        addTab("Examens", Icones.svg("flask", 16, Theme.PRIMAIRE), examens);
-        addTab("Ordonnances", Icones.svg("prescription", 16, Theme.PRIMAIRE), ordonnances);
-        addTab("Antécédents", Icones.svg("clipboard-list", 16, Theme.PRIMAIRE), defilant(antecedents));
-        addTab("Rendez-vous et règlements", Icones.svg("calendar-event", 16, Theme.PRIMAIRE), rendezVous);
-        addChangeListener(e -> rafraichirOngletCourant());
+        assombrir();
+        addTab("Vue d'ensemble", null, defilant(ensemble));
+        addTab("Consultations", null, pageConsultations(saisie));
+        addTab("Constantes", null, defilant(constantes));
+        addTab("Examens", null, examens);
+        addTab("Ordonnances", null, ordonnances);
+        addTab("Antécédents", null, defilant(antecedents));
+        addTab("Rendez-vous et règlements", null, rendezVous);
+        colorerIcones();
+        addChangeListener(e -> {
+            colorerIcones();
+            rafraichirOngletCourant();
+        });
+    }
+
+    /**
+     * Barre d'onglets sur un bandeau teinté plus foncé que la page, l'onglet
+     * choisi en plein dans la couleur de la charte : on voit d'un coup d'œil
+     * dans quelle partie du dossier on se trouve.
+     */
+    private void assombrir() {
+        setOpaque(true);
+        putClientProperty("FlatLaf.style", "background: #D3E5E8; foreground: #1F2D3D;"
+                + " selectedBackground: #0E7C86; selectedForeground: #FFFFFF;"
+                + " hoverColor: #C1DADE; focusColor: #0E7C86; underlineColor: #0A5C63;"
+                + " inactiveUnderlineColor: #0A5C63; tabSelectionHeight: 3; contentAreaColor: #D3E5E8;"
+                + " tabHeight: 40; tabInsets: 4,14,4,14; tabAreaInsets: 0,0,0,0");
+    }
+
+    /** Pictogrammes blancs sur l'onglet choisi, de la couleur foncée de la charte sur les autres. */
+    private void colorerIcones() {
+        for (int i = 0; i < getTabCount() && i < ICONES.length; i++) {
+            setIconAt(i, Icones.svg(ICONES[i], 16, i == getSelectedIndex() ? Color.WHITE : Theme.PRIMAIRE_FONCE));
+        }
     }
 
     /** Rendez-vous et passages du patient (lus à l'ouverture du dossier). */
@@ -1139,16 +1169,9 @@ public class OngletsDossier extends JTabbedPane {
 
     /** Carte blanche avec un en-tête : pictogramme, titre et, à droite, un lien. */
     static JComponent carte(String icone, String titre, String lien, Runnable action, JComponent contenu) {
-        JLabel t = new JLabel(titre, Icones.svg(icone, 18, Theme.PRIMAIRE), JLabel.LEFT);
-        t.setIconTextGap(8);
-        t.setFont(Theme.police(Font.BOLD, Theme.TAILLE_BASE + 1));
-        t.setForeground(Theme.TEXTE);
-        JPanel tete = new JPanel(new BorderLayout());
-        tete.setOpaque(false);
-        tete.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
-        tete.add(t, BorderLayout.CENTER);
+        JLabel l = null;
         if (lien != null && action != null) {
-            JLabel l = new JLabel(lien);
+            l = new JLabel(lien);
             l.setFont(Theme.police(Font.BOLD, Theme.TAILLE_BASE - 1));
             l.setForeground(Theme.PRIMAIRE);
             l.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -1158,7 +1181,25 @@ public class OngletsDossier extends JTabbedPane {
                     action.run();
                 }
             });
-            tete.add(l, BorderLayout.EAST);
+        }
+        return carte(icone, titre, l, contenu);
+    }
+
+    /**
+     * Carte blanche avec un en-tête : pictogramme, titre et, à droite, un
+     * élément au choix (lien, boutons…) ou rien.
+     */
+    public static JPanel carte(String icone, String titre, JComponent droite, JComponent contenu) {
+        JLabel t = new JLabel(titre, Icones.svg(icone, 18, Theme.PRIMAIRE), JLabel.LEFT);
+        t.setIconTextGap(8);
+        t.setFont(Theme.police(Font.BOLD, Theme.TAILLE_BASE + 1));
+        t.setForeground(Theme.TEXTE);
+        JPanel tete = new JPanel(new BorderLayout());
+        tete.setOpaque(false);
+        tete.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+        tete.add(t, BorderLayout.CENTER);
+        if (droite != null) {
+            tete.add(droite, BorderLayout.EAST);
         }
         JPanel carte = new JPanel(new BorderLayout());
         Theme.carte(carte, null);
