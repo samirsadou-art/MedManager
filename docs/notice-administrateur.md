@@ -79,7 +79,7 @@ Le PC de la secrétaire contient **toute** la base du cabinet : une sauvegarde q
 - **Sauvegarde automatique :** suivez la section « Sauvegarde quotidienne » de `docs/installation-reseau.md`.
 - **Restauration :**
   ```
-  D:\xampp\mysql\bin\mysql.exe -u root -p medicale < E:\Sauvegardes\sauvegarde_medicale_AAAA-MM-JJ_HHMM.sql
+  <xampp>\mysql\bin\mysql.exe -u root -p medicale < E:\Sauvegardes\sauvegarde_medicale_AAAA-MM-JJ_HHMM.sql
   ```
 
 N'utilisez pas l'export de phpMyAdmin : il perd des contraintes de la base.
