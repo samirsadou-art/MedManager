@@ -42,7 +42,7 @@ import javax.swing.ToolTipManager;
  * et chaque rendez-vous sous forme de carte colorée selon son
  * {@link StatutRendezVous}.
  * <p>
- * Le composant ne lit pas la base : {@code calandar} lui donne les
+ * Le composant ne lit pas la base : {@code PageRendezVous} lui donne les
  * rendez-vous de la semaine et reçoit les clics par un {@link Ecouteur}.
  * L'en-tête des jours ({@link #getEnTete()}) et la colonne des heures
  * ({@link #getColonneHeures()}) se placent dans le {@code JScrollPane}.
@@ -79,7 +79,7 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     private final int nombreHeures;
     private final int maxParHeure;
     private final int pas;
-    private final patient courant;
+    private patient courant;
     private final EnTete enTete = new EnTete();
     private final ColonneHeures colonneHeures = new ColonneHeures();
 
@@ -229,6 +229,12 @@ public class AgendaSemaine extends JComponent implements Scrollable {
     /** Un clic sur une heure libre a un sens : prise de rendez-vous pour le patient, ou déplacement. */
     private boolean creneauxCliquables() {
         return courant != null || enDeplacement != null;
+    }
+
+    /** Patient pour qui l'on prend rendez-vous (null : heures libres non cliquables, sauf déplacement). */
+    public void setPatient(patient p) {
+        courant = p;
+        repaint();
     }
 
     /** Recherche d'un patient : les autres cartes sont estompées. */
