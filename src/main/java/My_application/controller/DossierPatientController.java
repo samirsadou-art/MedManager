@@ -1,6 +1,8 @@
 package My_application.controller;
 
+import My_application.entities.Antecedent;
 import My_application.entities.DossierPatient;
+import My_application.entities.NoteDossier;
 import My_application.entities.consultation;
 import My_application.entities.pathologie;
 import My_application.entities.symptome;
@@ -8,7 +10,9 @@ import My_application.report.RapportService;
 import My_application.service.CatalogueService;
 import My_application.service.ConstantesVitales;
 import My_application.service.DossierService;
-import java.util.ArrayList;
+import My_application.service.HistoriquePatient;
+import My_application.service.SalleAttenteService;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -38,40 +42,54 @@ public class DossierPatientController extends ControleurBase {
         return dossier;
     }
 
+    /**
+     * Rendez-vous et passages du patient pour les onglets du dossier. En cas
+     * d'échec, l'erreur est signalée et le dossier s'ouvre quand même.
+     */
+    public HistoriquePatient historique() {
+        return tenter(() -> dossierService.historique(dossier.getMalade()), HistoriquePatient.VIDE);
+    }
+
+    // ----- antécédents et notes -----
+
+    public List<Antecedent> antecedents() {
+        return tenter(() -> dossierService.antecedents(dossier.getMalade()), Collections.<Antecedent>emptyList());
+    }
+
+    public List<NoteDossier> notes() {
+        return tenter(() -> dossierService.notes(dossier.getMalade()), Collections.<NoteDossier>emptyList());
+    }
+
+    /** Vrai si l'antécédent a été noté ; sinon le message a été affiché. */
+    public boolean ajouterAntecedent(Antecedent.Categorie categorie, String libelle, String complement) {
+        return tenter(() -> dossierService.ajouterAntecedent(dossier, categorie, libelle, complement));
+    }
+
+    public boolean supprimerAntecedent(Antecedent a) {
+        return tenter(() -> dossierService.supprimerAntecedent(a));
+    }
+
+    public boolean ajouterNote(String texte) {
+        return tenter(() -> dossierService.ajouterNote(dossier, texte));
+    }
+
+    public boolean supprimerNote(NoteDossier n) {
+        return tenter(() -> dossierService.supprimerNote(n));
+    }
+
     /** Démarre une nouvelle consultation ; null si impossible. */
     public consultation nouvelleConsultation() {
-        final consultation[] c = new consultation[1];
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                c[0] = dossierService.nouvelleConsultation(dossier);
-            }
-        });
-        return c[0];
+        return tenter(() -> dossierService.nouvelleConsultation(dossier), null);
     }
 
     // ----- auto-complétion -----
 
-    public List<symptome> suggestionsSymptomes(final String prefixe) {
-        final List<symptome> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogueService.symptomes(prefixe));
-            }
-        });
-        return r;
+    public List<symptome> suggestionsSymptomes(String prefixe) {
+        return tenter(() -> catalogueService.symptomes(prefixe), Collections.<symptome>emptyList());
     }
 
-    public List<pathologie> suggestionsPathologies(final String prefixe) {
-        final List<pathologie> r = new ArrayList<>();
-        tenter(new Runnable() {
-            @Override
-            public void run() {
-                r.addAll(catalogueService.pathologies(prefixe));
-            }
-        });
-        return r;
+    public List<pathologie> suggestionsPathologies(String prefixe) {
+        return tenter(() -> catalogueService.pathologies(prefixe), Collections.<pathologie>emptyList());
     }
 
     // ----- symptômes / pathologies de la consultation -----
@@ -81,24 +99,13 @@ public class DossierPatientController extends ControleurBase {
      * l'utilisateur a tapé un libellé libre, le symptôme correspondant
      * (créé dans le référentiel s'il n'existe pas).
      */
-    public boolean ajouterSymptome(final consultation c, final symptome choisi, final String saisie) {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                symptome s = choisi != null ? choisi : catalogueService.obtenirOuCreerSymptome(saisie);
-                c.addSymptome(s);
-            }
-        });
+    public boolean ajouterSymptome(consultation c, symptome choisi, String saisie) {
+        return tenter(() -> c.addSymptome(choisi != null ? choisi : catalogueService.obtenirOuCreerSymptome(saisie)));
     }
 
-    public boolean ajouterPathologie(final consultation c, final pathologie choisie, final String saisie) {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                pathologie p = choisie != null ? choisie : catalogueService.obtenirOuCreerPathologie(saisie);
-                c.addPathologie(p);
-            }
-        });
+    public boolean ajouterPathologie(consultation c, pathologie choisie, String saisie) {
+        return tenter(() -> c.addPathologie(
+                choisie != null ? choisie : catalogueService.obtenirOuCreerPathologie(saisie)));
     }
 
     // ----- constantes vitales -----
@@ -112,29 +119,27 @@ public class DossierPatientController extends ControleurBase {
      * Valide la saisie d'une constante et la recopie dans la consultation.
      * Renvoie false (et affiche la règle non respectée) si la valeur est invalide.
      */
-    public boolean saisirConstante(final consultation c, final Constante champ, final String saisie) {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                switch (champ) {
-                    case TEMPERATURE:
-                        c.setTemperature(ConstantesVitales.temperature(saisie));
-                        break;
-                    case PULSATION:
-                        c.setPul_Cardiaque(ConstantesVitales.pulsation(saisie));
-                        break;
-                    case PRESSION:
-                        c.setPressionA(ConstantesVitales.pression(saisie));
-                        break;
-                    case RESPIRATION:
-                        c.setTauxRespir(ConstantesVitales.respiration(saisie));
-                        break;
-                    case POIDS:
-                        c.setPoids(ConstantesVitales.poids(saisie));
-                        break;
-                    default:
-                        throw new IllegalArgumentException(String.valueOf(champ));
-                }
+    public boolean saisirConstante(consultation c, Constante champ, String saisie) {
+        return tenter(() -> {
+            switch (champ) {
+                case TEMPERATURE:
+                    c.setTemperature(ConstantesVitales.temperature(saisie));
+                    break;
+                case PULSATION:
+                    c.setPul_Cardiaque(ConstantesVitales.pulsation(saisie));
+                    break;
+                case PRESSION:
+                    int[] p = ConstantesVitales.pression(saisie);
+                    c.setPression(p[0], p[1]);
+                    break;
+                case RESPIRATION:
+                    c.setTauxRespir(ConstantesVitales.respiration(saisie));
+                    break;
+                case POIDS:
+                    c.setPoids(ConstantesVitales.poids(saisie));
+                    break;
+                default:
+                    throw new IllegalArgumentException(String.valueOf(champ));
             }
         });
     }
@@ -147,38 +152,43 @@ public class DossierPatientController extends ControleurBase {
 
     /** Enregistre le dossier ; renvoie true si tout a été écrit. */
     public boolean enregistrer() {
-        return tenter(new Runnable() {
-            @Override
-            public void run() {
-                dossierService.enregistrer(dossier);
-            }
-        });
+        return tenter(() -> dossierService.enregistrer(dossier));
+    }
+
+    /** Vrai si le médecin doit indiquer les frais : le patient attend son passage à l'accueil. */
+    public boolean fraisADemander() {
+        return Boolean.TRUE.equals(tenter(() -> dossierService.fraisADemander(dossier), false));
+    }
+
+    /** Frais proposés dans la saisie : les derniers fixés par ce médecin, sinon vide. */
+    public String fraisProposes() {
+        Integer f = tenter(() -> dossierService.fraisProposes(dossier), null);
+        return f == null ? "" : String.valueOf(f);
+    }
+
+    /**
+     * Termine la consultation avec les frais saisis (en dinars, vide : non
+     * précisés) ; renvoie true si tout a été écrit.
+     */
+    public boolean enregistrer(String fraisSaisis) {
+        return tenter(() -> dossierService.enregistrer(dossier, SalleAttenteService.montant(fraisSaisis)));
     }
 
     // ----- documents -----
 
     /** Aperçu (imprimer = false) ou impression de l'ordonnance au format PDF. */
-    public void ordonnance(final consultation c, final boolean imprimer) {
-        final boolean[] fait = {true};
-        if (tenter(new Runnable() {
-            @Override
-            public void run() {
-                fait[0] = rapportService.ordonnance(c, imprimer);
-            }
-        }) && !fait[0]) {
-            vue.afficherInformation(IMPRESSION_INDISPONIBLE);
-        }
+    public void ordonnance(consultation c, boolean imprimer) {
+        signalerSiNonImprime(tenter(() -> rapportService.ordonnance(c, imprimer), null));
     }
 
     /** Aperçu (imprimer = false) ou impression de la demande d'analyses au format PDF. */
-    public void analyses(final consultation c, final boolean imprimer) {
-        final boolean[] fait = {true};
-        if (tenter(new Runnable() {
-            @Override
-            public void run() {
-                fait[0] = rapportService.analyses(c, imprimer);
-            }
-        }) && !fait[0]) {
+    public void analyses(consultation c, boolean imprimer) {
+        signalerSiNonImprime(tenter(() -> rapportService.analyses(c, imprimer), null));
+    }
+
+    /** {@code fait} vaut null si la génération a échoué (erreur déjà affichée). */
+    private void signalerSiNonImprime(Boolean fait) {
+        if (Boolean.FALSE.equals(fait)) {
             vue.afficherInformation(IMPRESSION_INDISPONIBLE);
         }
     }

@@ -1,5 +1,7 @@
 package My_application.entities;
 
+import java.time.LocalDateTime;
+
 /**
  * Utilisateur de l'application (médecin, secrétaire…).
  * <p>
@@ -8,10 +10,19 @@ package My_application.entities;
  */
 public class User {
 
-    int ident;
-    String nom;
-    String prenom;
-    String quailite;
+    private int ident;
+    private String nom;
+    private String prenom;
+    private String quailite;
+    private String login;
+    private boolean actif = true;
+    /** Rôle du compte ; médecin par défaut, comme les comptes d'avant la migration V10. */
+    private Role role = Role.MEDECIN;
+    /** Médecin traitant de la session quand cet utilisateur se connecte (null : celui par défaut). */
+    private Integer idMedecin;
+    /** Mot de passe provisoire : à changer à la prochaine connexion. */
+    private boolean doitChanger;
+    private LocalDateTime derniereConnexion;
 
     public User() {
     }
@@ -53,6 +64,55 @@ public class User {
 
     public void setQuailite(String quailite) {
         this.quailite = quailite;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public boolean isActif() {
+        return actif;
+    }
+
+    public void setActif(boolean actif) {
+        this.actif = actif;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role == null ? Role.MEDECIN : role;
+    }
+
+    public Integer getIdMedecin() {
+        return idMedecin;
+    }
+
+    public void setIdMedecin(Integer idMedecin) {
+        this.idMedecin = idMedecin;
+    }
+
+    public boolean isDoitChanger() {
+        return doitChanger;
+    }
+
+    public void setDoitChanger(boolean doitChanger) {
+        this.doitChanger = doitChanger;
+    }
+
+    /** Dernière connexion réussie, ou null. */
+    public LocalDateTime getDerniereConnexion() {
+        return derniereConnexion;
+    }
+
+    public void setDerniereConnexion(LocalDateTime derniereConnexion) {
+        this.derniereConnexion = derniereConnexion;
     }
 
     @Override

@@ -27,10 +27,16 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JCheckBox;
 import javax.swing.JMenu;
+import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
+import javax.swing.JToolBar;
 import javax.swing.JTree;
 import javax.swing.UIManager;
 import javax.swing.border.BevelBorder;
@@ -56,6 +62,9 @@ import javax.swing.text.JTextComponent;
  */
 public final class Theme {
 
+    /** Nom du logiciel tel que l'utilisateur le voit (fenêtres, bandeau, connexion). */
+    public static final String NOM_LOGICIEL = "MedManager";
+
     // ----- palette -----
     public static final Color PRIMAIRE = new Color(0x0E7C86);
     public static final Color PRIMAIRE_FONCE = new Color(0x0A5C63);
@@ -72,6 +81,12 @@ public final class Theme {
     public static final Color SUCCES_CLAIR = new Color(0xE8F5E9);
     public static final Color AVERTISSEMENT = new Color(0xB26A00);
     public static final Color AVERTISSEMENT_CLAIR = new Color(0xFFF4E0);
+    /** Patient arrivé, en salle d'attente. */
+    public static final Color INFO = new Color(0x6A3FB5);
+    public static final Color INFO_CLAIR = new Color(0xF1EBFA);
+    /** Patient en consultation. */
+    public static final Color ACCENT = new Color(0x1565C0);
+    public static final Color ACCENT_CLAIR = new Color(0xE6EFFB);
 
     /** Taille de base du texte (points). */
     public static final int TAILLE_BASE = 13;
@@ -81,6 +96,8 @@ public final class Theme {
     private static final int TAILLE_MAX_FOND_CLAIR = 16;
 
     private static final String DEJA_HARMONISE = "gestimed.harmonise";
+    /** Marque les panneaux devenus des cartes (voir {@link BordureCarte}). */
+    private static final String CARTE = "gestimed.carte";
 
     /** Libellés des boutons d'action principale (mis en avant). */
     private static final java.util.Set<String> ACTIONS_PRINCIPALES = new java.util.HashSet<>(
@@ -154,7 +171,7 @@ public final class Theme {
             }
             marqueur.putClientProperty(DEJA_HARMONISE, Boolean.TRUE);
         }
-        parcourir(racine);
+        parcourir(racine, false);
         if (racine instanceof Window) {
             Window w = (Window) racine;
             w.setIconImages(iconesFenetre());
@@ -174,17 +191,52 @@ public final class Theme {
         return null;
     }
 
-    private static void parcourir(Component c) {
+    /**
+     * @param dansCarte vrai à l'intérieur d'une carte : les panneaux y
+     *        prennent le fond blanc de la carte au lieu du fond de la fenêtre.
+     */
+    private static void parcourir(Component c, boolean dansCarte) {
         appliquer(c);
+        boolean carte = estCarte(c);
+        if (dansCarte && !carte) {
+            surface(c);
+        }
+        boolean enfantsDansCarte = dansCarte || carte;
         if (c instanceof JMenu) {
             for (Component e : ((JMenu) c).getMenuComponents()) {
-                parcourir(e);
+                parcourir(e, false);
             }
         }
         if (c instanceof Container) {
             for (Component e : ((Container) c).getComponents()) {
-                parcourir(e);
+                parcourir(e, enfantsDansCarte);
             }
+        }
+    }
+
+    static boolean estCarte(Component c) {
+        return c instanceof JComponent && Boolean.TRUE.equals(((JComponent) c).getClientProperty(CARTE));
+    }
+
+    /**
+     * Fait d'un panneau une carte : fond blanc à coins arrondis, contour
+     * discret et titre en gras (l'aspect des panneaux de l'agenda).
+     */
+    public static void carte(JComponent panneau, String titre) {
+        panneau.setBorder(new BordureCarte(titre));
+        panneau.setBackground(SURFACE);
+        if (panneau instanceof JPanel) {
+            panneau.putClientProperty("FlatLaf.style", "arc: " + BordureCarte.ARC);
+        }
+        panneau.putClientProperty(CARTE, Boolean.TRUE);
+    }
+
+    /** Dans une carte, les conteneurs au fond de fenêtre prennent le blanc de la carte. */
+    private static void surface(Component c) {
+        boolean conteneur = c instanceof JPanel || c instanceof JSplitPane || c instanceof JToolBar
+                || c instanceof JCheckBox || c instanceof JRadioButton;
+        if (conteneur && (c.getBackground() instanceof UIResource || FOND.equals(c.getBackground()))) {
+            c.setBackground(SURFACE);
         }
     }
 
@@ -203,7 +255,10 @@ public final class Theme {
         if (c instanceof JComponent) {
             JComponent j = (JComponent) c;
             Border b = j.getBorder();
-            if (b != null && !(b instanceof UIResource)) {
+            if (b instanceof TitledBorder && (j instanceof JPanel || j instanceof JScrollPane)) {
+                // Groupe titré des formulaires → carte.
+                carte(j, ((TitledBorder) b).getTitle());
+            } else if (b != null && !(b instanceof UIResource)) {
                 j.setBorder(bordure(b));
             }
         }
@@ -220,7 +275,7 @@ public final class Theme {
             }
         } else if (c instanceof JTable) {
             JTable t = (JTable) c;
-            t.setRowHeight(Math.max(t.getRowHeight(), 28));
+            t.setRowHeight(Math.max(t.getRowHeight(), 32));
             t.setShowVerticalLines(false);
             t.setIntercellSpacing(new Dimension(0, 1));
             t.setGridColor(UIManager.getColor("Table.gridColor"));
@@ -342,15 +397,7 @@ public final class Theme {
 
     private static Border bordure(Border b) {
         if (b instanceof TitledBorder) {
-            TitledBorder t = (TitledBorder) b;
-            Border interieure = t.getBorder();
-            TitledBorder nouvelle = new TitledBorder(
-                    interieure == null || interieure instanceof UIResource
-                            ? new FlatLineBorder(new Insets(4, 4, 4, 4), BORDURE, 1f, 10)
-                            : bordure(interieure),
-                    t.getTitle(), t.getTitleJustification(), t.getTitlePosition(),
-                    police(Font.BOLD, TAILLE_BASE + 1), PRIMAIRE_FONCE);
-            return nouvelle;
+            return new BordureCarte(((TitledBorder) b).getTitle());
         }
         if (b instanceof CompoundBorder) {
             CompoundBorder cb = (CompoundBorder) b;

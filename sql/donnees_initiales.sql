@@ -1,7 +1,8 @@
 -- =====================================================================
 -- GestiMed : données de départ de la base « medicale ».
 --
--- À exécuter après sql/medicale.sql :
+-- À exécuter après la création du schéma (outil MigrationBase migrer, qui
+-- applique src/main/resources/db/migration) :
 --   D:/xampp/mysql/bin/mysql.exe -u root --default-character-set=utf8mb4 < sql/donnees_initiales.sql
 --
 -- Relançable sans risque : INSERT IGNORE uniquement. Une ligne déjà
@@ -23,14 +24,15 @@ USE medicale;
 -- n° 1, l'application lève « Le médecin n° 1 est introuvable dans la base ».
 -- ---------------------------------------------------------------------
 INSERT IGNORE INTO medecin
-  (idMedcin, ordreMedecin, nomMedecin, prenomMedcin, titre, specialite, adresse,
+  (idMedecin, ordreMedecin, nomMedecin, prenomMedecin, titre, specialite, adresse,
    telephone1, telephone2, email, nomCabinet)
 VALUES
   (1, NULL, 'BENALI', 'Karim', 'Dr', 'Médecine générale',
    'Adresse du cabinet à renseigner', NULL, NULL, NULL, 'Cabinet médical');
 
-INSERT IGNORE INTO utilisateur (idUtilisateur, nom, prenom, qualite)
-VALUES (1, 'BENALI', 'Karim', 'Médecin');
+-- Sans identifiant ni mot de passe : GestiMed les fait choisir au premier lancement.
+INSERT IGNORE INTO utilisateur (idUtilisateur, nom, prenom, qualite, idMedecin)
+VALUES (1, 'BENALI', 'Karim', 'Médecin', 1);
 
 -- ---------------------------------------------------------------------
 -- Catégories d'analyses

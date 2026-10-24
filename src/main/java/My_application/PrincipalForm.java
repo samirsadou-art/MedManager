@@ -2,23 +2,69 @@
 
 package My_application;
 
-import My_application.vue.Theme;
-import My_application.Chat.Tchat;
-import My_application.Patient.ListePatient;
+import My_application.Patient.DetailsPatient;
+import My_application.Patient.PagePatients;
+import My_application.controller.ListePatientController;
 import My_application.TableModelPrincipale.ConsultJourTableModel;
 import My_application.TableModelPrincipale.ConsultJourTableRondu;
 import My_application.TableModelPrincipale.RendezJourTableModel;
 import My_application.TableModelPrincipale.RendezJourTableRondu;
+import My_application.admin.PageMembres;
+import My_application.admin.PageStatistiques;
+import My_application.consultations.PageConsultations;
 import My_application.controller.AccueilController;
 import My_application.controller.AccueilVue;
+import My_application.controller.ConnexionController;
+import My_application.controller.Executeur;
+import My_application.dao.jdbc.DatabaseConfig;
+import My_application.dao.jdbc.Migrations;
+import My_application.entities.DossierPatient;
+import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
+import My_application.entities.Role;
 import My_application.entities.consultation;
+import My_application.entities.patient;
+import My_application.messagerie.FenetreMessagerie;
+import My_application.rendezvous.PageRendezVous;
+import My_application.salle.PanneauSalleAttente;
+import My_application.service.MotDePasse;
+import My_application.service.SalleAttenteService;
+import My_application.vue.Bandeau;
 import My_application.vue.Dialogues;
+import My_application.vue.EnTetePage;
+import My_application.vue.FiltreSaisie;
+import My_application.vue.Formulaire;
+import My_application.vue.Icones;
+import My_application.vue.MenuLateral;
+import My_application.vue.Theme;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Container;
+import java.awt.FlowLayout;
 import java.awt.Frame;
+import java.awt.Toolkit;
+import java.awt.Window;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JTextField;
+import javax.swing.Timer;
 
 /**
- * Fenêtre principale (Vue) : rendez-vous et consultations du jour.
+ * Fenêtre principale (Vue) : rendez-vous et salle d'attente du jour.
  * Les données sont fournies par {@link AccueilController} ; la fenêtre ne
  * fait que les afficher.
  */
@@ -26,33 +72,467 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     private final RendezJourTableModel RJModel = new RendezJourTableModel();
     private final ConsultJourTableModel CJModel = new ConsultJourTableModel();
+    private final AppContext ctx;
     private final AccueilController controleur;
-    private Tchat disc;
+    /** Rôle du compte connecté : il choisit la page d'accueil et le menu. */
+    private final Role role;
+    private static final String TITRE_MEMBRES = "Membres du cabinet";
+    private static final String SOUS_TITRE_ACCUEIL = "Rendez-vous et salle d'attente du jour";
+    private static final String SOUS_TITRE_MEMBRES =
+            "Comptes de connexion des médecins, de la secrétaire et des administrateurs";
+    /** Pages du compte administrateur (null pour les autres rôles). */
+    private PageMembres pageMembres;
+    private PageStatistiques pageStatistiques;
+    private JPanel pagesAdmin;
+    /** Médecin : page « Consultations » (date choisie) à côté de l'accueil, dans le panneau central. */
+    private PageConsultations pageConsultations;
+    /** Secrétaire et médecin : page « Patients » (liste et recherche), dans le panneau central. */
+    private PagePatients pagePatients;
+    /** Secrétaire et médecin : page « Rendez-vous » (agenda de la semaine), dans le panneau central. */
+    private PageRendezVous pageRendezVous;
+    /** Pages du panneau central de la secrétaire et du médecin (accueil, patients, rendez-vous, consultations). */
+    private JPanel pagesCabinet;
+    private EnTetePage entete;
+    /** Boutons de l'en-tête propres à la page « Rendez-vous » (cachés ailleurs). */
+    private final List<JButton> boutonsAgenda = new ArrayList<>();
+    /** Messagerie interne (null pour l'administrateur) : créée au démarrage, montrée par le menu. */
+    private FenetreMessagerie messagerie;
+    private MenuLateral menu;
+    /** Tours du minuteur : la présence n'est signalée qu'un tour sur dix (30 s). */
+    private int tours;
     /** Évite d'afficher la même erreur en boucle (le dialogue réactive la fenêtre). */
     private boolean erreurDejaSignalee;
+    private PanneauSalleAttente salle;
+    /** « Fin de journée… » de la secrétaire : actif seulement quand la salle d'attente est vide. */
+    private JButton finBtn;
+    private static final String INFO_FIN_DE_JOURNEE =
+            "Disponible quand la salle d'attente est vide (tous les patients libérés ou partis).";
+    /** Largeur (pixels) en dessous de laquelle la séparation de l'accueil ne réduit pas un panneau. */
+    private static final int LARGEUR_MINIMALE_PANNEAU = 250;
+    /** Préférences de ce poste (position de la séparation de l'accueil). */
+    private static final java.util.prefs.Preferences PREFERENCES =
+            java.util.prefs.Preferences.userNodeForPackage(PrincipalForm.class);
+    private static final String CLE_PART_SALLE_ATTENTE = "accueil.partSalleAttente";
+    /** Toutes les 3 secondes : un autre poste a-t-il changé la salle d'attente ou l'agenda ? */
+    private Timer surveillance;
+    private final JButton arriveBtn = new JButton("Patient arrivé");
+    private final JButton absentBtn = new JButton("Absent");
 
-    public PrincipalForm() {
+    public PrincipalForm(AppContext ctx) {
+        this.ctx = ctx;
+        this.role = ctx.getSession().getRole() == null ? Role.MEDECIN : ctx.getSession().getRole();
         initComponents();
+        setTitle(Theme.NOM_LOGICIEL);
         Theme.harmoniser(this);
+        presenterNavigation();
         this.setLocationRelativeTo(null);
         this.setExtendedState(Frame.MAXIMIZED_BOTH);
-        disc = new Tchat(this);
         TableRendezvous.setModel(RJModel);
         TableRendezvous.setDefaultRenderer(Object.class, new RendezJourTableRondu());
         TableConsult.setModel(CJModel);
         TableConsult.setDefaultRenderer(Object.class, new ConsultJourTableRondu());
-        AppContext ctx = AppContext.get();
-        controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService());
+        controleur = new AccueilController(this, ctx.getDossierService(), ctx.getRendezVousService(),
+                Executeur.SWING, false);
+        if (role != Role.ADMIN) {
+            messagerie = new FenetreMessagerie(ctx.getMessagerieService(), ctx.getPatientService(),
+                    ctx.getSession().getIdUtilisateurConnecte(), n -> menu.setBadge("Messagerie", n));
+            messagerie.demarrer();
+            messagerie.signalerPresence(nomDuPoste());
+            installerSalleAttente();
+        }
         refresh();
+    }
+
+    /** Compte administrateur : montre la page « Membres » ou « Statistiques » et met l'en-tête à jour. */
+    private void pageAdmin(EnTetePage entete, String page) {
+        ((CardLayout) pagesAdmin.getLayout()).show(pagesAdmin, page);
+        if ("Statistiques".equals(page)) {
+            entete.setTitre("Statistiques");
+            entete.setSousTitre("Activité du cabinet par période et par médecin, sans aucun nom de patient");
+            pageStatistiques.rafraichir();
+        } else {
+            entete.setTitre(TITRE_MEMBRES);
+            entete.setSousTitre(SOUS_TITRE_MEMBRES);
+            pageMembres.rafraichir();
+        }
+    }
+
+    /**
+     * Menu « Accueil », « Patients », « Rendez-vous » ou « Consultations » :
+     * montre la page dans le panneau central et met l'en-tête à jour
+     * (« Consultations » est réservé au médecin). Par le menu, l'agenda
+     * s'ouvre sans patient.
+     */
+    private void pageCabinet(String page) {
+        pageCabinet(page, null);
+    }
+
+    /** Idem ; {@code pourPatient} : patient de l'agenda (page « Rendez-vous » seulement). */
+    private void pageCabinet(String page, patient pourPatient) {
+        ((CardLayout) pagesCabinet.getLayout()).show(pagesCabinet, page);
+        for (JButton b : boutonsAgenda) {
+            b.setVisible("Rendez-vous".equals(page));
+        }
+        if ("Rendez-vous".equals(page)) {
+            entete.setIcone("calendar-event");
+            entete.setTitre("Rendez-vous");
+            entete.setSousTitre("Agenda de la semaine : prenez, déplacez, pointez ou annulez les rendez-vous");
+            pageRendezVous.afficher(pourPatient);
+        } else if ("Patients".equals(page)) {
+            entete.setIcone("users");
+            entete.setTitre("Patients");
+            entete.setSousTitre(role == Role.MEDECIN
+                    ? "Recherchez un patient (nom, téléphone ou n° de dossier) pour ouvrir son dossier, ou inscrivez-le"
+                    : "Recherchez un patient (nom, téléphone ou n° de dossier), inscrivez-le ou prenez-lui un rendez-vous");
+            pagePatients.rafraichir();
+            pagePatients.saisirRecherche();
+        } else if ("Consultations".equals(page)) {
+            entete.setIcone("stethoscope");
+            entete.setTitre("Consultations");
+            entete.setSousTitre("Consultations de la date choisie, tous médecins confondus");
+            pageConsultations.rafraichir();
+        } else {
+            entete.setIcone("home");
+            entete.setTitre("Accueil");
+            entete.setSousTitre(SOUS_TITRE_ACCUEIL);
+            controleur.rafraichir();
+        }
+    }
+
+    /** Menu latéral « Mot de passe » : chaque membre connecté change le sien. */
+    private void changerMotDePasse() {
+        JPasswordField actuel = new JPasswordField(20);
+        JPasswordField nouveau = new JPasswordField(20);
+        JPasswordField repete = new JPasswordField(20);
+        ConnexionController c = new ConnexionController(this, ctx.getAuthentificationService());
+        new Formulaire(this, "Changer mon mot de passe", "key", "Au moins " + MotDePasse.LONGUEUR_MIN
+                + " caractères, dont une lettre et un chiffre.", "Changer")
+                .ligne("Mot de passe actuel", actuel)
+                .ligne("Nouveau mot de passe", nouveau)
+                .ligne("Confirmation", repete)
+                .afficher(() -> c.changerMonMotDePasse(actuel.getPassword(), nouveau.getPassword(),
+                        repete.getPassword()));
+    }
+
+    /**
+     * Menu « Se déconnecter » : ferme toutes les fenêtres de ce membre
+     * (dossiers, agenda, messagerie…) et sa session, puis rouvre l'écran de
+     * connexion pour le membre suivant. Quitter cet écran ferme l'application.
+     */
+    private void seDeconnecter() {
+        if (!Dialogues.confirmer(this, "Fermer la session de " + ctx.getSession().getUtilisateur() + " ?")) {
+            return;
+        }
+        if (surveillance != null) {
+            surveillance.stop();
+        }
+        if (messagerie != null) {
+            messagerie.quitter();
+            messagerie.dispose();
+        }
+        for (Window w : Window.getWindows()) {
+            if (w.isShowing()) {
+                w.dispose();
+            }
+        }
+        dispose();
+        ctx.getAuthentificationService().deconnecter();
+        if (ConnexionForm.demander(ctx.getAuthentificationService()) == null) {
+            ctx.close();
+            System.exit(0);
+        }
+        new PrincipalForm(ctx).setVisible(true);
+    }
+
+    /** Nom de l'ordinateur, affiché avec la présence des membres. */
+    private static String nomDuPoste() {
+        String nom = System.getenv("COMPUTERNAME");
+        if (nom == null) {
+            nom = System.getenv("HOSTNAME");
+        }
+        return nom == null ? null : nom.length() > 60 ? nom.substring(0, 60) : nom;
+    }
+
+    /**
+     * Accueil : salle d'attente à gauche et rendez-vous du jour à droite,
+     * moitié-moitié au départ. La séparation se déplace à la souris et sa
+     * position est retenue sur ce poste d'une ouverture à l'autre. Le .form
+     * garde l'ancienne disposition (rendez-vous au-dessus).
+     */
+    private void disposerSalleEtRendezVous() {
+        jSplitPane2.setOrientation(javax.swing.JSplitPane.HORIZONTAL_SPLIT);
+        jSplitPane2.setLeftComponent(jPanel7);
+        jSplitPane2.setRightComponent(jPanel6);
+        // Sans minimum réduit, les rangées de boutons bloquent la séparation.
+        jPanel7.setMinimumSize(new java.awt.Dimension(LARGEUR_MINIMALE_PANNEAU, 0));
+        jPanel6.setMinimumSize(new java.awt.Dimension(LARGEUR_MINIMALE_PANNEAU, 0));
+        jSplitPane2.setResizeWeight(0.5);
+        jSplitPane2.setDividerSize(10);
+        jSplitPane2.setContinuousLayout(true);
+        jSplitPane2.setToolTipText("Faire glisser pour ajuster les largeurs");
+        final double part = partSalleAttente();
+        jSplitPane2.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                if (jSplitPane2.getWidth() > 0) {
+                    jSplitPane2.removeComponentListener(this);
+                    jSplitPane2.setDividerLocation(part);
+                    jSplitPane2.addPropertyChangeListener(javax.swing.JSplitPane.DIVIDER_LOCATION_PROPERTY,
+                            ev -> retenirPartSalleAttente());
+                }
+            }
+        });
+    }
+
+    /** Part de la largeur retenue pour la salle d'attente (0,5 par défaut). */
+    private static double partSalleAttente() {
+        double part = PREFERENCES.getDouble(CLE_PART_SALLE_ATTENTE, 0.5);
+        return part >= 0.1 && part <= 0.9 ? part : 0.5;
+    }
+
+    /** Retient la position de la séparation choisie à la souris. */
+    private void retenirPartSalleAttente() {
+        int utile = jSplitPane2.getWidth() - jSplitPane2.getDividerSize();
+        if (utile > 0 && jSplitPane2.isShowing()) {
+            PREFERENCES.putDouble(CLE_PART_SALLE_ATTENTE, (double) jSplitPane2.getDividerLocation() / utile);
+        }
+    }
+
+    /**
+     * Salle d'attente : le médecin voit sa file et appelle ; la secrétaire voit
+     * toutes les files, pointe les arrivées et est prévenue de chaque appel.
+     * À côté, sous les rendez-vous du jour, la secrétaire pointe l'arrivée, l'absence, la fin de journée.
+     */
+    private void installerSalleAttente() {
+        boolean secretaire = role == Role.SECRETAIRE;
+        boolean medecin = role == Role.MEDECIN;
+        Integer medecinDuPoste = ctx.getSession().getIdMedecinDuPoste();
+        controleur.brancherSalleAttente(ctx.getSalleAttenteService(), secretaire ? null : medecinDuPoste,
+                ctx.getSession()::getMedecinTraitant, secretaire, secretaire);
+
+        salle = new PanneauSalleAttente(secretaire || medecinDuPoste == null);
+        if (secretaire) {
+            salle.ajouterAction("Patient sans rendez-vous…", "user-plus", () -> userMenuBtn.doClick());
+            salle.ajouterBouton("Encaisser et libérer…", "check", p -> p.getEtat() == Passage.A_REGLER,
+                    this::encaisserEtLiberer);
+            // Double-clic sur un patient (salle d'attente ou rendez-vous du jour) : ses détails.
+            controleur.brancherPatients(ctx.getPatientService());
+            salle.surDoubleClic(p -> afficherDetails(p.getPatient()));
+            TableRendezvous.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    Rendez_Vous r = rendezVousSelectionne();
+                    if (e.getClickCount() == 2 && TableRendezvous.rowAtPoint(e.getPoint()) >= 0 && r != null) {
+                        afficherDetails(r.getPatient());
+                    }
+                }
+            });
+        } else {
+            // Le médecin n'a que « Patient suivant », « Terminer la consultation » (et le double-clic
+            // pour appeler) : l'urgence et le départ sans consultation sont l'affaire de la secrétaire.
+            // Une consultation à la fois : la terminer renvoie le patient en salle d'attente, à régler.
+            salle.ajouterAction("Patient suivant", "speakerphone", controleur::appelerSuivant);
+            salle.ajouterBouton("Terminer la consultation", "check", p -> p.getEtat() == Passage.EN_CONSULTATION,
+                    controleur::terminerConsultation);
+            salle.surDoubleClic(controleur::appeler);
+        }
+        if (!medecin) {
+            salle.ajouterBouton("Urgence", "first-aid-kit", p -> p.getEtat() == Passage.EN_ATTENTE,
+                    controleur::urgence);
+            salle.ajouterBouton("Parti sans consultation", "x", p -> p.getEtat() == Passage.EN_ATTENTE, p -> {
+                if (Dialogues.confirmer(this, p.getPatient() + " est reparti sans consultation ?")) {
+                    controleur.parti(p);
+                }
+            });
+        }
+        jPanel11.removeAll();
+        jPanel11.add(salle, BorderLayout.CENTER);
+        jButton2.setVisible(false);
+
+        arriveBtn.setIcon(Icones.svg("check", 16, Theme.PRIMAIRE));
+        absentBtn.setIcon(Icones.svg("circle-minus", 16, Theme.PRIMAIRE));
+        finBtn = new JButton("Fin de journée…", Icones.svg("player-stop", 16, Theme.PRIMAIRE));
+        finBtn.setEnabled(false);
+        finBtn.setToolTipText(INFO_FIN_DE_JOURNEE);
+        arriveBtn.addActionListener(e -> {
+            Rendez_Vous r = rendezVousSelectionne();
+            if (r != null) {
+                controleur.arrivee(r);
+            }
+        });
+        absentBtn.addActionListener(e -> {
+            Rendez_Vous r = rendezVousSelectionne();
+            if (r != null && Dialogues.confirmer(this, r.getPatient() + " n'est pas venu ?")) {
+                controleur.absent(r);
+            }
+        });
+        finBtn.addActionListener(e -> {
+            if (Dialogues.confirmer(this, "Fin de journée : les rendez-vous d'aujourd'hui encore prévus et "
+                    + "dont l'heure est passée seront marqués absents.\nContinuer ?")) {
+                controleur.finDeJournee();
+            }
+        });
+        TableRendezvous.getSelectionModel().addListSelectionListener(e -> majBoutonsRendezVous());
+        majBoutonsRendezVous();
+        // Colonne étroite (30 % de l'accueil) : nombre de rendez-vous, puis
+        // « Patient arrivé » et « Absent » côte à côte, « Fin de journée » dessous.
+        JPanel compte = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        compte.setOpaque(false);
+        for (java.awt.Component c : jPanel9.getComponents()) {
+            compte.add(c);
+        }
+        JPanel pointage = new JPanel(new java.awt.GridLayout(1, 2, 6, 0));
+        pointage.setOpaque(false);
+        pointage.add(arriveBtn);
+        pointage.add(absentBtn);
+        JPanel actions = new JPanel(new java.awt.GridLayout(0, 1, 0, 6));
+        actions.setOpaque(false);
+        actions.add(pointage);
+        actions.add(finBtn);
+        jPanel9.removeAll();
+        jPanel9.setLayout(new BorderLayout(0, 6));
+        jPanel9.add(compte, BorderLayout.NORTH);
+        if (!medecin) {
+            // Pointer l'arrivée, l'absence et la fin de journée : la secrétaire seulement.
+            jPanel9.add(actions, BorderLayout.CENTER);
+        }
+
+        surveillance = new Timer(3000, e -> {
+            controleur.verifierEvenements();
+            salle.setMaintenant(LocalDateTime.now());
+            messagerie.verifier();
+            if (++tours % 10 == 0) {
+                messagerie.signalerPresence(nomDuPoste());
+            }
+        });
+        surveillance.start();
+        controleur.purgerEvenements();
+    }
+
+    /** Détails du patient (comme sur la page Patients) ; l'accueil est relu si la fiche a changé. */
+    private void afficherDetails(patient p) {
+        patient fiche = controleur.fichePatient(p);
+        if (fiche == null) {
+            if (p != null) {
+                Dialogues.information(this, "La fiche de ce patient n'existe plus.");
+            }
+            return;
+        }
+        DetailsPatient details = new DetailsPatient(this, ctx.getPatientService(), fiche);
+        details.setVisible(true);
+        if (details.getPatientModifie() != null) {
+            refresh();
+        }
+    }
+
+    /**
+     * Le patient a terminé sa consultation : la secrétaire encaisse les frais
+     * fixés par le médecin (modifiables) et le libère de la salle d'attente.
+     */
+    private void encaisserEtLiberer(Passage p) {
+        Integer frais = p.getFrais();
+        JTextField montant = new JTextField(frais == null ? "" : String.valueOf(frais), 10);
+        FiltreSaisie.installer(montant, FiltreSaisie.entier(7));
+        JLabel patient = new JLabel(p.getPatient().getNom().toUpperCase(Locale.FRENCH) + " "
+                + p.getPatient().getPrenom());
+        patient.setFont(Theme.policeGras());
+        JLabel demandes = new JLabel(frais == null ? "non précisés par le médecin"
+                : frais == 0 ? "consultation gratuite" : AccueilController.montant(frais));
+        new Formulaire(this, "Encaisser et libérer", "check",
+                "Saisissez le montant reçu, puis le patient quitte la salle d'attente. "
+                + "Laissez vide s'il n'a rien payé.", "Libérer le patient")
+                .ligne("Patient", patient).ligne("Frais demandés", demandes).ligne("Montant reçu (DA)", montant)
+                .afficher(() -> controleur.liberer(p, montant.getText()));
+    }
+
+    private Rendez_Vous rendezVousSelectionne() {
+        int ligne = TableRendezvous.getSelectedRow();
+        return ligne < 0 ? null : RJModel.getElement(TableRendezvous.convertRowIndexToModel(ligne));
+    }
+
+    private void majBoutonsRendezVous() {
+        Rendez_Vous r = rendezVousSelectionne();
+        arriveBtn.setEnabled(controleur.peutPointer(r));
+        absentBtn.setEnabled(controleur.peutMarquerAbsent(r));
     }
 
     // ----- AccueilVue -----
 
     @Override
     public void afficherRendezVousDuJour(List<Rendez_Vous> rendezVous) {
+        Rendez_Vous avant = rendezVousSelectionne();
         RJModel.setDonnees(rendezVous);
         nbRendez.setText(String.valueOf(RJModel.getSize()));
         erreurDejaSignalee = false;
+        if (avant != null && avant.getIdRendezVous() != null) {
+            for (int i = 0; i < RJModel.getSize(); i++) {
+                if (avant.getIdRendezVous().equals(RJModel.getElement(i).getIdRendezVous())) {
+                    int ligne = TableRendezvous.convertRowIndexToView(i);
+                    TableRendezvous.setRowSelectionInterval(ligne, ligne);
+                }
+            }
+        }
+        if (salle != null) {
+            majBoutonsRendezVous();
+        }
+    }
+
+    @Override
+    public void afficherSalleAttente(List<Passage> file, Map<Integer, String> medecins, LocalDateTime maintenant) {
+        salle.setFile(file, medecins, maintenant);
+        if (finBtn != null) {
+            // Fin de journée seulement quand la salle d'attente est vide (le service le vérifie aussi).
+            boolean vide = SalleAttenteService.nombreDePresents(file) == 0;
+            finBtn.setEnabled(vide);
+            finBtn.setToolTipText(vide ? null : INFO_FIN_DE_JOURNEE);
+        }
+        int enAttente = 0;
+        for (Passage p : file) {
+            if (p.getEtat() == Passage.EN_ATTENTE) {
+                enAttente++;
+            }
+        }
+        nbAttente.setText(String.valueOf(enAttente));
+    }
+
+    @Override
+    public void annoncerAppel(String annonce) {
+        salle.annoncer(annonce);
+        Toolkit.getDefaultToolkit().beep();
+    }
+
+    @Override
+    public boolean terminerConsultationEnCours(Passage enCours, String fraisProposes, Predicate<String> terminer) {
+        JTextField frais = new JTextField(fraisProposes, 10);
+        FiltreSaisie.installer(frais, FiltreSaisie.entier(7));
+        JLabel patient = new JLabel(enCours.getPatient().getNom().toUpperCase(Locale.FRENCH) + " "
+                + enCours.getPatient().getPrenom());
+        patient.setFont(Theme.policeGras());
+        return new Formulaire(this, "Consultation en cours", "stethoscope",
+                "Terminez cette consultation avant d'appeler un autre patient. Il retourne en salle d'attente "
+                + "jusqu'à ce que la secrétaire encaisse les frais et le libère. Laissez les frais vides pour "
+                + "qu'elle les demande, 0 pour une consultation gratuite.", "Terminer la consultation")
+                .ligne("Patient", patient).ligne("Frais (DA)", frais)
+                .afficher(() -> terminer.test(frais.getText()));
+    }
+
+    @Override
+    public void ouvrirDossier(DossierPatient dossier) {
+        new DossierPatientForm(dossier, ctx, this::rendezVousPour).setVisible(true);
+    }
+
+    /**
+     * « Rendez-vous » d'un patient (liste des patients ou dossier) : montre
+     * l'agenda du panneau central pour ce patient, fenêtre principale devant.
+     */
+    private void rendezVousPour(patient p) {
+        menu.selectionner("Rendez-vous");
+        pageCabinet("Rendez-vous", p);
+        if ((getExtendedState() & Frame.ICONIFIED) != 0) {
+            setExtendedState(getExtendedState() & ~Frame.ICONIFIED);
+        }
+        toFront();
+        requestFocus();
     }
 
     @Override
@@ -76,8 +556,128 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     }
 
     public void refresh() {
+        if (pagePatients != null && pagePatients.isShowing()) {
+            pagePatients.rafraichir();
+            return;
+        }
+        if (pageConsultations != null && pageConsultations.isShowing()) {
+            pageConsultations.rafraichir();
+            return;
+        }
+        if (pageRendezVous != null && pageRendezVous.isShowing()) {
+            pageRendezVous.rafraichir();
+            return;
+        }
+        if (pageStatistiques != null && pageStatistiques.isShowing()) {
+            pageStatistiques.rafraichir();
+            return;
+        }
+        if (pageMembres != null) {
+            pageMembres.rafraichir();
+            return;
+        }
         controleur.rafraichir();
-        nbAttente.setText("0");
+    }
+
+    /**
+     * Habillage de la fenêtre principale (comme l'agenda) : bandeau en haut,
+     * menu latéral à gauche et en-tête de page. L'ancienne barre d'icônes
+     * sans libellés est remplacée par le menu, qui reprend ses actions.
+     * <p>
+     * Le contenu dépend du rôle : le médecin a en plus la page
+     * « Consultations » (date au choix) ; l'administrateur
+     * arrive sur les membres du cabinet.
+     */
+    private void presenterNavigation() {
+        Fnord.setVisible(false);
+        Fsud.setVisible(false);
+
+        Container contenu = getContentPane();
+        if (role == Role.ADMIN) {
+            entete = new EnTetePage("users", TITRE_MEMBRES, SOUS_TITRE_MEMBRES);
+            pageMembres = new PageMembres(ctx.getMembresService());
+            pageStatistiques = new PageStatistiques(ctx.getStatistiquesService(), ctx.getRapportService());
+            pagesAdmin = new JPanel(new CardLayout());
+            pagesAdmin.setOpaque(false);
+            pagesAdmin.add(pageMembres, "Membres");
+            pagesAdmin.add(pageStatistiques, "Statistiques");
+            contenu = pagesAdmin;
+        } else {
+            entete = new EnTetePage("home", "Accueil", SOUS_TITRE_ACCUEIL);
+            // Plus de panneau des consultations à l'accueil : le médecin a le
+            // menu « Consultations » (date au choix) ; la secrétaire ne les voit
+            // pas (dossier médical).
+            centre.remove(jSplitPane1);
+            centre.add(jPanel2, BorderLayout.CENTER);
+            disposerSalleEtRendezVous();
+            ((JComponent) contenu).setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+            pagesCabinet = new JPanel(new CardLayout());
+            pagesCabinet.setOpaque(false);
+            pagesCabinet.add(contenu, "Accueil");
+            pagePatients = new PagePatients(ctx.getPatientService(),
+                    v -> new ListePatientController(v, ctx.getPatientService(), ctx.getDossierService(),
+                            ctx.getSession(), ctx.getSalleAttenteService(), ctx.getRendezVousService()),
+                    role == Role.MEDECIN, this::ouvrirDossier, this::rendezVousPour);
+            pagesCabinet.add(pagePatients, "Patients");
+            pageRendezVous = new PageRendezVous(ctx.getSession().getUtilisateur(), ctx.getRendezVousService(),
+                    ctx.getRapportService(), () -> {
+                        menu.selectionner("Patients");
+                        pageCabinet("Patients");
+                    }, role == Role.MEDECIN ? ctx.getSession().getIdMedecinDuPoste() : null);
+            pagesCabinet.add(pageRendezVous, "Rendez-vous");
+            if (role == Role.MEDECIN) {
+                pageConsultations = new PageConsultations(ctx.getDossierService(), ctx.getPatientService(),
+                        ctx.getRendezVousService(), ctx.getSession()::getMedecinTraitant,
+                        this::ouvrirDossier);
+                pagesCabinet.add(pageConsultations, "Consultations");
+            }
+            contenu = pagesCabinet;
+        }
+        entete.setBorder(BorderFactory.createEmptyBorder(16, 20, 8, 20));
+        if (pageRendezVous != null) {
+            boutonsAgenda.add(entete.ajouterBouton("Aujourd'hui", "calendar", pageRendezVous::allerAujourdhui));
+            boutonsAgenda.add(entete.ajouterBouton("Liste du jour", "printer", pageRendezVous::listeDuJour));
+            for (JButton b : boutonsAgenda) {
+                b.setVisible(false);
+            }
+        }
+        entete.ajouterBouton("Actualiser", "refresh", this::refresh);
+        JPanel page = new JPanel(new BorderLayout());
+        page.setBackground(Theme.FOND);
+        page.add(entete, BorderLayout.NORTH);
+        page.add(contenu, BorderLayout.CENTER);
+
+        menu = new MenuLateral();
+        if (role == Role.ADMIN) {
+            menu.ajouter("users", "Membres", true, () -> pageAdmin(entete, "Membres"));
+            menu.ajouter("chart-bar", "Statistiques", true, () -> pageAdmin(entete, "Statistiques"));
+            menu.selectionner("Membres");
+        } else {
+            menu.ajouter("home", "Accueil", true, () -> pageCabinet("Accueil"));
+            menu.ajouter("users", "Patients", true, () -> pageCabinet("Patients"));
+            if (pageConsultations != null) {
+                menu.ajouter("stethoscope", "Consultations", true, () -> pageCabinet("Consultations"));
+            }
+            menu.ajouter("calendar-event", "Rendez-vous", true, () -> pageCabinet("Rendez-vous"));
+            menu.ajouter("message-circle", "Messagerie", false, () -> ChatBtn.doClick());
+            menu.selectionner("Accueil");
+        }
+        if (ctx.getSession().estOuverte()) {
+            menu.ajouterEnBas("key", "Mot de passe", this::changerMotDePasse);
+            menu.ajouterEnBas("logout", "Se déconnecter", this::seDeconnecter);
+        }
+        menu.setPied(Theme.NOM_LOGICIEL + "<br>Gestion du cabinet médical");
+
+        Bandeau bandeau = new Bandeau(Theme.NOM_LOGICIEL, "Cabinet médical");
+        if (ctx.getSession().estOuverte()) {
+            bandeau.ajouterInfo("user", ctx.getSession().getUtilisateur() + " · " + role.getLibelle());
+        }
+
+        JPanel racine = new JPanel(new BorderLayout());
+        racine.add(bandeau, BorderLayout.NORTH);
+        racine.add(menu, BorderLayout.WEST);
+        racine.add(page, BorderLayout.CENTER);
+        setContentPane(racine);
     }
 
     @SuppressWarnings("unchecked")
@@ -120,11 +720,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         userMenuBtn = new javax.swing.JButton();
         ChatBtn = new javax.swing.JButton();
         Fsud = new javax.swing.JPanel();
-        jMenuBar1 = new javax.swing.JMenuBar();
-        jMenu1 = new javax.swing.JMenu();
-        jMenuItem1 = new javax.swing.JMenuItem();
-        jMenu2 = new javax.swing.JMenu();
-        jMenuItem2 = new javax.swing.JMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -346,28 +941,15 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
         Fsud.setPreferredSize(new java.awt.Dimension(10, 30));
         getContentPane().add(Fsud, java.awt.BorderLayout.SOUTH);
 
-        jMenu1.setText("Fichier");
-
-        jMenuItem1.setText("Ouvrir Session");
-        jMenu1.add(jMenuItem1);
-
-        jMenuBar1.add(jMenu1);
-
-        jMenu2.setText("Patient");
-
-        jMenuItem2.setText("Liste des patients");
-        jMenu2.add(jMenuItem2);
-
-        jMenuBar1.add(jMenu2);
-
-        setJMenuBar(jMenuBar1);
-
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     private void userMenuBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_userMenuBtnActionPerformed
      
-        new ListePatient().setVisible(true);
+        // Bouton caché de l'ancienne barre d'icônes (repris par « Patient sans
+        // rendez-vous… ») : montre la page « Patients » du panneau central.
+        menu.selectionner("Patients");
+        pageCabinet("Patients");
      
         
     }//GEN-LAST:event_userMenuBtnActionPerformed
@@ -379,12 +961,20 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     private void ChatBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ChatBtnActionPerformed
         
                 
-        disc.montrer();
+        if (messagerie != null) {
+            messagerie.montrer();
+        }
     }//GEN-LAST:event_ChatBtnActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
-        disc.Close();
-        AppContext.fermer();
+        if (surveillance != null) {
+            surveillance.stop();
+        }
+        if (messagerie != null) {
+            messagerie.quitter();
+            messagerie.dispose();
+        }
+        ctx.close();
     }//GEN-LAST:event_formWindowClosing
 
     
@@ -393,15 +983,52 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
 
     
  
+    static final String BASE_EN_RETARD = "La base de données est plus ancienne que cette version de " + Theme.NOM_LOGICIEL + ".\n"
+            + "Faites une sauvegarde, puis mettez-la à jour avec la commande :\n"
+            + "  java -cp gestimed-3.5-jar-with-dependencies.jar My_application.outils.MigrationBase migrer\n\n";
+
+    /**
+     * Compare la version de la base aux migrations livrées. Si la vérification
+     * est impossible (serveur arrêté...), on laisse l'écran de connexion
+     * signaler l'erreur habituelle.
+     */
+    private static boolean baseAJour() {
+        Logger log = Logger.getLogger("GestiMed");
+        try {
+            Migrations.Etat etat = new Migrations(DatabaseConfig.charger()).etat();
+            if (etat.estEnRetard()) {
+                log.severe("Schéma en retard : " + etat);
+                Dialogues.erreur(null, BASE_EN_RETARD + etat);
+                return false;
+            }
+            if (!etat.estSuivie()) {
+                log.warning("Schéma non suivi par les migrations (" + etat + ") : lancer une fois "
+                        + "My_application.outils.MigrationBase migrer pour l'adopter.");
+            }
+        } catch (RuntimeException e) {
+            log.log(Level.WARNING, "Vérification de la version du schéma impossible", e);
+        }
+        return true;
+    }
+
     public static void main(String args[]) {
+        // Détail technique des erreurs : dans ~/GestiMed/gestimed0.log, pas à l'écran.
+        Journal.installer();
         // Charte graphique GestiMed (FlatLaf, palette bleu-vert médical).
         Theme.installer();
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-             
-                new PrincipalForm().setVisible(true);
+                // Une base en retard sur le code ferait échouer les saisies : on s'arrête avant.
+                // Personne n'accède aux dossiers sans s'être identifié.
+                // Seul endroit qui assemble l'application : tout le reste reçoit ses dépendances.
+                AppContext ctx = AppContext.mysql();
+                if (!baseAJour() || ConnexionForm.demander(ctx.getAuthentificationService()) == null) {
+                    ctx.close();
+                    System.exit(0);
+                }
+                new PrincipalForm(ctx).setVisible(true);
             }
         });
     }
@@ -424,11 +1051,6 @@ public class PrincipalForm extends javax.swing.JFrame implements AccueilVue {
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
-    private javax.swing.JMenu jMenu1;
-    private javax.swing.JMenu jMenu2;
-    private javax.swing.JMenuBar jMenuBar1;
-    private javax.swing.JMenuItem jMenuItem1;
-    private javax.swing.JMenuItem jMenuItem2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel10;
     private javax.swing.JPanel jPanel11;

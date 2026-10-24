@@ -1,8 +1,8 @@
 package My_application.entities;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -25,21 +25,22 @@ public class consultation {
 
     public static final int NON_RENSEIGNE = -1;
 
-    int idConsul;
-    Date date_cons;
-    Time heure_cons;
-    double tarif;
+    private int idConsul;
+    private LocalDate date_cons;
+    private LocalTime heure_cons;
+    private double tarif;
 
-    double poids = NON_RENSEIGNE;
-    double temperature = NON_RENSEIGNE;
-    String pressionA = "";
-    int tauxRespir = NON_RENSEIGNE;
-    int pul_Cardiaque = NON_RENSEIGNE;
+    private double poids = NON_RENSEIGNE;
+    private double temperature = NON_RENSEIGNE;
+    private int pressionSystolique = NON_RENSEIGNE;   // mmHg (V16)
+    private int pressionDiastolique = NON_RENSEIGNE;  // mmHg
+    private int tauxRespir = NON_RENSEIGNE;
+    private int pul_Cardiaque = NON_RENSEIGNE;
 
-    patient malade;
-    medecin medTraitant;
-    ordonnance OrdoPat;
-    analyseBio AnaPat;
+    private patient malade;
+    private medecin medTraitant;
+    private ordonnance OrdoPat;
+    private analyseBio AnaPat;
 
     private final List<symptome> symptomes = new ArrayList<>();
     private final List<pathologie> pathologies = new ArrayList<>();
@@ -126,7 +127,7 @@ public class consultation {
         return OrdoPat != null && !OrdoPat.estVide();
     }
 
-    public boolean hasAanlyse() {
+    public boolean hasAnalyse() {
         return AnaPat != null && !AnaPat.estVide();
     }
 
@@ -136,7 +137,7 @@ public class consultation {
     }
 
     public String getHeureString() {
-        return heure_cons == null ? "" : new SimpleDateFormat("HH:mm").format(heure_cons);
+        return heure_cons == null ? "" : heure_cons.format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
     // ----- accesseurs -----
@@ -149,19 +150,19 @@ public class consultation {
         this.idConsul = idConsul;
     }
 
-    public Date getDate_cons() {
+    public LocalDate getDate_cons() {
         return date_cons;
     }
 
-    public void setDate_cons(Date date_cons) {
+    public void setDate_cons(LocalDate date_cons) {
         this.date_cons = date_cons;
     }
 
-    public Time getHeure_cons() {
+    public LocalTime getHeure_cons() {
         return heure_cons;
     }
 
-    public void setHeure_cons(Time heure_cons) {
+    public void setHeure_cons(LocalTime heure_cons) {
         this.heure_cons = heure_cons;
     }
 
@@ -189,12 +190,27 @@ public class consultation {
         this.temperature = temperature;
     }
 
+    /** Pression artérielle à afficher, « 120/80 » (mmHg), ou "" si elle n'a pas été mesurée. */
     public String getPressionA() {
-        return pressionA;
+        return pressionSystolique == NON_RENSEIGNE ? "" : pressionSystolique + "/" + pressionDiastolique;
     }
 
-    public void setPressionA(String pressionA) {
-        this.pressionA = pressionA == null ? "" : pressionA;
+    public int getPressionSystolique() {
+        return pressionSystolique;
+    }
+
+    public int getPressionDiastolique() {
+        return pressionDiastolique;
+    }
+
+    /**
+     * Pression en mmHg ; {@link #NON_RENSEIGNE} pour les deux valeurs si elle
+     * n'a pas été mesurée (l'une ne va pas sans l'autre).
+     */
+    public void setPression(int systolique, int diastolique) {
+        boolean mesuree = systolique != NON_RENSEIGNE && diastolique != NON_RENSEIGNE;
+        this.pressionSystolique = mesuree ? systolique : NON_RENSEIGNE;
+        this.pressionDiastolique = mesuree ? diastolique : NON_RENSEIGNE;
     }
 
     public int getTauxRespir() {

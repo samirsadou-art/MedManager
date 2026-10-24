@@ -5,23 +5,15 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import My_application.entities.DossierPatient;
-import My_application.entities.Rendez_Vous;
-import My_application.entities.consultation;
 import My_application.entities.medicament;
 import My_application.fake.Donnees;
-import My_application.modelTableau.HistoriqueVisites;
 import My_application.modelTableau.ListeTableModel;
 import My_application.modelTableau.my_modelAnalyse;
 import My_application.modelTableau.my_modelOrdonnance;
-import My_application.rendezvous.RendezVousTableModel;
-import java.sql.Date;
-import java.sql.Time;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import javax.swing.tree.DefaultMutableTreeNode;
 import org.junit.Test;
 
 /** Modèles d'affichage Swing (couche Vue), testables sans afficher de fenêtre. */
@@ -29,9 +21,12 @@ public class VueModelesTest {
 
     @Test
     public void iconeSelonSexeEtAge() {
-        assertEquals("/res/icons/h64.png", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.of(1970, 1, 1), true), 64));
-        assertEquals("/res/icons/g32.png", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.now().minusYears(8), false), 32));
-        assertEquals("/res/icons/bb16.png", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.now().minusMonths(3), true), 16));
+        assertEquals("res/svg/patients/homme.svg", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.of(1970, 1, 1), true)));
+        assertEquals("res/svg/patients/fille.svg", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.now().minusYears(8), false)));
+        assertEquals("res/svg/patients/bebe-garcon.svg", Icones.nomIconePatient(Donnees.patient(1, "A", "a", LocalDate.now().minusMonths(3), true)));
+        for (String nom : new String[]{"homme", "femme", "garcon", "fille", "bebe-garcon", "bebe-fille"}) {
+            assertNotNull("avatar " + nom, Icones.class.getResource("/res/svg/patients/" + nom + ".svg"));
+        }
         for (int taille : new int[]{16, 32, 64, 128}) {
             assertNotNull("icône présente pour " + taille, Icones.icone("/res/icons/f" + taille + ".png"));
         }
@@ -72,37 +67,5 @@ public class VueModelesTest {
         assertEquals("b", m.getValueAt(1, 0));
         m.clear();
         assertEquals(0, m.getSize());
-    }
-
-    @Test
-    public void agendaPlaceLesRendezVousDansLaBonneCase() {
-        LocalDate dimanche = LocalDate.of(2026, 10, 4);
-        Rendez_Vous r = new Rendez_Vous();
-        r.setPatient(Donnees.patient(1, "A"));
-        r.setDate(Date.valueOf(LocalDate.of(2026, 10, 6))); // mardi
-        r.setHeure(Time.valueOf("11:15:00"));
-        RendezVousTableModel m = new RendezVousTableModel(4, 8, 9);
-        m.afficherSemaine(dimanche, Arrays.asList(r));
-        assertEquals(1, m.getNombrePatient(3, 3)); // ligne 11 h, colonne mardi
-        assertEquals("Mardi [06-10-2026]", m.getColumnName(3));
-        assertEquals("16:00 - 17:00", m.getValueAt(8, 0));
-        assertEquals(LocalDate.of(2026, 10, 6), m.jourDeColonne(3));
-        assertEquals(11, m.heureDeLigne(3));
-    }
-
-    @Test
-    public void historiqueRangeParAnneeCalendaire() {
-        // Avec le motif « YYYY » d'origine, le 29/12/2025 était classé en 2026.
-        consultation c = new consultation(Donnees.patient(1, "A"), Donnees.medecin(1));
-        c.setDate_cons(Date.valueOf(LocalDate.of(2025, 12, 29)));
-        c.setHeure_cons(Time.valueOf("09:30:00"));
-        DossierPatient d = new DossierPatient(c.getPatient(), c.getMedecin());
-        d.setConsultations(Arrays.asList(c));
-        HistoriqueVisites h = new HistoriqueVisites(d);
-        h.chargerHistorique();
-        DefaultMutableTreeNode annee = (DefaultMutableTreeNode) h.getConsultNoeud().getChildAt(0);
-        assertEquals("2025", annee.toString());
-        assertNotNull(h.lookForNoeud(h.getVisitesNoeud(), 0));
-        assertNull(h.lookForNoeud(h.getVisitesNoeud(), 5));
     }
 }

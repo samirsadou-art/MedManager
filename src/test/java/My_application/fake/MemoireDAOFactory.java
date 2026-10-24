@@ -3,19 +3,34 @@ package My_application.fake;
 import My_application.dao.AnalyseDao;
 import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
+import My_application.dao.DoublonException;
 import My_application.dao.DataAccessException;
 import My_application.dao.DemandeAnalyseDao;
+import My_application.dao.DossierCliniqueDao;
+import My_application.dao.EvenementDao;
+import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
 import My_application.dao.MedicamentDao;
+import My_application.dao.MessageDao;
 import My_application.dao.PathologieDao;
 import My_application.dao.PatientDao;
 import My_application.dao.PrescriptionDao;
+import My_application.dao.PresenceDao;
 import My_application.dao.RendezVousDao;
+import My_application.dao.SalleAttenteDao;
+import My_application.dao.StatistiquesDao;
 import My_application.dao.SymptomeDao;
 import My_application.dao.UniteDeTravail;
 import My_application.dao.UtilisateurDao;
 import My_application.entities.CategAnalyse;
+import My_application.entities.Compte;
+import My_application.entities.EntreeJournal;
+import My_application.entities.MessageInterne;
+import My_application.entities.Passage;
 import My_application.entities.Rendez_Vous;
+import My_application.entities.Antecedent;
+import My_application.entities.NoteDossier;
+import My_application.entities.Statistiques;
 import My_application.entities.User;
 import My_application.entities.analyse;
 import My_application.entities.consultation;
@@ -24,13 +39,18 @@ import My_application.entities.medicament;
 import My_application.entities.pathologie;
 import My_application.entities.patient;
 import My_application.entities.symptome;
-import java.sql.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Implémentation EN MÉMOIRE de toute la couche DAO, pour les tests.
@@ -49,6 +69,15 @@ public class MemoireDAOFactory implements DAOFactory {
     public final Map<Integer, patient> patients = new LinkedHashMap<>();
     public final Map<Integer, medecin> medecins = new HashMap<>();
     public final Map<Integer, User> utilisateurs = new HashMap<>();
+    /** Comptes : identifiant et empreinte par idUtilisateur, et comptes désactivés. */
+    public final Map<Integer, String> logins = new HashMap<>();
+    public final Map<Integer, String> empreintes = new HashMap<>();
+    public final Set<Integer> inactifs = new HashSet<>();
+    /** Comptes dont le mot de passe est provisoire. */
+    public final Set<Integer> aChanger = new HashSet<>();
+    /** Dernière connexion par idUtilisateur. */
+    public final Map<Integer, java.time.LocalDateTime> connexions = new HashMap<>();
+    public final List<EntreeJournal> journal = new ArrayList<>();
     public final List<consultation> consultations = new ArrayList<>();
     public final List<int[]> consultSymptome = new ArrayList<>();
     public final List<int[]> consultPathologie = new ArrayList<>();
@@ -62,25 +91,52 @@ public class MemoireDAOFactory implements DAOFactory {
     public final List<CategAnalyse> categories = new ArrayList<>();
     public final Map<Integer, List<analyse>> demandes = new HashMap<>();
     public final List<Rendez_Vous> rendezVous = new ArrayList<>();
+    public final List<Passage> passages = new ArrayList<>();
+    /** Événements publiés : type et identifiant de l'objet. */
+    public final List<String> evenements = new ArrayList<>();
+    public final List<MessageInterne> messages = new ArrayList<>();
+    /** Accusés de lecture « idMessage:idUtilisateur ». */
+    public final Set<String> lus = new HashSet<>();
+    /** Membres en ligne, et le poste de chacun. */
+    public final Map<Integer, String> presents = new HashMap<>();
+    public final List<Antecedent> antecedents = new ArrayList<>();
+    public final List<NoteDossier> notes = new ArrayList<>();
 
     // ----- instrumentation -----
     public int commits;
     public int rollbacks;
     public int requetes;
     private String operationEnEchec;
+    private RuntimeException erreurSimulee;
     private int sequence = 100;
 
     /** La prochaine exécution de cette opération lèvera une DataAccessException. */
     public void echouerSur(String operation) {
+        echouerSur(operation, new DataAccessException("Panne simulée sur " + operation));
+    }
+
+    /** Idem, avec l'exception à lever (ex. DoublonException pour une clé déjà prise). */
+    public void echouerSur(String operation, RuntimeException erreur) {
         this.operationEnEchec = operation;
+        this.erreurSimulee = erreur;
     }
 
     private void appel(String operation) {
         requetes++;
         if (operation.equals(operationEnEchec)) {
             operationEnEchec = null;
-            throw new DataAccessException("Panne simulée sur " + operation);
+            throw erreurSimulee;
         }
+    }
+
+    private List<Integer> idsConsultations(int idPatient) {
+        List<Integer> ids = new ArrayList<>();
+        for (consultation c : consultations) {
+            if (c.getPatient().getIdentPat() == idPatient) {
+                ids.add(c.getIdConsul());
+            }
+        }
+        return ids;
     }
 
     private int nouvelId() {
@@ -111,8 +167,18 @@ public class MemoireDAOFactory implements DAOFactory {
         final Map<Integer, List<medicament>> pr = copie(prescriptions);
         final Map<Integer, List<analyse>> de = copie(demandes);
         final List<Rendez_Vous> rv = new ArrayList<>(rendezVous);
+        final List<Passage> sa = new ArrayList<>(passages);
+        final List<String> ev = new ArrayList<>(evenements);
+        final List<MessageInterne> me = new ArrayList<>(messages);
+        final Set<String> lu = new HashSet<>(lus);
         final List<symptome> sy = new ArrayList<>(symptomes);
         final List<pathologie> pa = new ArrayList<>(pathologies);
+        final Map<Integer, String> lo = new HashMap<>(logins);
+        final Map<Integer, String> em = new HashMap<>(empreintes);
+        final Set<Integer> in = new HashSet<>(inactifs);
+        final List<EntreeJournal> jo = new ArrayList<>(journal);
+        final List<Antecedent> an = new ArrayList<>(antecedents);
+        final List<NoteDossier> no = new ArrayList<>(notes);
 
         void restaurer() {
             remplacer(consultations, c);
@@ -123,8 +189,22 @@ public class MemoireDAOFactory implements DAOFactory {
             demandes.clear();
             demandes.putAll(de);
             remplacer(rendezVous, rv);
+            remplacer(passages, sa);
+            remplacer(evenements, ev);
+            remplacer(messages, me);
+            lus.clear();
+            lus.addAll(lu);
             remplacer(symptomes, sy);
             remplacer(pathologies, pa);
+            logins.clear();
+            logins.putAll(lo);
+            empreintes.clear();
+            empreintes.putAll(em);
+            inactifs.clear();
+            inactifs.addAll(in);
+            remplacer(journal, jo);
+            remplacer(antecedents, an);
+            remplacer(notes, no);
         }
     }
 
@@ -149,6 +229,7 @@ public class MemoireDAOFactory implements DAOFactory {
             @Override
             public patient insert(patient p) {
                 appel("patient.insert");
+                verifierNumero(p);
                 if (p.getIdentPat() <= 0) {
                     p.setIdentPat(nouvelId());
                 }
@@ -159,7 +240,38 @@ public class MemoireDAOFactory implements DAOFactory {
             @Override
             public void update(patient p) {
                 appel("patient.update");
+                verifierNumero(p);
                 patients.put(p.getIdentPat(), p);
+            }
+
+            /** Clé unique uk_patient_numero_dossier (V15). */
+            private void verifierNumero(patient p) {
+                patient porteur = findByNumeroDossier(p.getNumeroDossier());
+                if (p.getNumeroDossier() != null && porteur != null && porteur.getIdentPat() != p.getIdentPat()) {
+                    throw new DoublonException("numéro de dossier " + p.getNumeroDossier(), null);
+                }
+            }
+
+            @Override
+            public patient findByNumeroDossier(String numero) {
+                for (patient p : patients.values()) {
+                    if (p.getNumeroDossier() != null && p.getNumeroDossier().equalsIgnoreCase(numero)) {
+                        return p;
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            public String prochainNumeroDossier() {
+                appel("patient.prochainNumeroDossier");
+                long max = 0;
+                for (patient p : patients.values()) {
+                    if (p.getNumeroDossier() != null && p.getNumeroDossier().matches("[0-9]{1,18}")) {
+                        max = Math.max(max, Long.parseLong(p.getNumeroDossier()));
+                    }
+                }
+                return String.valueOf(max + 1);
             }
 
             @Override
@@ -196,6 +308,31 @@ public class MemoireDAOFactory implements DAOFactory {
                 });
                 return r;
             }
+
+            @Override
+            public List<patient> findByTelephoneCommencantPar(String prefixe) {
+                appel("patient.findByTelephone");
+                List<patient> r = new ArrayList<>();
+                for (patient p : patients.values()) {
+                    if (p.getTelephone() != null && p.getTelephone().startsWith(prefixe)) {
+                        r.add(p);
+                    }
+                }
+                return r;
+            }
+
+            @Override
+            public List<patient> findDoublons(String nom, java.time.LocalDate naissance, String telephone) {
+                appel("patient.findDoublons");
+                List<patient> r = new ArrayList<>();
+                for (patient p : patients.values()) {
+                    if ((p.getNom().equals(nom) && naissance.equals(p.getDat_nais()))
+                            || (telephone != null && telephone.equals(p.getTelephone()))) {
+                        r.add(p);
+                    }
+                }
+                return r;
+            }
         };
     }
 
@@ -207,6 +344,57 @@ public class MemoireDAOFactory implements DAOFactory {
                 appel("medecin.findById");
                 return medecins.get(id);
             }
+
+            @Override
+            public List<medecin> findAll() {
+                appel("medecin.findAll");
+                List<medecin> r = new ArrayList<>(medecins.values());
+                r.sort(new Comparator<medecin>() {
+                    @Override
+                    public int compare(medecin a, medecin b) {
+                        int c = a.getNom().compareTo(b.getNom());
+                        return c != 0 ? c : a.getPrenom().compareTo(b.getPrenom());
+                    }
+                });
+                return r;
+            }
+
+            @Override
+            public medecin insert(medecin m) {
+                appel("medecin.insert");
+                verifierOrdreLibre(m);
+                int id = 1;
+                for (Integer k : medecins.keySet()) {
+                    id = Math.max(id, k + 1);
+                }
+                m.setIdmedecin(id);
+                medecins.put(id, m);
+                return m;
+            }
+
+            @Override
+            public void modifier(medecin m) {
+                appel("medecin.modifier");
+                verifierOrdreLibre(m);
+                m.setActif(medecins.get(m.getIdmedecin()).isActif());
+                medecins.put(m.getIdmedecin(), m);
+            }
+
+            @Override
+            public void definirActif(int idMedecin, boolean actif) {
+                appel("medecin.definirActif");
+                medecins.get(idMedecin).setActif(actif);
+            }
+
+            /** Comme la clé unique sur ordreMedecin. */
+            private void verifierOrdreLibre(medecin m) {
+                for (medecin autre : medecins.values()) {
+                    if (autre.getIdmedecin() != m.getIdmedecin() && m.getOrdmedcin() != null
+                            && m.getOrdmedcin().equals(autre.getOrdmedcin())) {
+                        throw new My_application.dao.DoublonException("ordre " + m.getOrdmedcin() + " déjà pris", null);
+                    }
+                }
+            }
         };
     }
 
@@ -216,7 +404,145 @@ public class MemoireDAOFactory implements DAOFactory {
             @Override
             public User findById(int id) {
                 appel("utilisateur.findById");
-                return utilisateurs.get(id);
+                return avecCompte(utilisateurs.get(id));
+            }
+
+            @Override
+            public List<User> findAll() {
+                appel("utilisateur.findAll");
+                List<User> r = new ArrayList<>();
+                for (User u : utilisateurs.values()) {
+                    r.add(avecCompte(u));
+                }
+                return r;
+            }
+
+            @Override
+            public Compte findCompte(String login) {
+                appel("utilisateur.findCompte");
+                for (Map.Entry<Integer, String> e : logins.entrySet()) {
+                    if (e.getValue().equals(login)) {
+                        return new Compte(avecCompte(utilisateurs.get(e.getKey())), empreintes.get(e.getKey()));
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            public boolean existeUnCompte() {
+                appel("utilisateur.existeUnCompte");
+                for (Integer id : logins.keySet()) {
+                    if (empreintes.get(id) != null) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public void definirIdentifiants(int idUtilisateur, String login, String empreinte) {
+                appel("utilisateur.definirIdentifiants");
+                for (Map.Entry<Integer, String> e : logins.entrySet()) {
+                    if (e.getValue().equals(login) && e.getKey() != idUtilisateur) {
+                        throw new My_application.dao.DoublonException("login " + login + " déjà pris", null);
+                    }
+                }
+                logins.put(idUtilisateur, login);
+                empreintes.put(idUtilisateur, empreinte);
+                aChanger.remove(idUtilisateur);
+            }
+
+            @Override
+            public void definirMotDePasse(int idUtilisateur, String empreinte, boolean doitChanger) {
+                appel("utilisateur.definirMotDePasse");
+                empreintes.put(idUtilisateur, empreinte);
+                if (doitChanger) {
+                    aChanger.add(idUtilisateur);
+                } else {
+                    aChanger.remove(idUtilisateur);
+                }
+            }
+
+            @Override
+            public void modifier(User u) {
+                appel("utilisateur.modifier");
+                User existant = utilisateurs.get(u.getIdent());
+                existant.setNom(u.getNom());
+                existant.setPrenom(u.getPrenom());
+                existant.setQuailite(u.getQuailite());
+            }
+
+            @Override
+            public void definirActif(int idUtilisateur, boolean actif) {
+                appel("utilisateur.definirActif");
+                if (actif) {
+                    inactifs.remove(idUtilisateur);
+                } else {
+                    inactifs.add(idUtilisateur);
+                }
+            }
+
+            @Override
+            public User insert(User u) {
+                appel("utilisateur.insert");
+                int id = 1;
+                for (Integer k : utilisateurs.keySet()) {
+                    id = Math.max(id, k + 1);
+                }
+                u.setIdent(id);
+                utilisateurs.put(id, u);
+                if (!u.isActif()) {
+                    inactifs.add(id);
+                }
+                return u;
+            }
+
+            @Override
+            public void definirRole(int idUtilisateur, My_application.entities.Role role, Integer idMedecin) {
+                appel("utilisateur.definirRole");
+                User u = utilisateurs.get(idUtilisateur);
+                u.setRole(role);
+                u.setIdMedecin(idMedecin);
+            }
+
+            @Override
+            public void noterConnexion(int idUtilisateur, java.time.LocalDateTime quand) {
+                appel("utilisateur.noterConnexion");
+                connexions.put(idUtilisateur, quand);
+            }
+        };
+    }
+
+    private User avecCompte(User u) {
+        if (u != null) {
+            u.setLogin(logins.get(u.getIdent()));
+            u.setActif(!inactifs.contains(u.getIdent()));
+            u.setDoitChanger(aChanger.contains(u.getIdent()));
+            u.setDerniereConnexion(connexions.get(u.getIdent()));
+        }
+        return u;
+    }
+
+    @Override
+    public JournalDao getJournalDao() {
+        return new JournalDao() {
+            @Override
+            public void ajouter(EntreeJournal entree) {
+                appel("journal.ajouter");
+                journal.add(entree);
+            }
+
+            @Override
+            public List<EntreeJournal> findByPatient(int idPatient) {
+                appel("journal.findByPatient");
+                List<EntreeJournal> r = new ArrayList<>();
+                for (int i = journal.size() - 1; i >= 0; i--) {
+                    EntreeJournal e = journal.get(i);
+                    if (e.getIdPatient() != null && e.getIdPatient() == idPatient) {
+                        r.add(e);
+                    }
+                }
+                return r;
             }
         };
     }
@@ -245,7 +571,7 @@ public class MemoireDAOFactory implements DAOFactory {
                         copie.setHeure_cons(c.getHeure_cons());
                         copie.setTemperature(c.getTemperature());
                         copie.setPul_Cardiaque(c.getPul_Cardiaque());
-                        copie.setPressionA(c.getPressionA());
+                        copie.setPression(c.getPressionSystolique(), c.getPressionDiastolique());
                         copie.setTauxRespir(c.getTauxRespir());
                         copie.setPoids(c.getPoids());
                         medecin m = new medecin();
@@ -258,11 +584,11 @@ public class MemoireDAOFactory implements DAOFactory {
             }
 
             @Override
-            public List<consultation> findByDate(Date date) {
+            public List<consultation> findByDate(LocalDate date) {
                 appel("consultation.findByDate");
                 List<consultation> r = new ArrayList<>();
                 for (consultation c : consultations) {
-                    if (c.getDate_cons().toLocalDate().equals(date.toLocalDate())) {
+                    if (c.getDate_cons().equals(date)) {
                         r.add(c);
                     }
                 }
@@ -311,6 +637,26 @@ public class MemoireDAOFactory implements DAOFactory {
                             }
                         }
                     }
+                }
+                return r;
+            }
+
+            @Override
+            public Map<Integer, List<symptome>> findSymptomesParPatient(int idPatient) {
+                appel("consultation.findSymptomesParPatient");
+                Map<Integer, List<symptome>> r = new HashMap<>();
+                for (int id : idsConsultations(idPatient)) {
+                    r.put(id, findSymptomes(id));
+                }
+                return r;
+            }
+
+            @Override
+            public Map<Integer, List<pathologie>> findPathologiesParPatient(int idPatient) {
+                appel("consultation.findPathologiesParPatient");
+                Map<Integer, List<pathologie>> r = new HashMap<>();
+                for (int id : idsConsultations(idPatient)) {
+                    r.put(id, findPathologies(id));
                 }
                 return r;
             }
@@ -452,6 +798,16 @@ public class MemoireDAOFactory implements DAOFactory {
                 List<medicament> l = prescriptions.get(idConsultation);
                 return l == null ? new ArrayList<medicament>() : new ArrayList<>(l);
             }
+
+            @Override
+            public Map<Integer, List<medicament>> findByPatient(int idPatient) {
+                appel("prescription.findByPatient");
+                Map<Integer, List<medicament>> r = new HashMap<>();
+                for (int id : idsConsultations(idPatient)) {
+                    r.put(id, findByConsultation(id));
+                }
+                return r;
+            }
         };
     }
 
@@ -518,6 +874,16 @@ public class MemoireDAOFactory implements DAOFactory {
                 List<analyse> l = demandes.get(idConsultation);
                 return l == null ? new ArrayList<analyse>() : copieAnalyses(l);
             }
+
+            @Override
+            public Map<Integer, List<analyse>> findByPatient(int idPatient) {
+                appel("demande.findByPatient");
+                Map<Integer, List<analyse>> r = new HashMap<>();
+                for (int id : idsConsultations(idPatient)) {
+                    r.put(id, findByConsultation(id));
+                }
+                return r;
+            }
         };
     }
 
@@ -541,15 +907,156 @@ public class MemoireDAOFactory implements DAOFactory {
             @Override
             public void insert(Rendez_Vous rdv) {
                 appel("rdv.insert");
+                verifierCreneauLibre(rdv.getIdMedecin(), rdv.getDate(), rdv.getHeure(), null);
+                rdv.setIdRendezVous(nouvelId());
                 rendezVous.add(rdv);
             }
 
             @Override
-            public boolean delete(Rendez_Vous rdv) {
-                appel("rdv.delete");
-                for (Rendez_Vous r : new ArrayList<>(rendezVous)) {
-                    if (r.memeCreneauEtPatient(rdv)) {
-                        rendezVous.remove(r);
+            public boolean changerEtat(int idRendezVous, int etatAttendu, int nouvelEtat) {
+                appel("rdv.changerEtat");
+                Rendez_Vous r = rendezVousNumero(idRendezVous);
+                if (r == null || r.getEtat() != etatAttendu) {
+                    return false;
+                }
+                r.setEtat(nouvelEtat);
+                return true;
+            }
+
+            @Override
+            public boolean deplacer(int idRendezVous, LocalDate jour, LocalTime heure, int idMedecin) {
+                appel("rdv.deplacer");
+                Rendez_Vous r = rendezVousNumero(idRendezVous);
+                if (r == null || r.getEtat() != Rendez_Vous.ETAT_PREVU) {
+                    return false;
+                }
+                verifierCreneauLibre(idMedecin, jour, heure, idRendezVous);
+                r.setDate(jour);
+                r.setHeure(heure);
+                r.setIdMedecin(idMedecin);
+                return true;
+            }
+
+            @Override
+            public List<Rendez_Vous> findEntre(LocalDate debut, LocalDate fin) {
+                appel("rdv.findEntre");
+                List<Rendez_Vous> r = new ArrayList<>();
+                for (Rendez_Vous x : rendezVous) {
+                    LocalDate d = x.getDate();
+                    if (!d.isBefore(debut) && !d.isAfter(fin)) {
+                        r.add(x);
+                    }
+                }
+                r.sort(Comparator.comparing(Rendez_Vous::getDebut));
+                return r;
+            }
+
+            @Override
+            public List<Rendez_Vous> findDesPatients(Collection<Integer> idPatients) {
+                appel("rdv.findDesPatients");
+                List<Rendez_Vous> r = new ArrayList<>();
+                for (Rendez_Vous x : rendezVous) {
+                    if (idPatients.contains(x.getPatient().getIdentPat())) {
+                        r.add(x);
+                    }
+                }
+                r.sort(Comparator.comparing(Rendez_Vous::getDebut).reversed());
+                return r;
+            }
+
+            @Override
+            public int compterPrevus(int idMedecin, LocalDate jour) {
+                appel("rdv.compterPrevus");
+                int n = 0;
+                for (Rendez_Vous x : rendezVous) {
+                    if (x.getEtat() == Rendez_Vous.ETAT_PREVU && !x.getDate().isBefore(jour)
+                            && java.util.Objects.equals(x.getIdMedecin(), idMedecin)) {
+                        n++;
+                    }
+                }
+                return n;
+            }
+        };
+    }
+
+    private Rendez_Vous rendezVousNumero(int id) {
+        for (Rendez_Vous r : rendezVous) {
+            if (r.getIdRendezVous() != null && r.getIdRendezVous() == id) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    /** Comme la clé unique (idMedecin, date, heure, occupe) de V12. */
+    private void verifierCreneauLibre(Integer idMedecin, LocalDate jour, LocalTime heure, Integer sauf) {
+        for (Rendez_Vous r : rendezVous) {
+            if (r.isOccupant() && r.getDate().equals(jour) && r.getHeure().equals(heure)
+                    && java.util.Objects.equals(r.getIdMedecin(), idMedecin)
+                    && (sauf == null || !sauf.equals(r.getIdRendezVous()))) {
+                throw new DoublonException("Duplicate entry (uk_rendezvous_creneau)", null);
+            }
+        }
+    }
+
+    @Override
+    public SalleAttenteDao getSalleAttenteDao() {
+        return new SalleAttenteDao() {
+            @Override
+            public void insert(Passage p) {
+                appel("salle.insert");
+                for (Passage x : passages) {
+                    boolean memePresent = x.isPresent() && x.getPatient().getIdentPat() == p.getPatient().getIdentPat()
+                            && x.getJour().equals(p.getJour());
+                    boolean memeRdv = p.getIdRendezVous() != null && p.getIdRendezVous().equals(x.getIdRendezVous());
+                    if (memePresent || memeRdv) {
+                        throw new DoublonException("Duplicate entry (uk_salle_attente)", null);
+                    }
+                }
+                p.setIdPassage(nouvelId());
+                passages.add(copie(p)); // la base garde sa propre ligne
+            }
+
+            @Override
+            public List<Passage> findDuJour(LocalDate jour) {
+                appel("salle.findDuJour");
+                List<Passage> l = new ArrayList<>();
+                for (Passage x : passages) {
+                    if (x.getJour().equals(jour)) {
+                        l.add(copie(x));
+                    }
+                }
+                return l;
+            }
+
+            @Override
+            public List<Passage> findDuPatient(int idPatient) {
+                appel("salle.findDuPatient");
+                List<Passage> l = new ArrayList<>();
+                for (Passage x : passages) {
+                    if (x.getPatient().getIdentPat() == idPatient) {
+                        l.add(copie(x));
+                    }
+                }
+                l.sort(Comparator.comparing(Passage::getArriveeLe).reversed());
+                return l;
+            }
+
+            @Override
+            public boolean mettreAJour(Passage p, int etatAttendu) {
+                appel("salle.mettreAJour");
+                for (Passage x : passages) {
+                    if (x.getIdPassage().equals(p.getIdPassage())) {
+                        if (x.getEtat() != etatAttendu) {
+                            return false;
+                        }
+                        x.setEtat(p.getEtat());
+                        x.setAppeleLe(p.getAppeleLe());
+                        x.setSortieLe(p.getSortieLe());
+                        x.setUrgence(p.isUrgence());
+                        x.setFrais(p.getFrais());
+                        x.setMontantRegle(p.getMontantRegle());
+                        x.setRegleLe(p.getRegleLe());
                         return true;
                     }
                 }
@@ -557,16 +1064,332 @@ public class MemoireDAOFactory implements DAOFactory {
             }
 
             @Override
-            public List<Rendez_Vous> findEntre(Date debut, Date fin) {
-                appel("rdv.findEntre");
-                List<Rendez_Vous> r = new ArrayList<>();
-                for (Rendez_Vous x : rendezVous) {
-                    java.time.LocalDate d = x.getDate().toLocalDate();
-                    if (!d.isBefore(debut.toLocalDate()) && !d.isAfter(fin.toLocalDate())) {
-                        r.add(x);
+            public Integer dernierFrais(int idMedecin) {
+                appel("salle.dernierFrais");
+                Integer dernier = null;
+                for (Passage x : passages) {
+                    if (x.getIdMedecin() == idMedecin && x.getFrais() != null) {
+                        dernier = x.getFrais();
+                    }
+                }
+                return dernier;
+            }
+        };
+    }
+
+    /** Comme une relecture en base : une copie, avec l'heure du rendez-vous. */
+    private Passage copie(Passage x) {
+        Passage c = new Passage();
+        c.setIdPassage(x.getIdPassage());
+        c.setPatient(x.getPatient());
+        c.setIdMedecin(x.getIdMedecin());
+        c.setIdRendezVous(x.getIdRendezVous());
+        Rendez_Vous r = x.getIdRendezVous() == null ? null : rendezVousNumero(x.getIdRendezVous());
+        c.setHeurePrevue(r == null ? null : r.getHeure());
+        c.setJour(x.getJour());
+        c.setArriveeLe(x.getArriveeLe());
+        c.setAppeleLe(x.getAppeleLe());
+        c.setSortieLe(x.getSortieLe());
+        c.setUrgence(x.isUrgence());
+        c.setEtat(x.getEtat());
+        c.setFrais(x.getFrais());
+        c.setMontantRegle(x.getMontantRegle());
+        c.setRegleLe(x.getRegleLe());
+        return c;
+    }
+
+    @Override
+    public EvenementDao getEvenementDao() {
+        return new EvenementDao() {
+            @Override
+            public void publier(String type, Integer idObjet) {
+                appel("evenement.publier");
+                evenements.add(type + " " + idObjet);
+            }
+
+            @Override
+            public long dernier() {
+                appel("evenement.dernier");
+                return evenements.size();
+            }
+
+            @Override
+            public int purgerAvant(LocalDateTime limite) {
+                appel("evenement.purger");
+                return 0;
+            }
+        };
+    }
+
+    @Override
+    public MessageDao getMessageDao() {
+        return new MessageDao() {
+            @Override
+            public void insert(MessageInterne m) {
+                appel("message.insert");
+                m.setIdMessage(nouvelId());
+                messages.add(m);
+            }
+
+            private boolean dansLeFil(MessageInterne m, int moi, Integer autre) {
+                if (autre == null) {
+                    return m.getIdDestinataire() == null;
+                }
+                Integer de = m.getIdExpediteur();
+                Integer a = m.getIdDestinataire();
+                return (Integer.valueOf(moi).equals(de) && autre.equals(a))
+                        || (autre.equals(de) && Integer.valueOf(moi).equals(a));
+            }
+
+            private boolean recuNonLu(MessageInterne m, int moi) {
+                boolean recu = m.getIdDestinataire() == null || m.getIdDestinataire() == moi;
+                boolean pasDeMoi = m.getIdExpediteur() == null || m.getIdExpediteur() != moi;
+                return recu && pasDeMoi && !lus.contains(m.getIdMessage() + ":" + moi);
+            }
+
+            @Override
+            public List<MessageInterne> conversation(int moi, Integer autre, int limite) {
+                appel("message.conversation");
+                List<MessageInterne> l = new ArrayList<>();
+                for (MessageInterne m : messages) {
+                    if (dansLeFil(m, moi, autre)) {
+                        MessageInterne c = new MessageInterne();
+                        c.setIdMessage(m.getIdMessage());
+                        c.setIdExpediteur(m.getIdExpediteur());
+                        c.setIdDestinataire(m.getIdDestinataire());
+                        c.setTexte(m.getTexte());
+                        c.setPatient(m.getPatient());
+                        c.setEnvoyeLe(m.getEnvoyeLe());
+                        User u = m.getIdExpediteur() == null ? null : utilisateurs.get(m.getIdExpediteur());
+                        c.setNomExpediteur(u == null ? null : u.getNom() + " " + u.getPrenom());
+                        c.setLuParDestinataire(m.getIdDestinataire() != null
+                                && lus.contains(m.getIdMessage() + ":" + m.getIdDestinataire()));
+                        l.add(c);
+                    }
+                }
+                return l.size() > limite ? new ArrayList<>(l.subList(l.size() - limite, l.size())) : l;
+            }
+
+            @Override
+            public Map<Integer, Integer> nonLus(int moi) {
+                appel("message.nonLus");
+                Map<Integer, Integer> n = new HashMap<>();
+                for (MessageInterne m : messages) {
+                    if (recuNonLu(m, moi)) {
+                        int fil = m.getIdDestinataire() == null ? TOUT_LE_CABINET : m.getIdExpediteur();
+                        n.merge(fil, 1, Integer::sum);
+                    }
+                }
+                return n;
+            }
+
+            @Override
+            public int marquerLus(int moi, Integer autre, LocalDateTime quand) {
+                appel("message.marquerLus");
+                int n = 0;
+                for (MessageInterne m : messages) {
+                    if (dansLeFil(m, moi, autre) && recuNonLu(m, moi)) {
+                        lus.add(m.getIdMessage() + ":" + moi);
+                        n++;
+                    }
+                }
+                return n;
+            }
+
+            @Override
+            public long dernier() {
+                appel("message.dernier");
+                return messages.isEmpty() ? 0 : messages.get(messages.size() - 1).getIdMessage();
+            }
+
+            @Override
+            public int purgerAvant(LocalDateTime limite) {
+                appel("message.purger");
+                int avant = messages.size();
+                messages.removeIf(m -> m.getEnvoyeLe().isBefore(limite));
+                return avant - messages.size();
+            }
+        };
+    }
+
+    @Override
+    public DossierCliniqueDao getDossierCliniqueDao() {
+        return new DossierCliniqueDao() {
+            @Override
+            public List<Antecedent> findAntecedents(int idPatient) {
+                appel("clinique.findAntecedents");
+                List<Antecedent> l = new ArrayList<>();
+                for (Antecedent a : antecedents) {
+                    if (a.getIdPatient() == idPatient) {
+                        l.add(a);
+                    }
+                }
+                l.sort(Comparator.comparing((Antecedent a) -> a.getCategorie().name())
+                        .thenComparing(Antecedent::getIdAntecedent));
+                return l;
+            }
+
+            @Override
+            public void insert(Antecedent a) {
+                appel("clinique.insertAntecedent");
+                a.setIdAntecedent(nouvelId());
+                antecedents.add(a);
+            }
+
+            @Override
+            public boolean supprimerAntecedent(int idAntecedent) {
+                appel("clinique.supprimerAntecedent");
+                return antecedents.removeIf(a -> a.getIdAntecedent() == idAntecedent);
+            }
+
+            @Override
+            public List<NoteDossier> findNotes(int idPatient) {
+                appel("clinique.findNotes");
+                List<NoteDossier> l = new ArrayList<>();
+                for (NoteDossier n : notes) {
+                    if (n.getIdPatient() == idPatient) {
+                        l.add(n);
+                    }
+                }
+                l.sort(Comparator.comparing(NoteDossier::getEcriteLe).thenComparing(NoteDossier::getIdNote).reversed());
+                return l;
+            }
+
+            @Override
+            public void insert(NoteDossier n) {
+                appel("clinique.insertNote");
+                n.setIdNote(nouvelId());
+                notes.add(n);
+            }
+
+            @Override
+            public boolean supprimerNote(int idNote) {
+                appel("clinique.supprimerNote");
+                return notes.removeIf(n -> n.getIdNote() == idNote);
+            }
+        };
+    }
+
+    @Override
+    public StatistiquesDao getStatistiquesDao() {
+        return new StatistiquesDao() {
+            private boolean dans(LocalDate d, LocalDate debut, LocalDate fin) {
+                return !d.isBefore(debut) && !d.isAfter(fin);
+            }
+
+            private boolean chez(int idMedecin, Integer filtre) {
+                return filtre == null || filtre == idMedecin;
+            }
+
+            @Override
+            public Map<LocalDate, Integer> consultationsParJour(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.consultationsParJour");
+                Map<LocalDate, Integer> r = new java.util.TreeMap<>();
+                for (consultation c : consultations) {
+                    if (dans(c.getDate_cons(), debut, fin) && chez(c.getMedecin().getIdmedecin(), idMedecin)) {
+                        r.merge(c.getDate_cons(), 1, Integer::sum);
                     }
                 }
                 return r;
+            }
+
+            @Override
+            public Map<Integer, Integer> consultationsParMedecin(LocalDate debut, LocalDate fin) {
+                appel("stats.consultationsParMedecin");
+                Map<Integer, Integer> r = new java.util.TreeMap<>();
+                for (consultation c : consultations) {
+                    if (dans(c.getDate_cons(), debut, fin)) {
+                        r.merge(c.getMedecin().getIdmedecin(), 1, Integer::sum);
+                    }
+                }
+                return r;
+            }
+
+            @Override
+            public int patientsDistincts(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.patientsDistincts");
+                Set<Integer> r = new HashSet<>();
+                for (consultation c : consultations) {
+                    if (dans(c.getDate_cons(), debut, fin) && chez(c.getMedecin().getIdmedecin(), idMedecin)) {
+                        r.add(c.getPatient().getIdentPat());
+                    }
+                }
+                return r.size();
+            }
+
+            @Override
+            public int nouveauxPatients(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.nouveauxPatients");
+                Map<Integer, LocalDate> premiere = new HashMap<>();
+                for (consultation c : consultations) {
+                    premiere.merge(c.getPatient().getIdentPat(), c.getDate_cons(),
+                            (a, b) -> a.isBefore(b) ? a : b);
+                }
+                Set<Integer> r = new HashSet<>();
+                for (consultation c : consultations) {
+                    if (dans(c.getDate_cons(), debut, fin) && chez(c.getMedecin().getIdmedecin(), idMedecin)
+                            && c.getDate_cons().equals(premiere.get(c.getPatient().getIdentPat()))) {
+                        r.add(c.getPatient().getIdentPat());
+                    }
+                }
+                return r.size();
+            }
+
+            @Override
+            public Map<Integer, Integer> rendezVousParEtat(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.rendezVousParEtat");
+                Map<Integer, Integer> r = new java.util.TreeMap<>();
+                for (Rendez_Vous x : rendezVous) {
+                    if (dans(x.getDate(), debut, fin) && (idMedecin == null || idMedecin.equals(x.getIdMedecin()))) {
+                        r.merge(x.getEtat(), 1, Integer::sum);
+                    }
+                }
+                return r;
+            }
+
+            @Override
+            public Statistiques.SalleAttente salleAttente(LocalDate debut, LocalDate fin, Integer idMedecin) {
+                appel("stats.salleAttente");
+                Statistiques.SalleAttente s = new Statistiques.SalleAttente();
+                long minutes = 0;
+                int appeles = 0;
+                for (Passage p : passages) {
+                    if (dans(p.getJour(), debut, fin) && chez(p.getIdMedecin(), idMedecin)) {
+                        s.setPassages(s.getPassages() + 1);
+                        s.setSansRendezVous(s.getSansRendezVous() + (p.getIdRendezVous() == null ? 1 : 0));
+                        s.setUrgences(s.getUrgences() + (p.isUrgence() ? 1 : 0));
+                        s.setPartis(s.getPartis() + (p.getEtat() == Passage.PARTI ? 1 : 0));
+                        if (p.getAppeleLe() != null) {
+                            minutes += java.time.Duration.between(p.getArriveeLe(), p.getAppeleLe()).toMinutes();
+                            appeles++;
+                        }
+                    }
+                }
+                s.setAttenteMoyenne(appeles == 0 ? null : (double) minutes / appeles);
+                return s;
+            }
+        };
+    }
+
+    @Override
+    public PresenceDao getPresenceDao() {
+        return new PresenceDao() {
+            @Override
+            public void signaler(int idUtilisateur, String poste) {
+                appel("presence.signaler");
+                presents.put(idUtilisateur, poste);
+            }
+
+            @Override
+            public void quitter(int idUtilisateur) {
+                appel("presence.quitter");
+                presents.remove(idUtilisateur);
+            }
+
+            @Override
+            public Set<Integer> enLigne(int secondes) {
+                appel("presence.enLigne");
+                return new HashSet<>(presents.keySet());
             }
         };
     }

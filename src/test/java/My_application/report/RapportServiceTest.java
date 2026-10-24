@@ -12,10 +12,9 @@ import My_application.fake.Donnees;
 import My_application.service.MetierException;
 import com.lowagie.text.pdf.PdfReader;
 import com.lowagie.text.pdf.parser.PdfTextExtractor;
+import java.time.LocalTime;
 import java.io.File;
 import java.io.IOException;
-import java.sql.Date;
-import java.sql.Time;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,8 +65,8 @@ public class RapportServiceTest {
         afficheur = new FauxAfficheur();
         service = new RapportService(dossier.newFolder("documents"), afficheur);
         c = new consultation(Donnees.patient(1, "AMRANI", "Karim", LocalDate.of(1980, 5, 17), true), Donnees.medecin(1));
-        c.setDate_cons(Date.valueOf(LocalDate.of(2026, 10, 8)));
-        c.setHeure_cons(Time.valueOf("09:30:00"));
+        c.setDate_cons(LocalDate.of(2026, 10, 8));
+        c.setHeure_cons(LocalTime.parse("09:30:00"));
         c.getOrdoPat().ajouter(Donnees.medicament(1, "DOLIPRANE 1G", 1, 3, medicament.MODE_SOIR, 5));
         c.getOrdoPat().ajouter(Donnees.medicament(2, "SPASFON", 2, 2, medicament.MODE_INDIFFERENT, 0));
         c.getAnaPat().setListeAnaly(Arrays.asList(Donnees.analyse(1, "GLYCÉMIE", "à jeun")));
@@ -153,9 +152,57 @@ public class RapportServiceTest {
         try {
             service.ordonnance(c, false);
             fail();
-        } catch (MetierException e) {
+        } catch (RapportException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("Ordonnance_AMRANI_Karim"));
+            assertFalse("pas de détail technique à l'écran", e.getMessage().contains("aucune visionneuse"));
+            assertEquals("aucune visionneuse", e.getCause().getMessage()); // pour le journal
         }
+    }
+
+    // ----- conservation des documents -----
+
+    private File fichier(File dossierDocs, String nom, long joursAge, long maintenant) throws IOException {
+        File f = new File(dossierDocs, nom);
+        assertTrue(f.createNewFile());
+        assertTrue(f.setLastModified(maintenant - java.util.concurrent.TimeUnit.DAYS.toMillis(joursAge)));
+        return f;
+    }
+
+    @Test
+    public void lesDocumentsGestiMedAnciensSontSupprimesEtRienDAutre() throws IOException {
+        File docs = dossier.newFolder("conservation");
+        RapportService s = new RapportService(docs, afficheur, 30);
+        long maintenant = System.currentTimeMillis();
+        File ancienneOrdo = fichier(docs, "Ordonnance_A_B_2026-01-01_0900.pdf", 40, maintenant);
+        File anciennesAnalyses = fichier(docs, "Analyses_A_B_2026-01-01.pdf", 31, maintenant);
+        File recente = fichier(docs, "Ordonnance_A_B_2026-10-01_0900.pdf", 10, maintenant);
+        File autre = fichier(docs, "compte-rendu.pdf", 400, maintenant);
+        File courant = fichier(docs, "Analyses_C_D_2025-01-01.pdf", 400, maintenant);
+
+        assertEquals(2, s.purger(courant, maintenant));
+        assertFalse(ancienneOrdo.exists());
+        assertFalse(anciennesAnalyses.exists());
+        assertTrue(recente.exists());
+        assertTrue("fichier qui n'est pas de GestiMed", autre.exists());
+        assertTrue("document qu'on vient de produire", courant.exists());
+    }
+
+    @Test
+    public void conservationZeroGardeTout() throws IOException {
+        File docs = dossier.newFolder("tout");
+        long maintenant = System.currentTimeMillis();
+        File ancien = fichier(docs, "Ordonnance_A_B_2020-01-01.pdf", 2000, maintenant);
+        assertEquals(0, new RapportService(docs, afficheur, 0).purger(null, maintenant));
+        assertTrue(ancien.exists());
+    }
+
+    @Test
+    public void unNouveauDocumentDeclencheLaPurge() throws IOException {
+        File docs = dossier.newFolder("purge");
+        File ancien = fichier(docs, "Ordonnance_X_Y_2020-01-01.pdf", 100, System.currentTimeMillis());
+        assertTrue(new RapportService(docs, afficheur, 30).ordonnance(c, false));
+        assertFalse(ancien.exists());
+        assertTrue(afficheur.ouverts.get(0).isFile());
     }
 
     @Test(expected = MetierException.class)
@@ -194,5 +241,25 @@ public class RapportServiceTest {
     @Test
     public void observationAbsenteAfficheeVide() {
         assertEquals("", RapportService.lignesAnalyses(Arrays.asList(Donnees.analyse(1, "TSH", null))).get(0)[2]);
+    }
+
+    @Test
+    public void statistiquesEnPdfSansNomDePatient() throws Exception {
+        My_application.entities.Statistiques s = new My_application.entities.Statistiques(
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), null);
+        java.util.Map<LocalDate, Integer> parJour = new java.util.HashMap<>();
+        parJour.put(LocalDate.of(2026, 10, 5), 12);
+        s.setConsultationsParJour(parJour);
+        s.setConsultationsParMedecin(java.util.Collections.singletonMap(1, 12));
+        java.util.Map<Integer, My_application.entities.medecin> medecins = new java.util.HashMap<>();
+        medecins.put(1, Donnees.medecin(1));
+        String t = texte(service.pdfStatistiques(s, medecins), 1);
+        assertTrue(t, t.contains("ACTIVITÉ DU CABINET"));
+        assertTrue(t, t.contains("du 01/10/2026 au 31/10/2026"));
+        assertTrue(t, t.contains("Tous les médecins"));
+        assertTrue(t, t.contains("Consultations par médecin"));
+        assertTrue(t, t.contains("Dr SAHAB Said"));
+        assertTrue(service.statistiques(s, medecins));
+        assertTrue(afficheur.ouverts.get(0).getName().startsWith("Statistiques_2026-10-01_2026-10-31"));
     }
 }

@@ -11,7 +11,7 @@ Tu es un architecte de bases de données spécialisé en MySQL 8 et MariaDB 10.x
 Le schéma doit servir le code existant, pas l'inverse. Avant toute conception :
 - lis toutes les requêtes SQL de `src/main/java/My_application/dao/jdbc/` (`Jdbc*Dao.java`, `Mappers.java`, `JdbcHelper.java`) : noms exacts des tables et colonnes, casse comprise, types attendus par les `RowMapper`, clés générées (`insertAndGetKey`), jointures ;
 - lis les entités (`entities/`) et les services (`service/`) pour les règles métier : contraintes de saisie, valeurs possibles (par ex. `medicament.MODE_*`, `consultation.NON_RENSEIGNE`), transactions de `DossierService` ;
-- compare avec `sql/schema_gestimed.sql`, qui a été reconstitué et peut contenir des erreurs.
+- compare avec les migrations Flyway de `src/main/resources/db/migration/` (`V1__schema_initial.sql` a été reconstitué et peut contenir des erreurs).
 
 Ne renomme jamais une table ou une colonne utilisée par le code, même si le nom est mal orthographié (`rondezvous`, `demandanalyse`, …). Signale ces noms dans ton rapport au lieu de les corriger.
 
@@ -27,13 +27,13 @@ Ne renomme jamais une table ou une colonne utilisée par le code, même si le no
 ## Sécurité des données
 
 - Ne jamais exécuter `DROP DATABASE`, `DROP TABLE` ou `TRUNCATE` sur une base qui n'est pas vide, ni sur une base dont le nom ne se termine pas par `_test`, sans accord explicite de l'utilisateur. Vérifie d'abord : `SHOW DATABASES`, `SELECT COUNT(*)`.
-- Les scripts de création de la base réelle utilisent `CREATE DATABASE IF NOT EXISTS` et `CREATE TABLE IF NOT EXISTS`. Les données initiales utilisent `INSERT IGNORE`, pour pouvoir relancer le script sans risque.
+- Toute évolution du schéma est une **nouvelle** migration `V<n>__description.sql` dans `src/main/resources/db/migration/` : ne jamais modifier une migration existante (Flyway vérifie leur somme de contrôle). Elle s'applique avec `My_application.outils.MigrationBase migrer` (compte root). Les données initiales utilisent `INSERT IGNORE`, pour pouvoir relancer le script sans risque.
 - Ne jamais écrire de mot de passe dans un fichier versionné.
 
 ## Outils locaux
 
 - Client : `D:/xampp/mysql/bin/mysql.exe` (MariaDB, XAMPP), connexion par défaut `-u root` sans mot de passe sur `localhost:3306`. Si l'accès est refusé, arrête-toi et demande les identifiants.
-- Tests : `mvn test` (sans MySQL). Le test d'intégration `MySqlIntegrationTest` exécute `sql/schema_gestimed.sql` sur une base `*_test` avec `-Dgestimed.test.db.url=jdbc:mysql://localhost:3306/medicale_test -Dgestimed.test.db.user=root`.
+- Tests : `mvn test` (sans MySQL). Le test d'intégration `MySqlIntegrationTest` vide une base `*_test` (Flyway `clean`) puis rejoue toutes les migrations avec `-Dgestimed.test.db.url=jdbc:mysql://localhost:3306/medicale_test -Dgestimed.test.db.user=root`.
 
 ## Rapport final
 

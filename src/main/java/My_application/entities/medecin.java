@@ -6,17 +6,19 @@ package My_application.entities;
  */
 public class medecin {
 
-    int idmedecin;
-    String ordmedcin;
-    String nom;
-    String prenom;
-    String titre;
-    String specialite;
-    String adresse;
-    String telephone1;
-    String telephone2;
-    String email;
-    String nom_cabinet;
+    private int idmedecin;
+    private String ordmedcin;
+    private String nom;
+    private String prenom;
+    private String titre;
+    private String specialite;
+    private String adresse;
+    private String telephone1;
+    private String telephone2;
+    private String email;
+    private String nom_cabinet;
+    /** Faux pour un médecin qui a quitté le cabinet : il n'est plus proposé dans l'agenda. */
+    private boolean actif = true;
 
     public medecin() {
     }
@@ -121,5 +123,13 @@ public class medecin {
 
     public void setNom_cabinet(String nom_cabinet) {
         this.nom_cabinet = nom_cabinet;
+    }
+
+    public boolean isActif() {
+        return actif;
+    }
+
+    public void setActif(boolean actif) {
+        this.actif = actif;
     }
 }

@@ -5,8 +5,9 @@
  */
 package My_application.Analyse;
 
+import My_application.vue.EnTetePage;
 import My_application.vue.Theme;
-import My_application.AppContext;
+import My_application.service.CatalogueService;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
 import My_application.entities.CategAnalyse;
@@ -36,13 +37,21 @@ public class AnalyseForm extends javax.swing.JDialog implements Vue {
     private final DefaultComboBoxModel Boxmodel = new DefaultComboBoxModel();
     private final DefaultComboBoxModel BoxmodelCateg = new DefaultComboBoxModel();
 
-    public AnalyseForm(consultation con) {
+    private final CatalogueService catalogue;
+
+    public AnalyseForm(consultation con, CatalogueService catalogue) {
+        this.catalogue = catalogue;
         initComponents();
         Theme.harmoniser(this);
+        // L'ancien bandeau « ANALYSES BIOLOGIQUES » laisse la place à l'en-tête commun.
+        jPanel1.setVisible(false);
+        EnTetePage.installer(this, "flask", "Analyses biologiques", con.getPatient().getNom().toUpperCase()
+                + " " + con.getPatient().getPrenom() + "  ·  " + con.getPatient().getStringAge());
+        pack();
         this.setModal(true);
         this.setLocationRelativeTo(null);
         consult = con;
-        controleur = new CatalogueController(this, AppContext.get().getCatalogueService());
+        controleur = new CatalogueController(this, catalogue);
         nomLab.setText(consult.getPatient().getNom());
         prenomLab.setText(consult.getPatient().getPrenom());
         ageLab.setText(consult.getPatient().getStringAge());
@@ -656,7 +665,7 @@ void InserAnalyseTable() {
 analyse AjouterAnalyse(String designation) {
     JOptionPane.showMessageDialog(this, "Veuillez insérer l'analyse dans la base de données !",
             " L'analyse n'existe pas", JOptionPane.WARNING_MESSAGE);
-    AddAnalyseForm addA = new AddAnalyseForm();
+    AddAnalyseForm addA = new AddAnalyseForm(catalogue);
     addA.setDesignationAnalyse(designation);
     addA.setVisible(true);
     return addA.getAnalyseCreee();

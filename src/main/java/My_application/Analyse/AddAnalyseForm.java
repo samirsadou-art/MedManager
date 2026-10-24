@@ -6,7 +6,7 @@
 package My_application.Analyse;
 
 import My_application.vue.Theme;
-import My_application.AppContext;
+import My_application.service.CatalogueService;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
 import My_application.entities.CategAnalyse;
@@ -22,12 +22,12 @@ public class AddAnalyseForm extends JDialog implements Vue {
     private final CatalogueController controleur;
     private analyse analyseCreee;
 
-    public AddAnalyseForm() {
+    public AddAnalyseForm(CatalogueService catalogue) {
         initComponents();
         Theme.harmoniser(this);
         this.setLocationRelativeTo(null);
         this.setModal(true);
-        controleur = new CatalogueController(this, AppContext.get().getCatalogueService());
+        controleur = new CatalogueController(this, catalogue);
         for (CategAnalyse c : controleur.categoriesAnalyse()) {
             BoxmodelCateg.addElement(c);
         }

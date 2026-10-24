@@ -21,9 +21,9 @@ public class rendezVousDetails extends javax.swing.JDialog {
         this.prenomTxt.setText(rendez.getPatient().getPrenom());
  
         this.ageTxt.setText(rendez.getPatient().getStringAge());
-        this.nomRespTxt.setText(rendez.getUtilsateur().getNom());
-        this.prenomRespTxt.setText(rendez.getUtilsateur().getPrenom());
-        this.qualiteRespTxt.setText(rendez.getUtilsateur().getQuailite());
+        this.nomRespTxt.setText(rendez.getUtilisateur().getNom());
+        this.prenomRespTxt.setText(rendez.getUtilisateur().getPrenom());
+        this.qualiteRespTxt.setText(rendez.getUtilisateur().getQuailite());
         this.dateRdvTxt.setText(rendez.getDateFixString());
         this.heureRdvTxt.setText(rendez.getHeureFixString());
         this.jourRdvTxt.setText(rendez.getDateString());

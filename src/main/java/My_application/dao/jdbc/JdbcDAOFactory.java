@@ -4,19 +4,26 @@ import My_application.dao.AnalyseDao;
 import My_application.dao.ConsultationDao;
 import My_application.dao.DAOFactory;
 import My_application.dao.DemandeAnalyseDao;
+import My_application.dao.DossierCliniqueDao;
+import My_application.dao.EvenementDao;
+import My_application.dao.MessageDao;
+import My_application.dao.PresenceDao;
+import My_application.dao.StatistiquesDao;
+import My_application.dao.JournalDao;
 import My_application.dao.MedecinDao;
 import My_application.dao.MedicamentDao;
 import My_application.dao.PathologieDao;
 import My_application.dao.PatientDao;
 import My_application.dao.PrescriptionDao;
 import My_application.dao.RendezVousDao;
+import My_application.dao.SalleAttenteDao;
 import My_application.dao.SymptomeDao;
 import My_application.dao.UniteDeTravail;
 import My_application.dao.UtilisateurDao;
 
 /**
- * Fabrique concrète : DAO JDBC partageant le même {@link ConnectionProvider}
- * (et donc la même transaction).
+ * Fabrique concrète : DAO JDBC partageant le même {@link ConnectionProvider},
+ * à travers le {@link TransactionManager} (et donc la même transaction).
  */
 public class JdbcDAOFactory implements DAOFactory {
 
@@ -32,10 +39,19 @@ public class JdbcDAOFactory implements DAOFactory {
     private final AnalyseDao analyseDao;
     private final DemandeAnalyseDao demandeAnalyseDao;
     private final RendezVousDao rendezVousDao;
+    private final JournalDao journalDao;
+    private final SalleAttenteDao salleAttenteDao;
+    private final EvenementDao evenementDao;
+    private final MessageDao messageDao;
+    private final PresenceDao presenceDao;
+    private final StatistiquesDao statistiquesDao;
+    private final DossierCliniqueDao dossierCliniqueDao;
 
     public JdbcDAOFactory(ConnectionProvider provider) {
-        JdbcHelper jdbc = new JdbcHelper(provider);
+        // Les DAO passent par le gestionnaire de transactions : pendant une
+        // transaction, ils reçoivent sa connexion et partagent son verrou.
         this.transactions = new TransactionManager(provider);
+        JdbcHelper jdbc = new JdbcHelper(transactions, transactions.verrou());
         this.patientDao = new JdbcPatientDao(jdbc);
         this.medecinDao = new JdbcMedecinDao(jdbc);
         this.utilisateurDao = new JdbcUtilisateurDao(jdbc);
@@ -47,6 +63,13 @@ public class JdbcDAOFactory implements DAOFactory {
         this.analyseDao = new JdbcAnalyseDao(jdbc);
         this.demandeAnalyseDao = new JdbcDemandeAnalyseDao(jdbc);
         this.rendezVousDao = new JdbcRendezVousDao(jdbc);
+        this.journalDao = new JdbcJournalDao(jdbc);
+        this.salleAttenteDao = new JdbcSalleAttenteDao(jdbc);
+        this.evenementDao = new JdbcEvenementDao(jdbc);
+        this.messageDao = new JdbcMessageDao(jdbc);
+        this.presenceDao = new JdbcPresenceDao(jdbc);
+        this.statistiquesDao = new JdbcStatistiquesDao(jdbc);
+        this.dossierCliniqueDao = new JdbcDossierCliniqueDao(jdbc);
     }
 
     @Override
@@ -107,5 +130,40 @@ public class JdbcDAOFactory implements DAOFactory {
     @Override
     public RendezVousDao getRendezVousDao() {
         return rendezVousDao;
+    }
+
+    @Override
+    public JournalDao getJournalDao() {
+        return journalDao;
+    }
+
+    @Override
+    public SalleAttenteDao getSalleAttenteDao() {
+        return salleAttenteDao;
+    }
+
+    @Override
+    public EvenementDao getEvenementDao() {
+        return evenementDao;
+    }
+
+    @Override
+    public MessageDao getMessageDao() {
+        return messageDao;
+    }
+
+    @Override
+    public PresenceDao getPresenceDao() {
+        return presenceDao;
+    }
+
+    @Override
+    public StatistiquesDao getStatistiquesDao() {
+        return statistiquesDao;
+    }
+
+    @Override
+    public DossierCliniqueDao getDossierCliniqueDao() {
+        return dossierCliniqueDao;
     }
 }

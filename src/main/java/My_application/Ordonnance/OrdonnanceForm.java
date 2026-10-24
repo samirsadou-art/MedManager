@@ -5,8 +5,9 @@
  */
 package My_application.Ordonnance;
 
+import My_application.vue.EnTetePage;
 import My_application.vue.Theme;
-import My_application.AppContext;
+import My_application.service.CatalogueService;
 import My_application.controller.CatalogueController;
 import My_application.controller.Vue;
 import My_application.entities.consultation;
@@ -37,13 +38,21 @@ public class OrdonnanceForm extends JDialog implements Vue {
     private final my_RonduOrdonnance rondu = new my_RonduOrdonnance();
     private final DefaultComboBoxModel Boxmodel = new DefaultComboBoxModel();
 
-    public OrdonnanceForm(consultation consult) {
+    private final CatalogueService catalogue;
+
+    public OrdonnanceForm(consultation consult, CatalogueService catalogue) {
+        this.catalogue = catalogue;
         initComponents();
         Theme.harmoniser(this);
+        // L'ancien bandeau « ORDONNANCE » laisse la place à l'en-tête commun.
+        jPanel1.setVisible(false);
+        EnTetePage.installer(this, "prescription", "Ordonnance", consult.getPatient().getNom().toUpperCase()
+                + " " + consult.getPatient().getPrenom() + "  ·  " + consult.getPatient().getStringAge());
+        pack();
         this.consult = consult;
         this.setLocationRelativeTo(null);
         this.validerBtn.setEnabled(false);
-        controleur = new CatalogueController(this, AppContext.get().getCatalogueService());
+        controleur = new CatalogueController(this, catalogue);
         model = new my_modelOrdonnance(consult.getOrdoPat().getMedicaments());
         nomLab.setText(consult.getPatient().getNom());
         prenomLab.setText(consult.getPatient().getPrenom());
@@ -777,7 +786,7 @@ if(selct.length!=0)
         if (choisi == null) {
             JOptionPane.showMessageDialog(this, "Veuillez insérer le médicament dans la base de données !",
                     " Le médicament n'existe pas", JOptionPane.WARNING_MESSAGE);
-            AddMedicamentForm addM = new AddMedicamentForm();
+            AddMedicamentForm addM = new AddMedicamentForm(catalogue);
             addM.setNomMED(saisie);
             addM.setVisible(true);
             choisi = addM.getMedicamentCree();

@@ -1,11 +1,11 @@
 package My_application.entities;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Locale;
 
 /**
  * Rendez-vous d'un patient (couche Modèle).
@@ -16,20 +16,39 @@ import java.time.temporal.ChronoUnit;
  */
 public class Rendez_Vous {
 
-    User utilsateur;
-    patient Patient;
-    Date dateFix;
-    Time heureFix;
-    Date date;
-    Time heure;
-    int etat;
+    private User utilsateur;
+    private patient Patient;
+    private static final DateTimeFormatter FORMAT_JOUR = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.FRENCH);
+    private static final DateTimeFormatter FORMAT_HEURE = DateTimeFormatter.ofPattern("HH:mm");
+
+    private LocalDate dateFix;
+    private LocalTime heureFix;
+    private LocalDate date;
+    private LocalTime heure;
+    /** État du rendez-vous (colonne rendezvous.etat, migration V5). */
+    public static final int ETAT_PREVU = 0;
+    public static final int ETAT_ARRIVE = 1;
+    public static final int ETAT_EN_CONSULTATION = 2;
+    public static final int ETAT_TERMINE = 3;
+    public static final int ETAT_ANNULE = 4;
+    public static final int ETAT_ABSENT = 5;
+
+    private int etat = ETAT_PREVU;
+
+    /** Identifiant (rendezvous.idRendezVous) ; null tant que le rendez-vous n'est pas enregistré. */
+    private Integer idRendezVous;
+
+    /** Motif court facultatif (contrôle, première visite…), migration V12. */
+    private String motif;
+    /** Médecin qui reçoit le patient (rendezvous.idMedecin) ; null pour un rendez-vous d'avant V5 non rattaché. */
+    private Integer idMedecin;
 
     public Rendez_Vous() {
     }
 
     /** Date et heure du rendez-vous réunies. */
     public LocalDateTime getDebut() {
-        return date.toLocalDate().atTime(heure.toLocalTime());
+        return date.atTime(heure);
     }
 
     /** Vrai si le rendez-vous est passé (ou a lieu à la minute même). */
@@ -44,7 +63,7 @@ public class Rendez_Vous {
 
     /** Nombre de jours calendaires entre aujourd'hui et le rendez-vous. */
     public int getNombreJoursRestant() {
-        return (int) ChronoUnit.DAYS.between(LocalDate.now(), date.toLocalDate());
+        return (int) ChronoUnit.DAYS.between(LocalDate.now(), date);
     }
 
     /** Vrai si les deux rendez-vous désignent le même patient au même créneau. */
@@ -52,24 +71,24 @@ public class Rendez_Vous {
         return autre != null
                 && Patient != null && autre.Patient != null
                 && Patient.getIdentPat() == autre.Patient.getIdentPat()
-                && date.toLocalDate().equals(autre.date.toLocalDate())
-                && heure.toLocalTime().equals(autre.heure.toLocalTime());
+                && date.equals(autre.date)
+                && heure.equals(autre.heure);
     }
 
     public String getDateString() {
-        return new SimpleDateFormat("EEEE, d MMMM yyyy").format(date);
+        return FORMAT_JOUR.format(date);
     }
 
     public String getHeureString() {
-        return new SimpleDateFormat("HH:mm").format(heure);
+        return FORMAT_HEURE.format(heure);
     }
 
     public String getDateFixString() {
-        return new SimpleDateFormat("EEEE, d MMMM yyyy").format(dateFix);
+        return FORMAT_JOUR.format(dateFix);
     }
 
     public String getHeureFixString() {
-        return new SimpleDateFormat("HH:mm").format(heureFix);
+        return FORMAT_HEURE.format(heureFix);
     }
 
     @Override
@@ -77,12 +96,12 @@ public class Rendez_Vous {
         return "[" + getHeureString() + "]    : " + Patient.getNom() + " " + Patient.getPrenom();
     }
 
-    public User getUtilsateur() {
+    public User getUtilisateur() {
         return utilsateur;
     }
 
-    public void setUtilsateur(User utilsateur) {
-        this.utilsateur = utilsateur;
+    public void setUtilisateur(User utilisateur) {
+        this.utilsateur = utilisateur;
     }
 
     public patient getPatient() {
@@ -93,36 +112,44 @@ public class Rendez_Vous {
         this.Patient = Patient;
     }
 
-    public Date getDate() {
+    public LocalDate getDate() {
         return date;
     }
 
-    public void setDate(Date date) {
+    public void setDate(LocalDate date) {
         this.date = date;
     }
 
-    public Time getHeure() {
+    public LocalTime getHeure() {
         return heure;
     }
 
-    public void setHeure(Time heure) {
+    public void setHeure(LocalTime heure) {
         this.heure = heure;
     }
 
-    public Date getDateFix() {
+    public LocalDate getDateFix() {
         return dateFix;
     }
 
-    public void setDateFix(Date dateFix) {
+    public void setDateFix(LocalDate dateFix) {
         this.dateFix = dateFix;
     }
 
-    public Time getHeureFix() {
+    public LocalTime getHeureFix() {
         return heureFix;
     }
 
-    public void setHeureFix(Time heureFix) {
+    public void setHeureFix(LocalTime heureFix) {
         this.heureFix = heureFix;
+    }
+
+    public Integer getIdMedecin() {
+        return idMedecin;
+    }
+
+    public void setIdMedecin(Integer idMedecin) {
+        this.idMedecin = idMedecin;
     }
 
     public int getEtat() {
@@ -131,5 +158,29 @@ public class Rendez_Vous {
 
     public void setEtat(int etat) {
         this.etat = etat;
+    }
+
+    public Integer getIdRendezVous() {
+        return idRendezVous;
+    }
+
+    public void setIdRendezVous(Integer idRendezVous) {
+        this.idRendezVous = idRendezVous;
+    }
+
+    public String getMotif() {
+        return motif;
+    }
+
+    public void setMotif(String motif) {
+        this.motif = motif;
+    }
+
+    /**
+     * Vrai si le rendez-vous occupe son créneau : un rendez-vous annulé ou
+     * manqué (absent) le libère (colonne occupe, migration V12).
+     */
+    public boolean isOccupant() {
+        return etat != ETAT_ANNULE && etat != ETAT_ABSENT;
     }
 }

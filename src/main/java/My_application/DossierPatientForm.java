@@ -1,45 +1,57 @@
 
 package My_application;
 
-import My_application.vue.Theme;
+import My_application.vue.EnTetePage;
 import My_application.Analyse.AnalyseForm;
 import My_application.Analyse.PaneauAnalyse;
 import My_application.Ordonnance.OrdonnanceForm;
 import My_application.Ordonnance.PaneauOrdonnance;
-import My_application.controller.DossierPatientController;
 import My_application.controller.DossierPatientController.Constante;
+import My_application.controller.DossierPatientController;
 import My_application.controller.Vue;
+import My_application.dossier.BandeauIdentite;
+import My_application.dossier.Etiquette;
+import My_application.dossier.OngletsDossier;
+import My_application.entities.Antecedent;
 import My_application.entities.DossierPatient;
-import My_application.entities.User;
+import My_application.entities.NoteDossier;
 import My_application.entities.consultation;
+import My_application.entities.patient;
 import My_application.entities.pathologie;
 import My_application.entities.symptome;
-import My_application.modelTableau.HistoriqueRondu;
-import My_application.modelTableau.HistoriqueVisites;
-import My_application.modelTableau.NoeudHistorique;
-import My_application.rendezvous.calandar;
+import My_application.Patient.FichePatient;
 import My_application.vue.AutoCompletion;
 import My_application.vue.Dialogues;
+import My_application.vue.FiltreSaisie;
+import My_application.vue.Formulaire;
 import My_application.vue.Icones;
+import My_application.vue.Theme;
 import java.awt.BorderLayout;
-import java.awt.GridLayout;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.awt.CardLayout;
+import java.awt.Container;
+import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
-import javax.swing.JButton;
-import javax.swing.UIManager;
 import javax.swing.DefaultListModel;
-import javax.swing.Icon;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreeNode;
-import javax.swing.tree.TreePath;
-import javax.swing.tree.TreeSelectionModel;
+import javax.swing.UIManager;
 
 /**
  * Dossier médical d'un patient (Vue).
@@ -47,33 +59,69 @@ import javax.swing.tree.TreeSelectionModel;
  * La fenêtre ne contient plus de SQL : les recherches de symptômes et
  * pathologies, l'enregistrement (transactionnel) et l'impression passent par
  * {@link DossierPatientController}. Elle reçoit un dossier déjà chargé.
+ * <p>
+ * Sous les boutons du haut : un bandeau d'identité, puis les onglets du
+ * dossier ({@link OngletsDossier}). Les champs de saisie d'une consultation,
+ * dessinés avec l'éditeur de NetBeans, sont replacés dans des cartes
+ * ({@link #presenterSaisie()}) dans l'onglet « Consultations », à côté de la
+ * liste des visites qui remplace l'arbre de l'historique et les flèches de
+ * navigation.
  */
 public class DossierPatientForm extends javax.swing.JFrame implements Vue {
 
-    private static final String ONGLET_ORDONNANCE = "Ordonnance ";
-    private static final String ONGLET_ANALYSES = "Analyses   ";
+    private static final String ONGLET_ORDONNANCE = "Ordonnance";
+    private static final String ONGLET_ANALYSES = "Analyses";
+    private static final String AVEC_TRAITEMENTS = "traitements";
+    private static final String TRAITEMENTS = "Traitements";
+    /** Sous-onglet « Diagnostics » de l'onglet « Consultations ». */
+    private static final int DIAGNOSTICS = 0;
+    private static final String SANS_TRAITEMENT = "aucun";
+    private static final DateTimeFormatter JOUR_CONSULTATION = DateTimeFormatter.ofPattern(
+            "EEEE dd/MM/yyyy 'à' ", Locale.FRENCH);
 
     private final DossierPatientController controleur;
     private final DossierPatient dossier;
-    private final HistoriqueVisites historiqueModele;
+    private final EnTetePage entete;
+    private final BandeauIdentite bandeau;
+    private final OngletsDossier onglets;
+    /** Onglet « Consultations » : la saisie de la consultation, en cartes. */
+    private final JPanel saisie;
+    private final JLabel titreConsultation = new JLabel();
+    private final JLabel detailConsultation = new JLabel();
+    private final JPanel etatConsultation = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+    private final JPanel traitements = new JPanel(new CardLayout());
+    /** Sous-onglets de la consultation : « Diagnostics » et « Traitements ». */
+    private final javax.swing.JTabbedPane sousOnglets = new javax.swing.JTabbedPane();
+    /** Enregistre la consultation en cours sans fermer le dossier. */
+    private final JButton enregistrerBtn = new JButton("Enregistrer");
 
     /** Consultation en cours de saisie (null si aucune). */
     consultation consult = null;
     PaneauAnalyse Panalyse = null;
     PaneauOrdonnance Pordonnance = null;
-    String tab = ONGLET_ORDONNANCE;
+    /** Vrai si l'utilisateur a choisi l'onglet Analyses (conservé d'une consultation à l'autre). */
+    private boolean analysesChoisies = false;
 
     DefaultComboBoxModel BoxSympmodel = new DefaultComboBoxModel();
     DefaultComboBoxModel BoxPathomodel = new DefaultComboBoxModel();
 
-    public DossierPatientForm(DossierPatient doss) {
+    private final AppContext ctx;
+    /** Montre la page « Rendez-vous » de la fenêtre principale pour ce patient. */
+    private final Consumer<patient> rendezVous;
+
+    public DossierPatientForm(DossierPatient doss, AppContext ctx, Consumer<patient> rendezVous) {
+        this.ctx = ctx;
+        this.rendezVous = rendezVous;
         initComponents();
         Theme.harmoniser(this);
+        entete = EnTetePage.installer(this, "folder-open", "Dossier patient", sousTitre(doss.getMalade()));
         presenterActionsDossier();
+        installerFiltres();
+        masquerFonctionsAbsentes();
+        saisie = presenterSaisie();
         this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         this.photo.setIcon(Icones.patient(doss.getMalade(), 128));
         dossier = doss;
-        AppContext ctx = AppContext.get();
         controleur = new DossierPatientController(this, doss, ctx.getDossierService(),
                 ctx.getCatalogueService(), ctx.getRapportService());
 
@@ -82,45 +130,473 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             nextBtn.setEnabled(false);
             VoirConsultation(dossier.LastConsultation());
         } else {
-            DisactiverVueConsultation();
+            desactiverVueConsultation();
             this.MedcinLabel.setText(dossier.getMedTraitant().getNomComplet());
+            enTeteConsultation(null);
         }
         this.NbreVisiteLabel.setText(String.valueOf(nombreConsult));
         remplirInfo();
         configCombo();
 
-        historiqueModele = new HistoriqueVisites(dossier);
-        historiqueModele.chargerHistorique();
-        historique.setModel(historiqueModele.getTreemodel());
-        historique.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-        historique.setCellRenderer(new HistoriqueRondu());
+        bandeau = new BandeauIdentite(this::modifierFiche);
+        onglets = new OngletsDossier(dossier, saisie, new ActionsOnglets());
+        presenterOnglets();
+        onglets.setHistorique(controleur.historique());
+        rechargerDossierClinique();
+        onglets.rafraichirVisites();
+        majBoutonsConsultation();
+    }
+
+    private static String sousTitre(patient p) {
+        return p.getNom().toUpperCase() + " " + p.getPrenom() + "  ·  " + p.getStringAge();
     }
 
     /**
-     * Les actions du dossier (nouvelle consultation, rendez-vous, fermeture…)
-     * étaient cachées derrière le séparateur de l'historique : elles sont
-     * maintenant affichées sous l'historique, en boutons pleine largeur.
+     * Remplace les deux colonnes dessinées dans NetBeans (informations et
+     * historique à gauche, consultation à droite) par le bandeau d'identité
+     * et les onglets. Le panneau de la consultation est repris tel quel dans
+     * l'onglet « Consultations », sans ses flèches de navigation.
+     */
+    private void presenterOnglets() {
+        Container centre = jPanel5.getParent();
+        centre.removeAll();
+        centre.setLayout(new BorderLayout(0, 10));
+        centre.setBackground(Theme.FOND);
+        if (centre instanceof JComponent) {
+            ((JComponent) centre).setBorder(BorderFactory.createEmptyBorder(0, 14, 12, 14));
+        }
+        centre.add(bandeau, BorderLayout.NORTH);
+        centre.add(onglets, BorderLayout.CENTER);
+        jPanel7.setVisible(false);
+    }
+
+    /**
+     * Onglet « Consultations » présenté comme le reste du dossier : une carte
+     * d'en-tête (date, médecin, état), puis deux sous-onglets : « Diagnostics »
+     * (paramètres vitaux, symptômes, pathologies côte à côte) et
+     * « Traitements » (ordonnance et analyses avec leurs boutons). Les champs, listes et boutons sont ceux dessinés dans NetBeans
+     * (le {@code .form} ne change pas), seulement replacés et restylés.
+     */
+    private JPanel presenterSaisie() {
+        JPanel haut = new JPanel(new GridBagLayout());
+        haut.setOpaque(false);
+        GridBagConstraints g = new GridBagConstraints();
+        g.fill = GridBagConstraints.BOTH;
+        g.weighty = 1;
+        g.weightx = 0.8;
+        g.insets = new java.awt.Insets(0, 0, 0, 12);
+        haut.add(carteParametresVitaux(), g);
+        g.weightx = 1;
+        haut.add(carteListe("report-medical", "Symptômes", symptomeCombo, "Choisir ou saisir un symptôme…",
+                addSympBtn, suppSympBtn, jScrollPane2, SymptomeList), g);
+        g.insets = new java.awt.Insets(0, 0, 0, 0);
+        haut.add(carteListe("clipboard-list", "Pathologies", pathologieCombo, "Choisir ou saisir une pathologie…",
+                addPathoBtn, suppPathoBtn, jScrollPane6, PathologieList), g);
+
+        sousOnglets.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE));
+        sousOnglets.addTab("Diagnostics", Icones.svg("heartbeat", 16, Theme.PRIMAIRE), sousOnglet(haut));
+        sousOnglets.addTab(TRAITEMENTS, Icones.svg("pill", 16, Theme.PRIMAIRE), sousOnglet(carteTraitements()));
+        sousOnglets.setToolTipTextAt(DIAGNOSTICS, "Paramètres vitaux, symptômes et pathologies");
+        sousOnglets.setToolTipTextAt(1, "Ordonnance et analyses de la consultation");
+
+        JPanel p = new JPanel(new BorderLayout(0, 12));
+        p.setOpaque(false);
+        p.add(carteEnTete(), BorderLayout.NORTH);
+        p.add(sousOnglets, BorderLayout.CENTER);
+        return p;
+    }
+
+    private static JPanel sousOnglet(JComponent contenu) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(Theme.FOND);
+        p.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        p.add(contenu, BorderLayout.CENTER);
+        return p;
+    }
+
+    /** Date et heure de la consultation, médecin, et si elle est en cours de saisie ou enregistrée. */
+    private JComponent carteEnTete() {
+        titreConsultation.setIcon(Icones.svg("stethoscope", 22, Theme.PRIMAIRE));
+        titreConsultation.setIconTextGap(10);
+        titreConsultation.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE + 3));
+        titreConsultation.setForeground(Theme.TEXTE);
+        detailConsultation.setFont(Theme.police());
+        detailConsultation.setForeground(Theme.TEXTE_SECONDAIRE);
+        detailConsultation.setBorder(BorderFactory.createEmptyBorder(2, 32, 0, 0));
+        JPanel textes = new JPanel(new BorderLayout());
+        textes.setOpaque(false);
+        textes.add(titreConsultation, BorderLayout.NORTH);
+        textes.add(detailConsultation, BorderLayout.CENTER);
+        etatConsultation.setOpaque(false);
+        JPanel etat = new JPanel(new GridBagLayout());
+        etat.setOpaque(false);
+        etat.add(etatConsultation);
+        GridBagConstraints g = new GridBagConstraints();
+        g.insets = new java.awt.Insets(0, 12, 0, 0);
+        etat.add(NewConsultBtn, g);
+        etat.add(enregistrerBtn, g);
+        JPanel carte = new JPanel(new BorderLayout(12, 0));
+        Theme.carte(carte, null);
+        carte.setBorder(BorderFactory.createCompoundBorder(carte.getBorder(),
+                BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+        carte.add(textes, BorderLayout.CENTER);
+        carte.add(etat, BorderLayout.EAST);
+        return carte;
+    }
+
+    private JComponent carteParametresVitaux() {
+        JPanel grille = new JPanel(new GridBagLayout());
+        grille.setOpaque(false);
+        constante(grille, 0, jLabel1, "Température (°C)", TempTxt);
+        constante(grille, 1, jLabel6, "Pouls (bpm)", pulsationTxt);
+        constante(grille, 2, jLabel4, "Tension (mmHg)", pressionTxt);
+        constante(grille, 3, jLabel7, "Respiration (/min)", respirationTxt);
+        constante(grille, 4, jLabel3, "Poids (kg)", poidsTxt);
+        JPanel haut = new JPanel(new BorderLayout());
+        haut.setOpaque(false);
+        haut.add(grille, BorderLayout.NORTH);
+        return OngletsDossier.carte("heartbeat", "Paramètres vitaux", (JComponent) null, haut);
+    }
+
+    private static void constante(JPanel grille, int ligne, JLabel libelle, String texte, JTextField champ) {
+        libelle.setText(texte);
+        libelle.setFont(Theme.police());
+        libelle.setForeground(Theme.TEXTE_SECONDAIRE);
+        champ.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE));
+        champ.setColumns(7);
+        champ.setHorizontalAlignment(JTextField.CENTER);
+        GridBagConstraints g = new GridBagConstraints();
+        g.gridy = ligne;
+        g.anchor = GridBagConstraints.WEST;
+        g.weightx = 1;
+        g.insets = new java.awt.Insets(3, 0, 3, 12);
+        grille.add(libelle, g);
+        g.gridx = 1;
+        g.weightx = 0;
+        g.fill = GridBagConstraints.HORIZONTAL;
+        g.insets = new java.awt.Insets(3, 0, 3, 0);
+        grille.add(champ, g);
+    }
+
+    /** Carte « Symptômes » ou « Pathologies » : liste déroulante à saisie, boutons ajouter / retirer, liste. */
+    private static JComponent carteListe(String icone, String titre, JComboBox<String> combo, String invite,
+            JButton ajouter, JButton retirer, JScrollPane defile, javax.swing.JList<String> liste) {
+        combo.putClientProperty("JTextField.placeholderText", invite);
+        combo.setPreferredSize(null);
+        combo.setMinimumSize(new java.awt.Dimension(80, 30));
+        boutonListe(ajouter, "circle-plus", "Ajouter à la consultation");
+        boutonListe(retirer, "circle-minus", "Retirer l'élément choisi dans la liste");
+        JPanel boutons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+        boutons.setOpaque(false);
+        boutons.add(ajouter);
+        boutons.add(retirer);
+        JPanel saisie = new JPanel(new BorderLayout(4, 0));
+        saisie.setOpaque(false);
+        saisie.add(combo, BorderLayout.CENTER);
+        saisie.add(boutons, BorderLayout.EAST);
+
+        liste.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+        liste.setFont(Theme.police());
+        liste.setPreferredSize(null);
+        defile.setBorder(BorderFactory.createLineBorder(Theme.BORDURE));
+        defile.setPreferredSize(new java.awt.Dimension(120, 60));
+        JPanel contenu = new JPanel(new BorderLayout(0, 8));
+        contenu.setOpaque(false);
+        contenu.add(saisie, BorderLayout.NORTH);
+        contenu.add(defile, BorderLayout.CENTER);
+        return OngletsDossier.carte(icone, titre, (JComponent) null, contenu);
+    }
+
+    private static void boutonListe(JButton b, String icone, String bulle) {
+        b.setIcon(Icones.svg(icone, 20, Theme.PRIMAIRE));
+        b.setDisabledIcon(null);
+        b.setToolTipText(bulle);
+        b.putClientProperty("JButton.buttonType", "toolBarButton");
+        b.setPreferredSize(new java.awt.Dimension(30, 30));
+    }
+
+    /**
+     * Ordonnance et analyses de la consultation dans des onglets, avec en
+     * haut les boutons pour les établir et en bas aperçu, impression et
+     * suppression du document affiché.
+     */
+    private JComponent carteTraitements() {
+        boutonTraitement(addOrdo, "prescription", "Ordonnance", "Établir l'ordonnance de la consultation");
+        boutonTraitement(addAnal, "flask", "Analyses", "Demander des analyses biologiques");
+        JPanel etablir = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        etablir.setOpaque(false);
+        etablir.add(addOrdo);
+        etablir.add(addAnal);
+
+        jTabbedPane1.setTabPlacement(javax.swing.JTabbedPane.TOP);
+        jTabbedPane1.setBorder(null);
+        jTabbedPane1.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE));
+        jTabbedPane1.setPreferredSize(new java.awt.Dimension(400, 180));
+        jTabbedPane1.setBackground(Theme.SURFACE);
+        JLabel aucun = new JLabel("<html><div style='text-align:center'>Pas d'ordonnance ni d'analyses pour "
+                + "cette consultation.<br>Boutons « Ordonnance » et « Analyses » ci-dessus pour les établir."
+                + "</div></html>", JLabel.CENTER);
+        aucun.setFont(Theme.police());
+        aucun.setForeground(Theme.TEXTE_SECONDAIRE);
+        traitements.setOpaque(false);
+        traitements.add(jTabbedPane1, AVEC_TRAITEMENTS);
+        traitements.add(aucun, SANS_TRAITEMENT);
+        jTabbedPane1.addContainerListener(new java.awt.event.ContainerAdapter() {
+            @Override
+            public void componentAdded(java.awt.event.ContainerEvent e) {
+                majTraitements();
+            }
+
+            @Override
+            public void componentRemoved(java.awt.event.ContainerEvent e) {
+                majTraitements();
+            }
+        });
+        majTraitements();
+
+        boutonTraitement(visualiserBtn, "eye", "Aperçu", "Aperçu du document affiché (ordonnance ou analyses)");
+        boutonTraitement(imprimerBtn, "printer", "Imprimer", "Imprimer le document affiché");
+        boutonTraitement(supprimerBtn, "trash", "Supprimer", "Retirer de la consultation le document affiché");
+        supprimerBtn.setIcon(Icones.svg("trash", 16, Theme.DANGER));
+        supprimerBtn.setForeground(Theme.DANGER);
+        JPanel documents = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        documents.setOpaque(false);
+        documents.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+        documents.add(visualiserBtn);
+        documents.add(imprimerBtn);
+        documents.add(supprimerBtn);
+
+        JPanel contenu = new JPanel(new BorderLayout());
+        contenu.setOpaque(false);
+        contenu.add(traitements, BorderLayout.CENTER);
+        contenu.add(documents, BorderLayout.SOUTH);
+        return OngletsDossier.carte("prescription", "Ordonnance et analyses", etablir, contenu);
+    }
+
+    private static void boutonTraitement(JButton b, String icone, String texte, String bulle) {
+        b.setText(texte);
+        b.setIcon(Icones.svg(icone, 16, Theme.PRIMAIRE));
+        b.setDisabledIcon(null);
+        b.setToolTipText(bulle);
+        b.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE));
+        b.setPreferredSize(null);
+        b.setMaximumSize(null);
+        b.setIconTextGap(8);
+        // Bouton à bord, comme « Aperçu » et « Imprimer » de l'onglet Ordonnances
+        // (le thème avait fait des boutons à icône seule des boutons plats).
+        b.putClientProperty("JButton.buttonType", null);
+        b.setFocusable(true);
+        b.setBorder(UIManager.getBorder("Button.border"));
+        b.setBackground(UIManager.getColor("Button.background"));
+    }
+
+    /** Les onglets ordonnance / analyses, ou une phrase quand la consultation n'en a pas. */
+    private void majTraitements() {
+        int n = jTabbedPane1.getTabCount();
+        ((CardLayout) traitements.getLayout()).show(traitements, n > 0 ? AVEC_TRAITEMENTS : SANS_TRAITEMENT);
+        if (sousOnglets.getTabCount() > 1) {
+            sousOnglets.setTitleAt(1, n > 0 ? TRAITEMENTS + " (" + n + ")" : TRAITEMENTS);
+        }
+    }
+
+    /** En-tête de l'onglet « Consultations » ; {@code c} null : le dossier n'a encore aucune consultation. */
+    private void enTeteConsultation(consultation c) {
+        etatConsultation.removeAll();
+        if (c == null) {
+            titreConsultation.setText("Aucune consultation");
+            detailConsultation.setText("« Nouvelle consultation », à droite, pour commencer la première visite.");
+        } else {
+            String jour = c.getDate_cons().format(JOUR_CONSULTATION);
+            titreConsultation.setText("Consultation du " + jour + c.getHeureString());
+            detailConsultation.setText(c.getMedecin().getNomComplet().trim());
+            Etiquette etat = c == consult
+                    ? new Etiquette("En cours de saisie", Theme.AVERTISSEMENT, Theme.AVERTISSEMENT_CLAIR)
+                    : new Etiquette("Enregistrée · lecture seule", Theme.TEXTE_SECONDAIRE, Theme.LIGNE_ALTERNEE);
+            if (c != consult) {
+                etat.setIcon(Icones.svg("lock", 14, Theme.TEXTE_SECONDAIRE));
+            }
+            etatConsultation.add(etat);
+        }
+        etatConsultation.revalidate();
+        etatConsultation.repaint();
+    }
+
+    /** Ce que les onglets du dossier demandent à la fenêtre. */
+    private final class ActionsOnglets implements OngletsDossier.Actions {
+
+        @Override
+        public void voirConsultation(consultation c) {
+            int index = dossier.getConsultations().indexOf(c);
+            if (index < 0 || !lireConstantes()) {
+                return;
+            }
+            dossier.SetPosition(index);
+            VoirConsultation(dossier.getCurrentConsultation());
+            majNavigation();
+        }
+
+        @Override
+        public void ordonnance(consultation c, boolean imprimer) {
+            controleur.ordonnance(c, imprimer);
+        }
+
+        @Override
+        public void analyses(consultation c, boolean imprimer) {
+            controleur.analyses(c, imprimer);
+        }
+
+        @Override
+        public void agenda() {
+            rendezVous.accept(dossier.getMalade());
+        }
+
+        @Override
+        public void modifierFiche() {
+            DossierPatientForm.this.modifierFiche();
+        }
+
+        @Override
+        public void ajouterAntecedent() {
+            JComboBox<Antecedent.Categorie> rubrique = new JComboBox<>(Antecedent.Categorie.values());
+            JTextField libelle = new JTextField(28);
+            libelle.putClientProperty("JTextField.placeholderText", "Pénicilline, appendicectomie, diabète du père…");
+            JTextField complement = new JTextField(28);
+            complement.putClientProperty("JTextField.placeholderText", "Facultatif : date, réaction, dosage…");
+            Formulaire f = new Formulaire(DossierPatientForm.this, "Nouvel antécédent", "clipboard-list",
+                    "Noté tout de suite dans le dossier, sans attendre sa fermeture.", "Ajouter")
+                    .ligne("Rubrique", rubrique)
+                    .ligne("Antécédent", libelle)
+                    .ligne("Précision", complement);
+            if (f.afficher(() -> controleur.ajouterAntecedent((Antecedent.Categorie) rubrique.getSelectedItem(),
+                    libelle.getText(), complement.getText()))) {
+                rechargerDossierClinique();
+            }
+        }
+
+        @Override
+        public void supprimerAntecedent(Antecedent a) {
+            if (Dialogues.confirmer(DossierPatientForm.this, "Retirer « " + a + " » des antécédents ?")
+                    && controleur.supprimerAntecedent(a)) {
+                rechargerDossierClinique();
+            }
+        }
+
+        @Override
+        public void ajouterNote() {
+            JTextArea texte = new JTextArea(8, 40);
+            texte.setLineWrap(true);
+            texte.setWrapStyleWord(true);
+            Formulaire f = new Formulaire(DossierPatientForm.this, "Nouvelle note", "pencil",
+                    "Note datée, à votre nom, enregistrée tout de suite dans le dossier.", "Enregistrer")
+                    .ligne(null, new JScrollPane(texte));
+            if (f.afficher(() -> controleur.ajouterNote(texte.getText()))) {
+                rechargerDossierClinique();
+            }
+        }
+
+        @Override
+        public void supprimerNote(NoteDossier n) {
+            if (Dialogues.confirmer(DossierPatientForm.this, "Supprimer cette note ?") && controleur.supprimerNote(n)) {
+                rechargerDossierClinique();
+            }
+        }
+    }
+
+    /** Relit antécédents et notes, et les allergies du bandeau. */
+    private void rechargerDossierClinique() {
+        List<Antecedent> antecedents = controleur.antecedents();
+        onglets.setDossierClinique(antecedents, controleur.notes());
+        afficherBandeau(antecedents);
+    }
+
+    private void afficherBandeau(List<Antecedent> antecedents) {
+        List<String> allergies = new ArrayList<>();
+        for (Antecedent a : antecedents) {
+            if (a.getCategorie() == Antecedent.Categorie.ALLERGIE) {
+                allergies.add(a.getLibelle());
+            }
+        }
+        bandeau.afficher(dossier.getMalade(), onglets.getHistorique().passageEnCours(LocalDate.now()), allergies);
+    }
+
+    /** Fiche du patient (état civil, coordonnées) : le bandeau et la vue d'ensemble suivent les changements. */
+    private void modifierFiche() {
+        FichePatient fiche = new FichePatient(this, ctx.getPatientService(), dossier.getMalade());
+        fiche.setVisible(true);
+        patient modifie = fiche.getPatient();
+        if (modifie != null) {
+            dossier.setMalade(modifie);
+            entete.setSousTitre(sousTitre(modifie));
+            rechargerDossierClinique();
+            remplirInfo();
+            onglets.rafraichirOngletCourant();
+        }
+    }
+
+    /**
+     * Caractères permis dans les constantes vitales. Le filtre s'applique aussi
+     * au collage, que les anciens contrôles {@code keyTyped} laissaient passer ;
+     * les bornes sont vérifiées par le service ({@code ConstantesVitales}).
+     */
+    private void installerFiltres() {
+        FiltreSaisie.installer(TempTxt, FiltreSaisie.decimal(6));
+        FiltreSaisie.installer(pulsationTxt, FiltreSaisie.entier(3));
+        FiltreSaisie.installer(pressionTxt, new FiltreSaisie("0-9/.,", 9)); // 12/8, 13,5/8, 120/80...
+        pressionTxt.setToolTipText("12/8 (cmHg) ou 120/80 (mmHg) ; enregistrée et affichée en mmHg");
+        FiltreSaisie.installer(respirationTxt, FiltreSaisie.entier(3));
+        FiltreSaisie.installer(poidsTxt, FiltreSaisie.decimal(6));
+    }
+
+    /**
+     * Imagerie et actes médicaux ne sont pas encore développés, et la barre de
+     * menus ne contenait que des menus vides : on ne propose pas à l'utilisateur
+     * des commandes qui ne font rien.
+     */
+    private void masquerFonctionsAbsentes() {
+        addRadio.setVisible(false);
+        addAct.setVisible(false);
+        setJMenuBar(null);
+    }
+
+    /**
+     * La rangée de boutons du haut (nouvelle consultation, rendez-vous, lettre
+     * d'orientation, statistiques, fermeture) est retirée : « Nouvelle
+     * consultation » passe dans l'en-tête de l'onglet « Consultations », le
+     * rendez-vous est dans l'onglet « Rendez-vous et règlements », les
+     * constantes ont leur onglet et la fenêtre se ferme par sa croix.
      */
     private void presenterActionsDossier() {
         jPanel9.removeAll();
         jPanel9.setLayout(new BorderLayout());
         jPanel9.add(jScrollPane1, BorderLayout.CENTER);
-        jPanel9.add(jPanel3, BorderLayout.SOUTH);
-        jPanel3.setLayout(new GridLayout(0, 1, 0, 6));
-        jPanel3.setBackground(Theme.FOND);
-        jPanel3.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
         actionDossier(NewConsultBtn, "stethoscope", true);
-        actionDossier(NewRendezVousBtn, "calendar-event", false);
-        actionDossier(jButton10, "file-text", false);
-        actionDossier(jButton2, "chart-bar", false);
-        actionDossier(FermerDossierBtn, "x", false);
-        FermerDossierBtn.setForeground(Theme.DANGER);
+        actionDossier(enregistrerBtn, "device-floppy", true);
+        enregistrerBtn.setToolTipText("Enregistrer la consultation en cours dans le dossier");
+        enregistrerBtn.addActionListener(e -> enregistrerConsultation());
+    }
+
+    /**
+     * « Nouvelle Consultation » et « Enregistrer » s'activent à tour de rôle :
+     * le second pendant la saisie d'une consultation, le premier sinon. Le
+     * bouton actif est plein, l'autre grisé.
+     */
+    private void majBoutonsConsultation() {
+        boolean enSaisie = consult != null;
+        boutonAlterne(NewConsultBtn, "stethoscope", !enSaisie);
+        boutonAlterne(enregistrerBtn, "device-floppy", enSaisie);
+    }
+
+    private static void boutonAlterne(JButton b, String icone, boolean actif) {
+        b.setEnabled(actif);
+        b.setBackground(actif ? Theme.PRIMAIRE : UIManager.getColor("Button.background"));
+        b.setForeground(actif ? java.awt.Color.WHITE : Theme.TEXTE);
+        b.setIcon(Icones.svg(icone, 18, actif ? java.awt.Color.WHITE : Theme.PRIMAIRE));
+        b.setDisabledIcon(null);
     }
 
     private static void actionDossier(JButton b, String icone, boolean principal) {
         b.setBorder(UIManager.getBorder("Button.border"));
         b.setFont(Theme.police(java.awt.Font.BOLD, Theme.TAILLE_BASE));
-        b.setHorizontalAlignment(JButton.LEFT);
         b.setIconTextGap(10);
         if (principal) {
             b.setBackground(Theme.PRIMAIRE);
@@ -131,10 +607,11 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             b.setForeground(Theme.TEXTE);
             b.setIcon(Icones.svg(icone, 18, Theme.PRIMAIRE));
         }
+        b.setPreferredSize(new java.awt.Dimension(b.getPreferredSize().width + 24, 38));
     }
 
     void remplirInfo() {
-        numLabel.setText(String.valueOf(dossier.getMalade().getIdentPat()));
+        numLabel.setText(dossier.getMalade().getNumeroDossier());
         nomLabel.setText(dossier.getMalade().getNom());
         prenomLabel.setText(dossier.getMalade().getPrenom());
         ageLabel.setText(dossier.getMalade().getStringAge());
@@ -949,8 +1426,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         if (consult == null) {
             return;
         }
-        if (jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE) < 0) {
-            new OrdonnanceForm(consult).setVisible(true);
+        if (jTabbedPane1.indexOfComponent(Pordonnance) < 0) {
+            new OrdonnanceForm(consult, ctx.getCatalogueService()).setVisible(true);
             addOrdonnance(consult);
         } else {
             afficherInformation("Ordonnance déjà établie !");
@@ -960,9 +1437,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     private void supprimerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_supprimerBtnActionPerformed
         int onglet = jTabbedPane1.getSelectedIndex();
         if (onglet >= 0 && consult != null) {
-            if (onglet == jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE)) {
+            if (onglet == jTabbedPane1.indexOfComponent(Pordonnance)) {
                 consult.addOrdonnance(); // ordonnance vide (et non null : évite une NullPointerException plus tard)
-            } else if (onglet == jTabbedPane1.indexOfTab(ONGLET_ANALYSES)) {
+            } else if (onglet == jTabbedPane1.indexOfComponent(Panalyse)) {
                 consult.addAnalyse();
             }
             jTabbedPane1.remove(onglet);
@@ -973,8 +1450,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         if (consult == null) {
             return;
         }
-        if (jTabbedPane1.indexOfTab(ONGLET_ANALYSES) < 0) {
-            new AnalyseForm(consult).setVisible(true);
+        if (jTabbedPane1.indexOfComponent(Panalyse) < 0) {
+            new AnalyseForm(consult, ctx.getCatalogueService()).setVisible(true);
             addAnalyse(consult);
         } else {
             afficherInformation("Analyses déjà établies !");
@@ -986,10 +1463,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_addActActionPerformed
 
     private void jTabbedPane1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jTabbedPane1MouseClicked
-   
-        if(jTabbedPane1.getSelectedIndex()>=0)
-        tab=jTabbedPane1.getTitleAt(jTabbedPane1.getSelectedIndex());
-        
+        if (jTabbedPane1.getSelectedIndex() >= 0) {
+            analysesChoisies = Panalyse != null && jTabbedPane1.getSelectedComponent() == Panalyse;
+        }
     }//GEN-LAST:event_jTabbedPane1MouseClicked
 
     private void dateTextActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_dateTextActionPerformed
@@ -1013,46 +1489,23 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_jMenuItem1ActionPerformed
 
     private void TempTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_TempTxtKeyTyped
-               char enter = evt.getKeyChar();
-               int leng=TempTxt.getText().length();
-               if(leng>5) evt.consume();
-        if(!(Character.isDigit(enter))&&  enter!='.' ){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_TempTxtKeyTyped
 
     private void pulsationTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_pulsationTxtKeyTyped
-               char enter = evt.getKeyChar();
-               int len=pulsationTxt.getText().length();
-               if(len>2) evt.consume();
-        if(!(Character.isDigit(enter))){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_pulsationTxtKeyTyped
 
     private void pressionTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_pressionTxtKeyTyped
-                char enter = evt.getKeyChar();
-               if(pressionTxt.getText().length()>4) evt.consume();
-        if(!(Character.isDigit(enter)) && enter!='/'){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_pressionTxtKeyTyped
 
     private void respirationTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_respirationTxtKeyTyped
-               char enter = evt.getKeyChar();
-                           
-         if(respirationTxt.getText().length()>2) evt.consume();
-        if(!(Character.isDigit(enter))){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_respirationTxtKeyTyped
 
     private void poidsTxtKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_poidsTxtKeyTyped
-                char enter = evt.getKeyChar();
-         if(poidsTxt.getText().length()>5) evt.consume();        
-        if(!(Character.isDigit(enter))&& enter!='.'){
-            evt.consume();
-        }
+        // remplacé par FiltreSaisie (voir installerFiltres)
     }//GEN-LAST:event_poidsTxtKeyTyped
 
     private void addSympBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addSympBtnActionPerformed
@@ -1138,15 +1591,8 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_historiqueKeyPressed
 
     private void historiqueMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_historiqueMousePressed
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode) historique.getLastSelectedPathComponent();
-        if (node != null && node.isLeaf() && node.getUserObject() instanceof NoeudHistorique) {
-            NoeudHistorique noeud = (NoeudHistorique) node.getUserObject();
-            if (noeud.getType() == 0 && noeud.getIndiceConsult() >= 0) {
-                dossier.SetPosition(noeud.getIndiceConsult());
-                VoirConsultation(dossier.getCurrentConsultation());
-                majNavigation();
-            }
-        }
+        // L'arbre de l'historique n'est plus affiché : la liste des visites de l'onglet
+        // « Consultations » le remplace (OngletsDossier).
     }//GEN-LAST:event_historiqueMousePressed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
@@ -1170,29 +1616,25 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
     }//GEN-LAST:event_respirationTxtFocusLost
 
     private void NewRendezVousBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NewRendezVousBtnActionPerformed
-        User util = AppContext.get().getSession().getUtilisateur();
-        new calandar(this.dossier.getMalade(), util).setVisible(true);
+        // L'agenda est une page de la fenêtre principale, qui passe devant le dossier.
+        rendezVous.accept(this.dossier.getMalade());
     }//GEN-LAST:event_NewRendezVousBtnActionPerformed
     // ----- onglets ordonnance / analyses -----
 
     public void addOrdonnance(consultation c) {
         if (c.hasOrdonnance()) {
             Pordonnance = new PaneauOrdonnance(c.getOrdoPat());
-            jTabbedPane1.addTab(ONGLET_ORDONNANCE, icone("/res/icons/ordo32.png"), Pordonnance);
-            jTabbedPane1.setSelectedIndex(jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE));
+            jTabbedPane1.addTab(ONGLET_ORDONNANCE, Icones.svg("prescription", 16, Theme.PRIMAIRE), Pordonnance);
+            jTabbedPane1.setSelectedComponent(Pordonnance);
         }
     }
 
     public void addAnalyse(consultation c) {
-        if (c.hasAanlyse()) {
+        if (c.hasAnalyse()) {
             Panalyse = new PaneauAnalyse(c.getAnaPat());
-            jTabbedPane1.addTab(ONGLET_ANALYSES, icone("/res/icons/analyse32.png"), Panalyse);
-            jTabbedPane1.setSelectedIndex(jTabbedPane1.indexOfTab(ONGLET_ANALYSES));
+            jTabbedPane1.addTab(ONGLET_ANALYSES, Icones.svg("flask", 16, Theme.PRIMAIRE), Panalyse);
+            jTabbedPane1.setSelectedComponent(Panalyse);
         }
-    }
-
-    private static Icon icone(String chemin) {
-        return Icones.icone(chemin);
     }
 
     /** Aperçu (false) ou impression (true) du document de l'onglet sélectionné. */
@@ -1202,9 +1644,9 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         }
         consultation c = dossier.getCurrentConsultation();
         int onglet = jTabbedPane1.getSelectedIndex();
-        if (onglet >= 0 && onglet == jTabbedPane1.indexOfTab(ONGLET_ORDONNANCE)) {
+        if (onglet >= 0 && onglet == jTabbedPane1.indexOfComponent(Pordonnance)) {
             controleur.ordonnance(c, imprimer);
-        } else if (onglet >= 0 && onglet == jTabbedPane1.indexOfTab(ONGLET_ANALYSES)) {
+        } else if (onglet >= 0 && onglet == jTabbedPane1.indexOfComponent(Panalyse)) {
             controleur.analyses(c, imprimer);
         }
     }
@@ -1273,16 +1715,41 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             return; // message déjà affiché (une consultation est déjà en cours)
         }
         consult = nouvelle;
-        ActitiverVueConsultation();
+        activerVueConsultation();
         ActiverTraitement();
         initialiser();
         int index = dossier.getNombreConsultation() - 1;
-        historiqueModele.addConsulToHistorique(consult, index);
         dossier.SetPosition(index);
         VoirConsultation(consult);
         majNavigation();
-        SelectHistoriqueNoeud();
         NbreVisiteLabel.setText(String.valueOf(dossier.getNombreConsultation()));
+        onglets.setSelectedIndex(OngletsDossier.CONSULTATIONS);
+        sousOnglets.setSelectedIndex(DIAGNOSTICS);
+        SelectHistoriqueNoeud();
+        majBoutonsConsultation();
+    }
+
+    /**
+     * « Enregistrer » : écrit la consultation en cours (frais demandés si le
+     * patient est dans la salle d'attente) ; le dossier reste ouvert et la
+     * consultation passe en lecture seule.
+     */
+    void enregistrerConsultation() {
+        if (consult == null || !lireConstantes()) {
+            return;
+        }
+        boolean fait = controleur.fraisADemander() ? enregistrerAvecFrais() : controleur.enregistrer();
+        if (!fait) {
+            return;
+        }
+        consultation enregistree = consult;
+        consult = null;
+        dossier.SetPosition(dossier.getConsultations().indexOf(enregistree));
+        VoirConsultation(enregistree);
+        onglets.setHistorique(controleur.historique());
+        rechargerDossierClinique();
+        SelectHistoriqueNoeud();
+        majBoutonsConsultation();
     }
 
     void initialiser() {
@@ -1312,25 +1779,28 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
             ActiverTraitement();
         }
         initialiser();
-        TempTxt.setText(valeur(myconsult.getTemperature()));
-        pulsationTxt.setText(valeur(myconsult.getPul_Cardiaque()));
-        pressionTxt.setText(myconsult.getPressionA());
-        respirationTxt.setText(valeur(myconsult.getTauxRespir()));
-        poidsTxt.setText(valeur(myconsult.getPoids()));
+        FiltreSaisie.afficher(TempTxt, valeur(myconsult.getTemperature()));
+        FiltreSaisie.afficher(pulsationTxt, valeur(myconsult.getPul_Cardiaque()));
+        FiltreSaisie.afficher(pressionTxt, myconsult.getPressionA());
+        FiltreSaisie.afficher(respirationTxt, valeur(myconsult.getTauxRespir()));
+        FiltreSaisie.afficher(poidsTxt, valeur(myconsult.getPoids()));
         afficherSymptomes(myconsult);
         afficherPathologies(myconsult);
-        TimeTxt.setText(myconsult.getHeure_cons().toString());
-        dateText.setText(" " + new SimpleDateFormat("EEEE, d MMM yyyy").format(new Date(myconsult.getDate_cons().getTime())));
-        MedcinLabel.setText(myconsult.getMedecin().getNomComplet());
+        TimeTxt.setText(myconsult.getHeureString());
+        dateText.setText(" " + myconsult.getDate_cons().format(DateTimeFormatter.ofPattern("EEEE, d MMM yyyy", Locale.FRENCH)));
+        MedcinLabel.setText(myconsult.getMedecin().getNomComplet().trim() + "  ·  consultation du "
+                + myconsult.getDate_cons().format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.FRENCH))
+                + " à " + myconsult.getHeureString());
+        enTeteConsultation(myconsult);
         if (myconsult.hasOrdonnance()) {
             Pordonnance = new PaneauOrdonnance(myconsult.getOrdoPat());
-            jTabbedPane1.addTab(ONGLET_ORDONNANCE, icone("/res/icons/ordo32.png"), Pordonnance);
+            jTabbedPane1.addTab(ONGLET_ORDONNANCE, Icones.svg("prescription", 16, Theme.PRIMAIRE), Pordonnance);
         }
-        if (myconsult.hasAanlyse()) {
+        if (myconsult.hasAnalyse()) {
             Panalyse = new PaneauAnalyse(myconsult.getAnaPat());
-            jTabbedPane1.addTab(ONGLET_ANALYSES, icone("/res/icons/analyse32.png"), Panalyse);
+            jTabbedPane1.addTab(ONGLET_ANALYSES, Icones.svg("flask", 16, Theme.PRIMAIRE), Panalyse);
         }
-        int onglet = jTabbedPane1.indexOfTab(tab);
+        int onglet = jTabbedPane1.indexOfComponent(analysesChoisies ? Panalyse : Pordonnance);
         if (onglet >= 0) {
             jTabbedPane1.setSelectedIndex(onglet);
         }
@@ -1370,13 +1840,13 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         this.supprimerBtn.setEnabled(actif);
     }
 
-    void DisactiverVueConsultation() {
+    void desactiverVueConsultation() {
         activerVue(false);
         this.SymptomeList.setModel(new DefaultListModel<String>());
         this.PathologieList.setModel(new DefaultListModel<String>());
     }
 
-    void ActitiverVueConsultation() {
+    void activerVueConsultation() {
         activerVue(true);
     }
 
@@ -1419,7 +1889,11 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         int result = JOptionPane.showConfirmDialog(this, "Voulez-vous enregistrer les modifications ?",
                 "Fermer et enregistrer ...", JOptionPane.YES_NO_CANCEL_OPTION);
         if (result == JOptionPane.YES_OPTION) {
-            if (controleur.enregistrer()) {
+            if (controleur.fraisADemander()) {
+                if (enregistrerAvecFrais()) {
+                    dispose();
+                }
+            } else if (controleur.enregistrer()) {
                 afficherInformation("Modifications effectuées avec succès !");
                 dispose();
             }
@@ -1428,16 +1902,27 @@ public class DossierPatientForm extends javax.swing.JFrame implements Vue {
         }
     }
 
+    /**
+     * Le patient est dans la salle d'attente : le médecin indique les frais
+     * de la consultation, que la secrétaire encaissera avant de le libérer.
+     *
+     * @return true si la consultation a été enregistrée
+     */
+    private boolean enregistrerAvecFrais() {
+        JTextField frais = new JTextField(controleur.fraisProposes(), 10);
+        FiltreSaisie.installer(frais, FiltreSaisie.entier(7));
+        Formulaire f = new Formulaire(this, "Fin de consultation", "check",
+                "Frais à régler à l'accueil, en dinars. La secrétaire les "
+                + "encaissera avant de libérer le patient de la salle d'attente. Laissez vide pour qu'elle les "
+                + "demande, 0 pour une consultation gratuite.", "Enregistrer")
+                .ligne("Frais (DA)", frais);
+        return f.afficher(() -> controleur.enregistrer(frais.getText()));
+    }
+
+    /** Sélectionne dans la liste des visites la consultation affichée. */
     void SelectHistoriqueNoeud() {
-        DefaultMutableTreeNode noeud = historiqueModele.lookForNoeud(historiqueModele.getVisitesNoeud(),
-                dossier.getConsultPosition());
-        if (noeud == null) {
-            return;
-        }
-        TreeNode[] nodes = ((DefaultTreeModel) historique.getModel()).getPathToRoot(noeud);
-        TreePath tpath = new TreePath(nodes);
-        historique.scrollPathToVisible(tpath);
-        historique.setSelectionPath(tpath);
+        onglets.rafraichirOngletCourant();
+        onglets.rafraichirVisites();
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

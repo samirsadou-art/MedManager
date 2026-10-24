@@ -11,7 +11,7 @@ import java.awt.Component;
 import My_application.entities.Rendez_Vous;
 import My_application.entities.patient;
 import javax.swing.DefaultListCellRenderer;
-import javax.swing.ImageIcon;
+import javax.swing.Icon;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.ListCellRenderer;
@@ -21,7 +21,7 @@ import javax.swing.ListCellRenderer;
  * @author GLOBAL INFO LAGA
  */
 public class listRendezVousRondu implements ListCellRenderer {
-ImageIcon imageIcon;
+Icon imageIcon;
 int mode;
 patient malade=null;
   protected DefaultListCellRenderer defaultRenderer = new DefaultListCellRenderer();
@@ -81,8 +81,7 @@ patient malade=null;
     }
    
  
-    ImageIcon getIcon(Rendez_Vous rendez){
-       ImageIcon image=null;
+    Icon getIcon(Rendez_Vous rendez){
      if(mode==0) 
          return Icones.patient(rendez.getPatient(), 16);
      else

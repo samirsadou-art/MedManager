@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import My_application.dao.DataAccessException;
+import My_application.dao.DoublonException;
 import My_application.fake.FauxJdbc;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -65,6 +66,28 @@ public class JdbcHelperTest {
             fail();
         } catch (DataAccessException e) {
             assertTrue(e.getCause() instanceof SQLException);
+        }
+    }
+
+    @Test
+    public void uneCleDejaPriseDevientUneDoublonException() {
+        base.echouerSur("INSERT INTO rendezvous", JdbcHelper.MYSQL_DOUBLON);
+        try {
+            jdbc.update("INSERT INTO rendezvous (idUser) VALUES (?)", 1);
+            fail();
+        } catch (DoublonException e) {
+            assertEquals(JdbcHelper.MYSQL_DOUBLON, ((SQLException) e.getCause()).getErrorCode());
+        }
+    }
+
+    @Test
+    public void uneAutreErreurSqlNEstPasUnDoublon() {
+        base.echouerSur("FROM t", 1452); // clé étrangère absente
+        try {
+            jdbc.query("SELECT nom FROM t", NOM);
+            fail();
+        } catch (DataAccessException e) {
+            assertFalse(e instanceof DoublonException);
         }
     }
 

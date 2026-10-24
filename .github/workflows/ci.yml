@@ -1,0 +1,64 @@
+# Intégration continue : à chaque push et pull request, compile, exécute tous
+# les tests (y compris le test d'intégration sur MariaDB 10.4, la version de
+# XAMPP au cabinet), vérifie la couverture (JaCoCo) et l'analyse SpotBugs.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  construction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mariadb:
+        image: mariadb:10.4
+        env:
+          MYSQL_ROOT_PASSWORD: racine_ci
+          MYSQL_DATABASE: medicale_test
+          MYSQL_USER: testeur
+          MYSQL_PASSWORD: testeur_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pracine_ci"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Tests, couverture et SpotBugs
+        run: >-
+          mvn -B verify
+          -Dgestimed.test.db.url=jdbc:mysql://127.0.0.1:3306/medicale_test
+          -Dgestimed.test.db.user=testeur
+          -Dgestimed.test.db.password=testeur_ci
+
+      - name: Le test d'intégration MySQL a bien tourné
+        run: |
+          rapport=target/surefire-reports/My_application.dao.jdbc.MySqlIntegrationTest.txt
+          cat "$rapport"
+          grep -q "Skipped: 0" "$rapport"
+
+      - name: Rapports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports
+          path: |
+            target/site/jacoco/
+            target/surefire-reports/
+            target/spotbugsXml.xml
+          if-no-files-found: ignore

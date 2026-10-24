@@ -5,11 +5,12 @@
  */
 package My_application.TableModelPrincipale;
 
+import java.util.Locale;
 import My_application.vue.Icones;
 import My_application.vue.Theme;
 import My_application.entities.consultation;
 import java.awt.Component;
-import javax.swing.ImageIcon;
+import javax.swing.Icon;
 import javax.swing.JLabel;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -20,7 +21,7 @@ import javax.swing.table.TableCellRenderer;
  * @author GLOBAL INFO LAGA
  */
 public class ConsultJourTableRondu implements TableCellRenderer{
-ImageIcon imageIcon;
+Icon imageIcon;
 
   protected DefaultTableCellRenderer defaultRenderer = new DefaultTableCellRenderer();
 
@@ -53,9 +54,9 @@ ImageIcon imageIcon;
                    renderer.setIcon(imageIcon);
                    renderer.setText("");
                    break;
-            case 1: renderer.setText(consult.getPatient().getNom().toUpperCase());renderer.setIcon(null);
+            case 1: renderer.setText(consult.getPatient().getNom().toUpperCase(Locale.FRENCH));renderer.setIcon(null);
                     renderer.setFont(Theme.policeGras());break;
-            case 2: renderer.setText(consult.getPatient().getPrenom().toUpperCase());break;
+            case 2: renderer.setText(consult.getPatient().getPrenom().toUpperCase(Locale.FRENCH));break;
             case 3: renderer.setHorizontalAlignment(JLabel.CENTER);renderer.setText(consult.getPatient().getStringAge()); break;
             case 4: renderer.setHorizontalAlignment(JLabel.CENTER);renderer.setText(consult.getHeureString());
             

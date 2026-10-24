@@ -1,6 +1,5 @@
 package My_application.entities;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import java.time.Period;
 
@@ -12,28 +11,29 @@ import java.time.Period;
  */
 public class patient {
 
-    int identPat;
-    String nom;
-    String prenom;
-    Date dat_nais;
+    private int identPat;          // identifiant technique (auto-incrément)
+    private String numeroDossier;  // numéro de dossier du cabinet (V15), saisi ou attribué
+    private String nom;
+    private String prenom;
+    private LocalDate dat_nais;
     Boolean sexe;            // true = masculin
-    String adresse;
+    private String adresse;
     String num_soc;          // numéro de sécurité sociale
-    String num_id;
-    String fonction;
-    String situatMarit;
-    String groupSang;
-    String pays;
-    String wilaya;
-    String ville;
-    String localite;
-    String telephone;
-    String email;
+    private String num_id;
+    private String fonction;
+    private String situatMarit;
+    private String groupSang;
+    private String pays;
+    private String wilaya;
+    private String ville;
+    private String localite;
+    private String telephone;
+    private String email;
 
     public patient() {
     }
 
-    public patient(int identPat, String nom, String prenom, Date dat_nais, Boolean sexe, String adresse,
+    public patient(int identPat, String nom, String prenom, LocalDate dat_nais, Boolean sexe, String adresse,
             String num_soc, String num_id, String fonction) {
         this.identPat = identPat;
         this.nom = nom;
@@ -60,7 +60,7 @@ public class patient {
         if (dat_nais == null) {
             return 0;
         }
-        LocalDate naissance = dat_nais.toLocalDate();
+        LocalDate naissance = dat_nais;
         if (naissance.isAfter(aujourdhui)) {
             return 0;
         }
@@ -88,6 +88,14 @@ public class patient {
         return getNom() + "  " + getPrenom();
     }
 
+    /**
+     * Égalité par identifiant en base : deux patients non encore enregistrés
+     * (identifiant 0) ne sont égaux que s'il s'agit du même objet.
+     * <p>
+     * {@link #hashCode()} change donc quand l'enregistrement attribue
+     * l'identifiant : ne placez un patient dans un {@code HashSet} ou comme clé
+     * de {@code HashMap} qu'une fois enregistré, sinon il y devient introuvable.
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -115,6 +123,15 @@ public class patient {
         this.identPat = identPat;
     }
 
+    /** Numéro de dossier connu du cabinet, distinct de l'identifiant technique. */
+    public String getNumeroDossier() {
+        return numeroDossier;
+    }
+
+    public void setNumeroDossier(String numeroDossier) {
+        this.numeroDossier = numeroDossier;
+    }
+
     public String getNom() {
         return nom;
     }
@@ -131,11 +148,11 @@ public class patient {
         this.prenom = prenom;
     }
 
-    public Date getDat_nais() {
+    public LocalDate getDat_nais() {
         return dat_nais;
     }
 
-    public void setDat_nais(Date dat_nais) {
+    public void setDat_nais(LocalDate dat_nais) {
         this.dat_nais = dat_nais;
     }
 
